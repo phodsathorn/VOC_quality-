@@ -37,16 +37,19 @@
     *   **ขา Gate (Q2 - Exhaust):** ต่อเข้า **GPIO 26**
     *   **⚠️ สำคัญ (Protection):** ต้องมี ไดโอด 1N4148 (Flyback Diode) คร่อมขั้วพัดลม และตัวต้านทาน 10kΩ (Pull-down) ที่ขา Gate ของ MOSFET แต่ละตัว
 
-## 4. การจัดการ I2C Bus (CCS811 + ADS1115)
+## 4. การจัดการ I2C Bus (แยก 2 บัส — Dual I2C)
 
-*   ทั้งโมดูล **CCS811** และ **ADS1115** ให้ต่อขนานกันใช้ I2C Bus เดียวกันได้เลย
-*   `SDA` รวมกันไปเข้า **GPIO 21**
-*   `SCL` รวมกันไปเข้า **GPIO 22**
-*   **⚠️ สำคัญ:**
-    *   เส้น SDA, SCL ต้องมี **Resistor Pull-up (4.7kΩ)** ต่อดึงขึ้นไปหา 3.3V (ถ้าบนโมดูลไม่มีให้)
-    *   ขา `WAKE` ของโมดูล CCS811 **ต้องต่อลง GND** ตลอดเวลา
+*   **⚠️ สำคัญมาก:** จากผลทดสอบจริง CCS811 ดึง SDA ค้างช่วง Power-up และหากต่อขนานบนบัสเดียวกันจะทำให้ Pull-up ขนานกันจน Bus ล่ม จึงต้องแยกเป็น 2 บัส:
+    *   **Bus #1 (Hardware I2C):** สำหรับ **CCS811** (Address 0x5B/0x5A)
+        *   `SDA` → **GPIO 21**
+        *   `SCL` → **GPIO 22**
+        *   ขา `WAKE` ของโมดูล CCS811 **ต้องต่อลง GND** ตลอดเวลา
+    *   **Bus #2 (Software/Secondary I2C):** สำหรับ **ADS1115** (Address 0x48)
+        *   `SDA` → **GPIO 32**
+        *   `SCL` → **GPIO 13**
+        *   ขา `ADDR` ของ ADS1115 ต่อลง GND
 
-## 5. เซนเซอร์อื่นๆ และการเช็ค Pin Mapping (ESP32-S3)
+## 5. เซนเซอร์อื่นๆ และการเช็ค Pin Mapping (Circuit Design v2)
 
 ตรวจสอบการลากสายเข้า ESP32 ให้ตรงกับโค้ดล่าสุด:
 
@@ -54,11 +57,12 @@
 | :--- | :--- | :--- | :--- |
 | **PMS5003** | TXD (Pin 5) | **GPIO 16 (RX2)** | ควรสลับไขว้กัน (TX→RX, RX→TX) |
 | **PMS5003** | RXD (Pin 4) | **GPIO 17 (TX2)** | |
-| **DHT22** | DATA | **GPIO 4** | ใส่ Pull-up 4.7kΩ ไปหา 3.3V ด้วย |
-| **MQ-2** | AOUT | **GPIO 33** | ผ่าน Voltage Divider (10k/20k) ลงให้เหลือ 3.3V |
-| **MQ-3** | AOUT | **GPIO 36 (VP)** | ผ่าน Voltage Divider |
-| **MQ-8** | AOUT | **GPIO 34** | ผ่าน Voltage Divider |
-| **MQ-135** | AOUT | **GPIO 39 (VN)** | ผ่าน Voltage Divider |
+| **PMS5003** | SET (Pin 3) | **GPIO 23** | HIGH = ทำงาน, LOW = สลีป |
+| **DHT22** | DATA | **GPIO 27** | ใส่ Pull-up 4.7kΩ ไปหา 3.3V ด้วย |
+| **MQ-2** | AOUT | **GPIO 33** | ADC1 (ปลอดภัยเมื่อเปิด Wi-Fi) ผ่าน Voltage Divider |
+| **MQ-3** | AOUT | **GPIO 36 (VP)** | ADC1 ผ่าน Voltage Divider |
+| **MQ-8** | AOUT | **GPIO 34** | ADC1 ผ่าน Voltage Divider |
+| **MQ-135** | AOUT | **GPIO 39 (VN)** | ADC1 ผ่าน Voltage Divider |
 
 ---
 **💡 ทิปส์สำหรับการวาดใหม่ให้เป็นระเบียบ:**
