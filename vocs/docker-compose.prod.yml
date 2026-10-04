@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  # ─── Database ────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: voc_postgres
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # ใช้ curl เพื่อโหลด init.sql มาจาก repository ตรงๆ หรือ copy ใส่ใน image
+      # ใน production มักจะต้องมี init.sql วางไว้บนเครื่องก่อน
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend (FastAPI) ────────────────────────────────────────
+  backend:
+    image: ${CI_REGISTRY_IMAGE}/backend:latest
+    container_name: voc_backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─── Frontend (React + Nginx) ─────────────────────────────────
+  frontend:
+    image: ${CI_REGISTRY_IMAGE}/frontend:latest
+    container_name: voc_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

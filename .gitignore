@@ -23,3 +23,15 @@ build/
 # Temporary / Scratch files
 *.tmp
 *.bak
+
+# Node.js & Frontend
+node_modules/
+dist/
+.vite/
+
+# ML outputs & Models
+*.pkl
+*.pkl.gz
+
+# Docker
+postgres_data/
