@@ -220,7 +220,7 @@ export default function Dashboard() {
       {/* E-Nose */}
       <h2 style={{ fontSize: '1.1rem', fontWeight: 600, margin: '2rem 0 1rem' }}>E-Nose Sensors (Raw)</h2>
       <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-        {['mq3', 'mq135', 'mq8', 'mics_co', 'no2', 'nh3'].map(key => (
+        {['mq2', 'mq3', 'mq135', 'mq8', 'mics_co', 'no2', 'nh3'].map(key => (
           <div className="card stat-card" key={key}>
             <div className="stat-title">{key.toUpperCase()}</div>
             <div className="stat-value">{data.sensors?.[key] ?? '—'}</div>
