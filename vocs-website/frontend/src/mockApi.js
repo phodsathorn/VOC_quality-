@@ -18,7 +18,7 @@ const state = {
 
   sensor: {
     temp: 28.5, rh: 62, pm25: 12, tvoc: 120, eco2: 580,
-    mq3: 210, mq135: 340, mq8: 95, mics_co: 180, no2: 45, nh3: 60,
+    mq2: 240, mq3: 210, mq135: 340, mq8: 95, mics_co: 180, no2: 45, nh3: 60,
   },
 
   history: [],
@@ -145,7 +145,7 @@ const routes = [
         box_id: dev.box_id, status: dev.status, firmware: dev.firmware, model_version: dev.model_ver,
         ai_model_loaded: state.ai_model_loaded,
         environment: { temp: state.sensor.temp, rh: state.sensor.rh, pm25: state.sensor.pm25, tvoc: state.sensor.tvoc, eco2: state.sensor.eco2 },
-        sensors: { mq3: state.sensor.mq3, mq135: state.sensor.mq135, mq8: state.sensor.mq8, mics_co: state.sensor.mics_co, no2: state.sensor.no2, nh3: state.sensor.nh3 },
+        sensors: { mq2: state.sensor.mq2, mq3: state.sensor.mq3, mq135: state.sensor.mq135, mq8: state.sensor.mq8, mics_co: state.sensor.mics_co, no2: state.sensor.no2, nh3: state.sensor.nh3 },
         ai_detection: { prediction: state.ai.prediction, confidence: state.ai.confidence },
       };
     },
@@ -267,14 +267,14 @@ const routes = [
         : state.sessions.filter(s => s.ended_at);
       if (sessions.length === 0) return { __status: 404, detail: 'No labeled data found' };
 
-      const rows = [['recorded_at','box_id','label','temp','rh','pm25','tvoc','eco2','mq3','mq135','mq8','mics_co','no2','nh3']];
+      const rows = [['recorded_at','box_id','label','temp','rh','pm25','tvoc','eco2','mq2','mq3','mq135','mq8','mics_co','no2','nh3']];
       sessions.forEach(s => {
         for (let i = 0; i < Math.min(s.reading_count, 10); i++) {
           rows.push([
             new Date(s.started_at.getTime() + i * 3000).toISOString(),
             s.box_id, s.label,
             rand(28, 2), rand(60, 5), rand(12, 5), rand(120, 50), rand(600, 100),
-            randInt(200, 50), randInt(330, 60), randInt(90, 20), randInt(180, 40), randInt(45, 15), randInt(60, 20),
+            randInt(240, 50), randInt(200, 50), randInt(330, 60), randInt(90, 20), randInt(180, 40), randInt(45, 15), randInt(60, 20),
           ]);
         }
       });

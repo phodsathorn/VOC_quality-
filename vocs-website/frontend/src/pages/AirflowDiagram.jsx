@@ -12,6 +12,7 @@ function getSensorThresholds() {
     tvoc:    { warn: t.tvoc.warn, crit: t.tvoc.critical, unit: 'ppb',    label: 'TVOC',              color: '#8b5cf6' },
     eco2:    { warn: t.eco2.warn, crit: t.eco2.critical, unit: 'ppm',    label: 'eCO\u2082',          color: '#0ea5e9' },
     pm25:    { warn: t.pm25.warn, crit: t.pm25.critical, unit: '\u00b5g/m\u00b3', label: 'PM2.5', color: '#f59e0b' },
+    mq2:     { warn: 2000, crit: 3000, unit: 'ADC', label: 'MQ-2 (Smoke/LPG)',   color: '#eab308' },
     mq3:     { warn: 2500, crit: 3500, unit: 'ADC', label: 'MQ-3 (Alcohol)',    color: '#10b981' },
     mq135:   { warn: 2000, crit: 3000, unit: 'ADC', label: 'MQ-135 (NH\u2083/NOx)', color: '#ef4444' },
     mq8:     { warn: 2000, crit: 3000, unit: 'ADC', label: 'MQ-8 (H\u2082)',    color: '#f97316' },
@@ -132,7 +133,7 @@ export default function AirflowDiagram() {
   // รวมค่าทั้งหมดเพื่อดูว่า overall status เป็นอะไร
   const allValues = {
     tvoc: env.tvoc, eco2: env.eco2, pm25: env.pm25,
-    mq3: sensors.mq3, mq135: sensors.mq135, mq8: sensors.mq8,
+    mq2: sensors.mq2, mq3: sensors.mq3, mq135: sensors.mq135, mq8: sensors.mq8,
     mics_co: sensors.mics_co, no2: sensors.no2, nh3: sensors.nh3,
   };
   const hasCritical = Object.entries(allValues).some(
@@ -465,6 +466,7 @@ export default function AirflowDiagram() {
           🔬 E-NOSE SENSORS (RAW ADC)
         </div>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <SensorBadge sensorKey="mq2"     value={sensors.mq2 != null ? sensors.mq2 : null} />
           <SensorBadge sensorKey="mq3"     value={sensors.mq3 != null ? sensors.mq3 : null} />
           <SensorBadge sensorKey="mq135"   value={sensors.mq135 != null ? sensors.mq135 : null} />
           <SensorBadge sensorKey="mq8"     value={sensors.mq8 != null ? sensors.mq8 : null} />
