@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>แผนดำเนินงานโครงการ VOCs / E-Nose System (ฉบับสมบูรณ์ตั้งแต่วันแรก)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm 13mm 12mm 13mm;
+      @bottom-right {
+        content: counter(page) " / " counter(pages);
+        font-family: 'Sarabun', sans-serif;
+        font-size: 8.5pt;
+        color: #64748b;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body {
+      font-family: 'Sarabun', 'Leelawadee UI', sans-serif;
+      color: #1e293b;
+      background-color: #ffffff;
+      line-height: 1.45;
+      font-size: 9.5pt;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1, h2, h3, h4 {
+      font-family: 'Prompt', 'Segoe UI', sans-serif;
+      margin: 0;
+      color: #0f172a;
+    }
+
+    /* Header Banner */
+    .header-card {
+      border: 1px solid #cbd5e1;
+      border-left: 6px solid #2563eb;
+      background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .project-tag {
+      display: inline-block;
+      font-size: 8pt;
+      font-weight: 600;
+      color: #1d4ed8;
+      background: #dbeafe;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .header-title {
+      font-size: 15pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 2px;
+    }
+
+    .header-sub {
+      font-size: 9.5pt;
+      color: #475569;
+      font-weight: 500;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px dashed #cbd5e1;
+    }
+
+    .meta-item {
+      font-size: 8pt;
+    }
+
+    .meta-label {
+      color: #64748b;
+      font-weight: 500;
+      display: block;
+      font-size: 7.5pt;
+    }
+
+    .meta-val {
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    /* KPI Cards */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .kpi-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+
+    .kpi-num {
+      font-family: 'Prompt', sans-serif;
+      font-size: 13pt;
+      font-weight: 700;
+      color: #2563eb;
+      line-height: 1.1;
+    }
+
+    .kpi-desc {
+      font-size: 7.5pt;
+      color: #64748b;
+      margin-top: 1px;
+    }
+
+    /* Phase Sections */
+    .phase-block {
+      margin-bottom: 14px;
+      page-break-inside: avoid;
+    }
+
+    .phase-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 12px;
+      border-radius: 6px 6px 0 0;
+      font-weight: 600;
+      font-size: 9.5pt;
+      font-family: 'Prompt', sans-serif;
+    }
+
+    .phase-badge-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      font-size: 7.5pt;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .status-done { background: #15803d; color: #ffffff; }
+    .status-ongoing { background: #b45309; color: #ffffff; }
+    .status-planned { background: #1d4ed8; color: #ffffff; }
+
+    .date-badge {
+      display: inline-block;
+      font-size: 7.5pt;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 600;
+      background: rgba(0,0,0,0.06);
+    }
+
+    /* Phase Themes */
+    .theme-completed { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+    .theme-active    { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+    .theme-blue      { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+    .theme-purple    { background: #faf5ff; border: 1px solid #e9d5ff; color: #6b21a8; }
+    .theme-slate     { background: #f8fafc; border: 1px solid #cbd5e1; color: #334155; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8.5pt;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      overflow: hidden;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 600;
+      text-align: left;
+      padding: 6px 10px;
+      border-bottom: 1px solid #cbd5e1;
+      font-size: 8pt;
+    }
+
+    td {
+      padding: 6px 10px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: top;
+      color: #334155;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .col-date {
+      width: 17%;
+      font-weight: 600;
+      color: #0f172a;
+      white-space: nowrap;
+    }
+
+    .col-duty {
+      width: 48%;
+    }
+
+    .col-owner {
+      width: 13%;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .col-deliv {
+      width: 22%;
+      color: #1e3a8a;
+      font-weight: 500;
+    }
+
+    .badge-owner {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 7pt;
+      font-weight: 600;
+    }
+    .owner-hw { background: #ffedd5; color: #c2410c; }
+    .owner-sw { background: #e0e7ff; color: #3730a3; }
+    .owner-both { background: #ede9fe; color: #5b21b6; }
+
+    /* Milestones Box */
+    .milestone-container {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-top: 10px;
+      page-break-inside: avoid;
+    }
+
+    .milestone-title {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 4px;
+    }
+
+    .milestone-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 12px;
+    }
+
+    .ms-item {
+      display: flex;
+      align-items: baseline;
+      font-size: 8pt;
+    }
+
+    .ms-check {
+      margin-right: 4px;
+      font-weight: bold;
+    }
+
+    .ms-date {
+      display: inline-block;
+      min-width: 82px;
+      font-weight: 700;
+      font-family: 'Prompt', sans-serif;
+    }
+
+    .ms-done-date { color: #16a34a; }
+    .ms-future-date { color: #2563eb; }
+
+    .ms-text {
+      color: #334155;
+    }
+
+    /* Page Break */
+    .page-break {
+      page-break-before: always;
+    }
+
+    /* Signature footer */
+    .footer-sign {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-top: 20px;
+      page-break-inside: avoid;
+    }
+
+    .sign-box {
+      border-top: 1px solid #cbd5e1;
+      padding-top: 8px;
+      text-align: center;
+      font-size: 8.5pt;
+      color: #64748b;
+    }
+
+    .sign-space {
+      height: 35px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== PAGE 1 ==================== -->
+
+  <!-- Header Banner -->
+  <div class="header-card">
+    <span class="project-tag">Master Project Execution Plan • ตั้งแต่วันแรกที่เริ่มทำโครงการ</span>
+    <div class="header-title">ระบบตรวจวัดคุณภาพอากาศและตรวจจับสารระเหย (VOCs / E-Nose)</div>
+    <div class="header-sub">แผนดำเนินงานโครงการฉบับสมบูรณ์ (1 กันยายน 2569 – 30 พฤศจิกายน 2569) รวม 91 วัน 7 ระยะ</div>
+    
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span class="meta-label">วันแรกที่เริ่มทำโครงการ</span>
+        <span class="meta-val">1 กันยายน 2569</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">สถานะปัจจุบัน (ณ วันนี้)</span>
+        <span class="meta-val">4 ต.ค. 2569 (สำเร็จแล้ว 40%)</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">วันส่งมอบโครงการ</span>
+        <span class="meta-val">30 พฤศจิกายน 2569</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">สถาปัตยกรรมระบบ</span>
+        <span class="meta-val">Server-side AI (Circuit v2)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Row -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-num">91 วัน</div>
+      <div class="kpi-desc">ระยะเวลาโครงการทั้งหมด (13 สัปดาห์)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-num">34 วัน</div>
+      <div class="kpi-desc">ทำสำเร็จแล้ว (1 ก.ย. – 4 ต.ค.)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-num">7 ระยะ</div>
+      <div class="kpi-desc">Phases ทั้งหมดของโครงการ</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-num">≥ 85%</div>
+      <div class="kpi-desc">เป้าหมายความแม่นยำ AI Model</div>
+    </div>
+  </div>
+
+  <!-- Phase 1 (Completed) -->
+  <div class="phase-block">
+    <div class="phase-header theme-completed">
+      <span>Phase 1: การศึกษา ค้นคว้าวิจัย และออกแบบสถาปัตยกรรมระบบ</span>
+      <div class="phase-badge-group">
+        <span class="date-badge">1 – 10 ก.ย. 2569 (10 วัน)</span>
+        <span class="status-badge status-done">✓ สำเร็จแล้ว 100%</span>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th class="col-date">ช่วงเวลา</th>
+          <th class="col-duty">กิจกรรมที่ได้ปฏิบัติไปแล้ว</th>
+          <th class="col-owner">ผู้รับผิดชอบ</th>
+          <th class="col-deliv">ผลลัพธ์ที่ได้</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-date">1 – 4 ก.ย. 2569</td>
+          <td class="col-duty">
+            • ศึกษาวิจัยงานวิจัยอ้างอิง 7 เรื่อง (E-Nose, Gas Drift, TinyML, Low-cost Sensor)<br>
+            • กำหนดสเปกเซนเซอร์อาร์เรย์ 8 ตัว (MQ-2, 3, 8, 135, MiCS-6814, CCS811, PMS5003, DHT22)
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-both">ทั้งสองฝ่าย</span></td>
+          <td class="col-deliv">ขอบเขตโครงการและสเปกเซนเซอร์ 8 ตัว</td>
+        </tr>
+        <tr>
+          <td class="col-date">5 – 10 ก.ย. 2569</td>
+          <td class="col-duty">
+            • ออกแบบสถาปัตยกรรมระบบเชื่อมต่อระหว่างกล่อง Sensor Box กับ Web Platform<br>
+            • วางโครงร่าง Dashboard เริ่มต้น และพัฒนาหน้า Airflow Diagram (SVG Animation)
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-sw">Software</span></td>
+          <td class="col-deliv">โครงสร้างโปรเจกต์และ UI Mockup เริ่มต้น</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Phase 2 (Completed) -->
+  <div class="phase-block">
+    <div class="phase-header theme-completed">
+      <span>Phase 2: พัฒนา Web Platform, Backend API, Database และ Circuit v2</span>
+      <div class="phase-badge-group">
+        <span class="date-badge">11 – 24 ก.ย. 2569 (14 วัน)</span>
+        <span class="status-badge status-done">✓ สำเร็จแล้ว 100%</span>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th class="col-date">ช่วงเวลา</th>
+          <th class="col-duty">กิจกรรมที่ได้ปฏิบัติไปแล้ว</th>
+          <th class="col-owner">ผู้รับผิดชอบ</th>
+          <th class="col-deliv">ผลลัพธ์ที่ได้</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-date">11 – 15 ก.ย. 2569</td>
+          <td class="col-duty">
+            • พัฒนา Backend ด้วย FastAPI (ระบบ Ingest, Rate limiting Token Bucket, Auto Purge)<br>
+            • ออกแบบตาราง PostgreSQL 16 (sensor_readings, devices, training_sessions, alerts)
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-sw">Software</span></td>
+          <td class="col-deliv">API Server และ Database Schema พร้อมใช้งาน</td>
+        </tr>
+        <tr>
+          <td class="col-date">16 – 20 ก.ย. 2569</td>
+          <td class="col-duty">
+            • พัฒนา React Frontend (Dashboard, Devices, Data Collection, Alerts, Settings)<br>
+            • สร้างระบบ Mock API จำลองค่าเซนเซอร์ และคอนฟิก Docker Compose
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-sw">Software</span></td>
+          <td class="col-deliv">Web Platform ทำงานสมบูรณ์แบบบน Docker</td>
+        </tr>
+        <tr>
+          <td class="col-date">21 – 24 ก.ย. 2569</td>
+          <td class="col-duty">
+            • ออกแบบวงจรใหม่เป็น <strong>Circuit Design v2</strong> (เพิ่ม ADS1115, MOSFET Dual Fans, เพิ่ม MQ-2)<br>
+            • เขียนเฟิร์มแวร์ ESP32 (<code>voc_esp32.ino</code>) ให้รองรับ Pin Mapping V2 ทั้งหมด
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-hw">Hardware</span></td>
+          <td class="col-deliv">คู่มือ EasyEDA v2 และ Firmware v2</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ==================== PAGE 2 ==================== -->
+  <div class="page-break"></div>
+
+  <!-- Phase 3 (Completed) -->
+  <div class="phase-block">
+    <div class="phase-header theme-completed">
+      <span>Phase 3: ซิงค์สเปกระบบ ทดสอบความพร้อม และอัปเดตโมเดล (ณ ปัจจุบัน)</span>
+      <div class="phase-badge-group">
+        <span class="date-badge">25 ก.ย. – 4 ต.ค. 2569 (10 วัน)</span>
+        <span class="status-badge status-done">✓ สำเร็จแล้ว 100%</span>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th class="col-date">ช่วงเวลา</th>
+          <th class="col-duty">กิจกรรมที่ได้ปฏิบัติไปแล้ว</th>
+          <th class="col-owner">ผู้รับผิดชอบ</th>
+          <th class="col-deliv">ผลลัพธ์ที่ได้</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-date">25 – 29 ก.ย. 2569</td>
+          <td class="col-duty">
+            • ปรับปรุงเอกสารหลัก <code>PROJECT_INFO.md</code> ให้ตรงกับสถาปัตยกรรม Server-side AI และ Circuit v2<br>
+            • ทำ Pin Mapping ตรวจสอบข้อจำกัด ADC1 และ I2C ของเซนเซอร์ทั้ง 8 ตัว
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-both">ทั้งสองฝ่าย</span></td>
+          <td class="col-deliv">เอกสารข้อกำหนดโครงการฉบับปัจจุบัน</td>
+        </tr>
+        <tr>
+          <td class="col-date">30 ก.ย. – 4 ต.ค. 2569</td>
+          <td class="col-duty">
+            • อัปเดตเพิ่ม MQ-2 เข้าสู่ <code>FEATURE_COLS</code> ของ <code>model_loader.py</code> และ <code>train_model.py</code><br>
+            • ทดสอบรันและตรวจสอบการทำงานของ Frontend (Vite) และ Backend ไร้ข้อผิดพลาด
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-sw">Software</span></td>
+          <td class="col-deliv">ระบบ Software และ ML พร้อมต่อบอร์ดจริง</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Phase 4 (Upcoming / In Progress) -->
+  <div class="phase-block">
+    <div class="phase-header theme-active">
+      <span>Phase 4: การประกอบวงจรจริง เบิร์นอินเซนเซอร์ และเชื่อมต่อ Live Data</span>
+      <div class="phase-badge-group">
+        <span class="date-badge">5 – 19 ต.ค. 2569 (15 วัน)</span>
+        <span class="status-badge status-ongoing">⏳ กำลังดำเนินการ</span>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th class="col-date">ช่วงเวลา</th>
+          <th class="col-duty">กิจกรรมที่ต้องปฏิบัติ</th>
+          <th class="col-owner">ผู้รับผิดชอบ</th>
+          <th class="col-deliv">ผลลัพธ์ที่คาดหวัง</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-date">5 – 7 ต.ค. 2569</td>
+          <td class="col-duty">
+            • ประกอบวงจรจริงตาม Circuit v2: ราง 5V Bus (Adapter 2A+), AMS1117-3.3V, ADS1115, MOSFET ขับ Dual Fans, และ Voltage Dividers
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-hw">Hardware</span></td>
+          <td class="col-deliv">วงจร Protoboard ต่อครบตามสเปก</td>
+        </tr>
+        <tr>
+          <td class="col-date">8 – 10 ต.ค. 2569</td>
+          <td class="col-duty">
+            • เสียบไฟเปิดเครื่อง Burn-in เซนเซอร์กลุ่ม MQ (MQ-2, 3, 8, 135) และ CCS811 ต่อเนื่อง <strong>48 ชั่วโมง</strong> เพื่อให้ค่าความต้านทานนิ่ง
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-hw">Hardware</span></td>
+          <td class="col-deliv">เซนเซอร์ผ่านช่วง Burn-in พร้อมอ่านค่าเสถียร</td>
+        </tr>
+        <tr>
+          <td class="col-date">11 – 13 ต.ค. 2569</td>
+          <td class="col-duty">
+            • แฟลชโค้ด <code>voc_esp32.ino</code> ลง ESP32 และเปิด Serial Monitor 115200 ตรวจสอบการอ่านค่าเซนเซอร์ทั้ง 8 ตัว
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-hw">Hardware</span></td>
+          <td class="col-deliv">อ่านค่าเซนเซอร์ 8 ตัวถูกต้องผ่าน Serial</td>
+        </tr>
+        <tr>
+          <td class="col-date">14 – 17 ต.ค. 2569</td>
+          <td class="col-duty">
+            • รัน Docker PostgreSQL 16 และรัน Backend FastAPI บนคอมพิวเตอร์ในวง WiFi เดียวกัน<br>
+            • ปิด Mock Mode ใน <code>frontend/src/main.jsx</code> เพื่อเชื่อมต่อ API จริง
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-sw">Software</span></td>
+          <td class="col-deliv">Backend & Dashboard พร้อมรับข้อมูลจริง</td>
+        </tr>
+        <tr>
+          <td class="col-date">18 – 19 ต.ค. 2569</td>
+          <td class="col-duty">
+            • บอร์ด ESP32 เชื่อมต่อ WiFi ส่ง <code>POST /api/ingest</code> ทุก 3 วินาที ขึ้นสู่ Dashboard จริง
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-both">ทั้งสองฝ่าย</span></td>
+          <td class="col-deliv">ข้อมูลเซนเซอร์สตรีมขึ้นเว็บแบบ Real-time</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ==================== PAGE 3 ==================== -->
+  <div class="page-break"></div>
+
+  <!-- Phase 5 (Upcoming) -->
+  <div class="phase-block">
+    <div class="phase-header theme-blue">
+      <span>Phase 5: การเก็บชุดข้อมูลจริง ฟีเจอร์เอนจิเนียริ่ง และเทรน AI Model</span>
+      <div class="phase-badge-group">
+        <span class="date-badge">20 ต.ค. – 5 พ.ย. 2569 (17 วัน)</span>
+        <span class="status-badge status-planned">📅 ตามแผนงาน</span>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th class="col-date">ช่วงเวลา</th>
+          <th class="col-duty">กิจกรรมที่ต้องปฏิบัติ</th>
+          <th class="col-owner">ผู้รับผิดชอบ</th>
+          <th class="col-deliv">ผลลัพธ์ที่คาดหวัง</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-date">20 – 21 ต.ค. 2569</td>
+          <td class="col-duty">
+            • เตรียมสารตัวอย่าง 5 ชนิด: AMBIENT, THINNER, POWDER_PAINT, SMOKE, ALCOHOL<br>
+            • จัดเตรียม Chamber ทดสอบและพัดลมระบายอากาศอย่างปลอดภัย
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-both">ทั้งสองฝ่าย</span></td>
+          <td class="col-deliv">ชุดสารตัวอย่างและ Chamber พร้อมทดสอบ</td>
+        </tr>
+        <tr>
+          <td class="col-date">22 – 26 ต.ค. 2569</td>
+          <td class="col-duty">
+            • ใช้หน้าเว็บ <code>/data-collection</code> สร้าง Session บันทึกสารละ <strong>อย่างน้อย 300 readings</strong> (~15 นาที/สาร)<br>
+            • เปิดพัดลม Exhaust เป่าล้างแชมเบอร์ระหว่างรอบจนเซนเซอร์กลับคืนสู่ Baseline
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-both">ทั้งสองฝ่าย</span></td>
+          <td class="col-deliv">Dataset ≥ 1,500 จุดบันทึกลงในฐานข้อมูลจริง</td>
+        </tr>
+        <tr>
+          <td class="col-date">27 – 29 ต.ค. 2569</td>
+          <td class="col-duty">
+            • พัฒนาฟังก์ชันคำนวณอัตราส่วนความต้านทาน R<sub>s</sub>/R<sub>0</sub> (Relative Calibration) เพื่อตัดปัญหา Sensor Drift
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-sw">Software</span></td>
+          <td class="col-deliv">Dataset คุณภาพสูงทนต่อสภาพแวดล้อม</td>
+        </tr>
+        <tr>
+          <td class="col-date">30 ต.ค. – 1 พ.ย. 2569</td>
+          <td class="col-duty">
+            • Export CSV ผ่าน <code>/api/export/csv</code> และรัน <code>train_model.py</code> ด้วย <strong>Session-based Split</strong>
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-sw">Software</span></td>
+          <td class="col-deliv">โมเดล Random Forest เบื้องต้น</td>
+        </tr>
+        <tr>
+          <td class="col-date">2 – 3 พ.ย. 2569</td>
+          <td class="col-duty">
+            • ประเมิน Confusion Matrix, Precision, Recall (เป้าหมาย Accuracy ≥ 85%)<br>
+            • ปรับจูน Hyperparameters (n_estimators, max_depth)
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-sw">Software</span></td>
+          <td class="col-deliv">โมเดลที่ผ่านเกณฑ์ความแม่นยำ ≥ 85%</td>
+        </tr>
+        <tr>
+          <td class="col-date">4 – 5 พ.ย. 2569</td>
+          <td class="col-duty">
+            • คัดลอก <code>voc_model.pkl</code> ใส่ <code>backend/</code> และทดสอบ Real-time Prediction ผ่านหน้าเว็บจริง
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-both">ทั้งสองฝ่าย</span></td>
+          <td class="col-deliv">ระบบจำแนกชนิดสารระเหยได้แบบ Real-time</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Phase 6 (Upcoming) -->
+  <div class="phase-block">
+    <div class="phase-header theme-purple">
+      <span>Phase 6: ทดสอบหน้างานจริงในห้องพ่นสี และปรับจูนระบบเตือนภัย</span>
+      <div class="phase-badge-group">
+        <span class="date-badge">6 – 15 พ.ย. 2569 (10 วัน)</span>
+        <span class="status-badge status-planned">📅 ตามแผนงาน</span>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th class="col-date">ช่วงเวลา</th>
+          <th class="col-duty">กิจกรรมที่ต้องปฏิบัติ</th>
+          <th class="col-owner">ผู้รับผิดชอบ</th>
+          <th class="col-deliv">ผลลัพธ์ที่คาดหวัง</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-date">6 – 10 พ.ย. 2569</td>
+          <td class="col-duty">
+            • นำกล่องเซนเซอร์ไปติดตั้งในห้องพ่นสีฝุ่นจริง เก็บบันทึกข้อมูลขณะพ่นสี, ล้างทินเนอร์ และช่วงหยุดพัก
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-both">ทั้งสองฝ่าย</span></td>
+          <td class="col-deliv">ข้อมูลสภาวะจริงและพฤติกรรมเซนเซอร์หน้างาน</td>
+        </tr>
+        <tr>
+          <td class="col-date">11 – 13 พ.ย. 2569</td>
+          <td class="col-duty">
+            • ปรับจูนเกณฑ์ Hard Thresholds (PM2.5, TVOC, eCO2) ในหน้า <code>/settings</code> และทดสอบ Auto-Alerts
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-sw">Software</span></td>
+          <td class="col-deliv">ระบบเตือนภัยแม่นยำ ไร้ False Alarm</td>
+        </tr>
+        <tr>
+          <td class="col-date">14 – 15 พ.ย. 2569</td>
+          <td class="col-duty">
+            • พัฒนาปุ่ม Re-calibrate บนหน้าเว็บ และสรุปแนวทางปรับค่า R<sub>0</sub> เมื่อเซนเซอร์เสื่อมสภาพตามเวลา
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-sw">Software</span></td>
+          <td class="col-deliv">คู่มือการบำรุงรักษาและชดเชย Drift ระยะยาว</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ==================== PAGE 4 ==================== -->
+  <div class="page-break"></div>
+
+  <!-- Phase 7 (Upcoming) -->
+  <div class="phase-block">
+    <div class="phase-header theme-slate">
+      <span>Phase 7: ออกแบบกล่อง 3D Print Airflow และส่งมอบโปรเจกต์สมบูรณ์</span>
+      <div class="phase-badge-group">
+        <span class="date-badge">16 – 30 พ.ย. 2569 (15 วัน)</span>
+        <span class="status-badge status-planned">📅 ตามแผนงาน</span>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th class="col-date">ช่วงเวลา</th>
+          <th class="col-duty">กิจกรรมที่ต้องปฏิบัติ</th>
+          <th class="col-owner">ผู้รับผิดชอบ</th>
+          <th class="col-deliv">ผลลัพธ์ที่คาดหวัง</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-date">16 – 20 พ.ย. 2569</td>
+          <td class="col-duty">
+            • ออกแบบกล่อง 3D CAD: แยก Gas Chamber, ช่องพัดลม Intake/Exhaust และกั้นผนังไม่ให้ DHT22 โดนความร้อน MQ
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-hw">Hardware</span></td>
+          <td class="col-deliv">ไฟล์โมเดล 3D (.STL / .STEP)</td>
+        </tr>
+        <tr>
+          <td class="col-date">21 – 24 พ.ย. 2569</td>
+          <td class="col-duty">
+            • พิมพ์กล่อง 3D Print ด้วยวัสดุ PETG หรือ ABS (ทนความร้อน/ไอสารเคมี) และประกอบอุปกรณ์ทั้งหมดลงกล่อง
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-hw">Hardware</span></td>
+          <td class="col-deliv">กล่อง Sensor Box ตัวจริงที่แข็งแรงสวยงาม</td>
+        </tr>
+        <tr>
+          <td class="col-date">25 – 30 พ.ย. 2569</td>
+          <td class="col-duty">
+            • จัดทำรายงานโครงงานฉบับสมบูรณ์ คู่มือการใช้งานระบบ สไลด์นำเสนอ และคลิปวิดีโอสาธิตการทำงาน
+          </td>
+          <td class="col-owner"><span class="badge-owner owner-both">ทั้งสองฝ่าย</span></td>
+          <td class="col-deliv"><strong>ส่งมอบโครงการ VOCs / E-Nose สมบูรณ์ 100%</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Key Milestones Tracking -->
+  <div class="milestone-container">
+    <div class="milestone-title">🎯 สรุปหมุดหมายการตรวจรับงานทั้งโครงการ (Milestones Tracking)</div>
+    <div class="milestone-grid">
+      <div class="ms-item">
+        <span class="ms-check" style="color: #16a34a;">✓</span>
+        <span class="ms-date ms-done-date">10 ก.ย. 2569:</span>
+        <span class="ms-text">สถาปัตยกรรมระบบและ UI Mockup ได้รับการอนุมัติ</span>
+      </div>
+      <div class="ms-item">
+        <span class="ms-check" style="color: #16a34a;">✓</span>
+        <span class="ms-date ms-done-date">24 ก.ย. 2569:</span>
+        <span class="ms-text">Web Platform, FastAPI, Database Schema และ Circuit v2 เสร็จสมบูรณ์</span>
+      </div>
+      <div class="ms-item">
+        <span class="ms-check" style="color: #16a34a;">✓</span>
+        <span class="ms-date ms-done-date">4 ต.ค. 2569:</span>
+        <span class="ms-text">Software ผ่านการทดสอบ และซิงค์สเปกเข้ากับ Circuit v2 ครบ 100%</span>
+      </div>
+      <div class="ms-item">
+        <span class="ms-check" style="color: #2563eb;">🚩</span>
+        <span class="ms-date ms-future-date">13 ต.ค. 2569:</span>
+        <span class="ms-text">ฮาร์ดแวร์ประกอบเสร็จ เซนเซอร์ 8 ตัวอ่านค่านิ่งหลัง Burn-in 48 ชม.</span>
+      </div>
+      <div class="ms-item">
+        <span class="ms-check" style="color: #2563eb;">🚩</span>
+        <span class="ms-date ms-future-date">19 ต.ค. 2569:</span>
+        <span class="ms-text">ระบบ Live Data ส่งจาก ESP32 ขึ้น Dashboard บนเว็บได้แบบ Real-time</span>
+      </div>
+      <div class="ms-item">
+        <span class="ms-check" style="color: #2563eb;">🚩</span>
+        <span class="ms-date ms-future-date">26 ต.ค. 2569:</span>
+        <span class="ms-text">บันทึกชุดข้อมูลครบ 5 กลุ่มสาร (ไม่ต่ำกว่า 1,500 จุด)</span>
+      </div>
+      <div class="ms-item">
+        <span class="ms-check" style="color: #2563eb;">🚩</span>
+        <span class="ms-date ms-future-date">5 พ.ย. 2569:</span>
+        <span class="ms-text">โมเดล AI เทรนสำเร็จ มี Accuracy ≥ 85% และดีพลอยรันบน Backend</span>
+      </div>
+      <div class="ms-item">
+        <span class="ms-check" style="color: #2563eb;">🚩</span>
+        <span class="ms-date ms-future-date">15 พ.ย. 2569:</span>
+        <span class="ms-text">ผ่านการทดสอบในห้องพ่นสีจริง ระบบแจ้งเตือนทำงานถูกต้อง</span>
+      </div>
+      <div class="ms-item">
+        <span class="ms-check" style="color: #2563eb;">🚩</span>
+        <span class="ms-date ms-future-date">30 พ.ย. 2569:</span>
+        <span class="ms-text">กล่องประกอบเสร็จสมบูรณ์ ส่งมอบรายงานและเอกสารโครงงานครบถ้วน</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signatures -->
+  <div class="footer-sign">
+    <div class="sign-box">
+      <div class="sign-space"></div>
+      <div>ลงชื่อ ................................................................</div>
+      <div style="margin-top: 4px; font-weight: 600;">( ผู้พัฒนากล่อง Sensor Box / Hardware )</div>
+    </div>
+    <div class="sign-box">
+      <div class="sign-space"></div>
+      <div>ลงชื่อ ................................................................</div>
+      <div style="margin-top: 4px; font-weight: 600;">( ผู้พัฒนา Web Platform & AI Server )</div>
+    </div>
+  </div>
+
+</body>
+</html>
