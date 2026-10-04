@@ -1,93 +1,230 @@
-# VOC_quality 
+# 🌬️ ระบบตรวจวัดคุณภาพอากาศห้องพ่นสีฝุ่น Adaptive E-Nose (VOC Quality Monitor)
 
+ระบบตรวจวัดคุณภาพอากาศสำหรับห้องพ่นสีฝุ่นด้วยโครงข่ายเซ็นเซอร์อาร์เรย์ (Adaptive E-Nose Array) ร่วมกับการประมวลผลการเรียนรู้ของเครื่อง (Edge AI / TinyML) บนชิป ESP32-WROOM-32U เพื่อจำแนกประเภทสารมลพิษแบบ Real-time และเชื่อมต่อระบบ IoT
 
+---
 
-## Getting started
+## 📑 สารบัญ
+1. [ภาพรวมของระบบ](#-ภาพรวมของระบบ)
+2. [สถาปัตยกรรมฮาร์ดแวร์และเซ็นเซอร์](#-สถาปัตยกรรมฮาร์ดแวร์และเซ็นเซอร์)
+3. [ผังการเชื่อมต่อวงจร (Pin Mapping)](#-ผังการเชื่อมต่อวงจร-pin-mapping)
+4. [โครงสร้างของโปรเจกต์](#-โครงสร้างของโปรเจกต์)
+5. [คู่มือการใช้งาน Firmware (Arduino)](#-คู่มือการใช้งาน-firmware-arduino)
+6. [คู่มือการใช้งาน Real-time Terminal Monitor (Python)](#-คู่มือการใช้งาน-real-time-terminal-monitor-python)
+7. [การสอบเทียบเซ็นเซอร์ (Baseline Calibration)](#-การสอบเทียบเซ็นเซอร์-baseline-calibration)
+8. [แนวทางการพัฒนา Machine Learning (TinyML Roadmap)](#-แนวทางการพัฒนา-machine-learning-tinyml-roadmap)
+9. [งานวิจัยและเอกสารอ้างอิง](#-งานวิจัยและเอกสารอ้างอิง)
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+---
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## 🎯 ภาพรวมของระบบ
 
-## Add your files
+ระบบถูกออกแบบมาเพื่อแก้ปัญหาเฉพาะใน **ห้องพ่นสีฝุ่น (Powder Coating Booth)** ซึ่งมีทั้งฝุ่นละอองสี (Particulate Matter), ไอระเหยสารเคมี/ทินเนอร์ (VOCs), และควัน:
+- **ตรวจจับแบบ Multi-modal:** ใช้เซ็นเซอร์อาร์เรย์ 8 ชนิด รวม 11 ช่องสัญญาณ
+- **Dual I2C Bus:** แยกบัสเชื่อมต่ออิสระ ป้องกันปัญหา I2C Address ชนกันและ Clock Stretching
+- **Boot Diagnostic & Smart Warm-up:** ตรวจเช็คความพร้อมของฮาร์ดแวร์ทุกตัว และมีระบบนับเวลาอุ่นเซ็นเซอร์พร้อมคำสั่งข้าม/วอร์มใหม่ผ่าน Serial
+- **Edge Inference:** รองรับการฝังโมเดล TensorFlow Lite Micro (TFLite INT8) บน ESP32
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+---
+
+## 🔌 สถาปัตยกรรมฮาร์ดแวร์และเซ็นเซอร์
+
+### ไมโครคอนโทรลเลอร์
+- **ESP32-WROOM-32U** (Xtensa® Dual-core 240MHz, 4MB Flash, ขั้วต่อเสาอากาศภายนอก U.FL Antenna เพื่อการรับส่งสัญญาณในพื้นที่อับ)
+
+### Sensor Array (8 เซ็นเซอร์ / 11 ช่องสัญญาณ)
+| # | เซ็นเซอร์ | ตัวแปรที่วัด | ชนิดสัญญาณ | แรงดันไฟ | ระยะเวลา Warm-up |
+|:---:|---|---|:---:|:---:|:---:|
+| 1 | **MQ-2** | แก๊สติดไฟ, ควัน, LPG | Analog (ADC1) | 5V | 5 นาที (Pre-heat 24-48 ชม.) |
+| 2 | **MQ-3** | แอลกอฮอล์, สารทำละลาย/ทินเนอร์ | Analog (ADC1) | 5V | 5 นาที (Pre-heat 24-48 ชม.) |
+| 3 | **MQ-8** | ก๊าซไฮโดรเจน ($H_2$) | Analog (ADC1) | 5V | 5 นาที (Pre-heat 24-48 ชม.) |
+| 4 | **MQ-135** | แอมโมเนีย ($NH_3$), เบนซีน, VOCs | Analog (ADC1) | 5V | 5 นาที (Pre-heat 24-48 ชม.) |
+| 5 | **MiCS-6814** | CO, $NO_2$, $NH_3$ (3 Channels) | I2C (ผ่าน ADS1115) | 5V | 15 นาที (เต็มประสิทธิภาพ 2 ชม.) |
+| 6 | **CCS811** | TVOC (ppb), $eCO_2$ (ppm) | I2C (Bus 1) | 3.3V | 20 นาที (Burn-in ครั้งแรก 48 ชม.) |
+| 7 | **PMS5003** | ฝุ่น PM1.0, PM2.5, PM10 | UART2 (Serial) | 5V | 30 วินาที |
+| 8 | **DHT22** | อุณหภูมิ (°C), ความชื้นสัมพัทธ์ (%RH) | Digital 1-Wire | 3.3V | 2 วินาที |
+
+### อุปกรณ์สนับสนุน
+- **ADS1115:** 16-bit High Precision ADC สำหรับแปลงสัญญาณ 3 ช่องของ MiCS-6814
+- **Relay Module:** สำหรับเปิด-ปิดพัดลมระบายอากาศ/Chamber Flow
+- **Voltage Divider:** $R_1=10k\Omega, R_2=15k\Omega$ ลดทอนแรงดัน 5V ของ MQ สู่ระดับปลอดภัยสำหรับ ADC ESP32 (~3.0V)
+
+---
+
+## ⚡ ผังการเชื่อมต่อวงจร (Pin Mapping)
+
+> **ข้อสำคัญ:** ระบบนี้ใช้ **Dual I2C Bus แยกอิสระ** เพื่อความเสถียรสูงสุด:
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/phodsathorn2004/voc_quality.git
-git branch -M main
-git push -uf origin main
+                          ┌────────────────────────┐
+                          │    ESP32-WROOM-32U     │
+                          └───────────┬────────────┘
+                                      │
+     ┌───────────────────┬────────────┴────────────┬───────────────────┐
+     │                   │                         │                   │
+[Dual I2C Bus #1]   [Dual I2C Bus #2]         [UART2 Bus]         [Analog ADC1]
+ GPIO 21 (SDA)       GPIO 32 (SDA)             GPIO 16 (RX2)       GPIO 34 (MQ-2)
+ GPIO 22 (SCL)       GPIO 13 (SCL)             GPIO 17 (TX2)       GPIO 35 (MQ-3)
+       │                   │                         │             GPIO 36 (MQ-8)
+  [ CCS811 ]          [ ADS1115 ]               [ PMS5003 ]        GPIO 39 (MQ-135)
+  (Addr: 0x5B)        (Addr: 0x48)              (Laser Dust)               │
+                           │                                       [Digital 1-Wire]
+                     [ MiCS-6814 ]                                  GPIO 27 (DHT22)
+                   (CO / NO2 / NH3)
 ```
 
-## Integrate with your tools
+- **I2C Bus 1 (Hardware):** GPIO 21 (SDA), GPIO 22 (SCL) $\rightarrow$ **CCS811** (WAKE pin ต่อลง GND)
+- **I2C Bus 2 (Secondary):** GPIO 32 (SDA), GPIO 13 (SCL) $\rightarrow$ **ADS1115** (ADDR pin ต่อ GND)
+- **UART2:** GPIO 16 (ESP32 RX2 $\leftarrow$ PMS5003 TX), GPIO 17 (ESP32 TX2 $\rightarrow$ PMS5003 RX)
+- **Digital:** GPIO 27 $\rightarrow$ **DHT22** Data (ต่อ Pull-up $10k\Omega$ เข้า 3.3V)
+- **Analog (ADC1):**
+  - GPIO 34 (A0) $\leftarrow$ MQ-2
+  - GPIO 35 (A1) $\leftarrow$ MQ-3
+  - GPIO 36 (A2) $\leftarrow$ MQ-8
+  - GPIO 39 (A3) $\leftarrow$ MQ-135
 
-* [Set up project integrations](https://gitlab.com/phodsathorn2004/voc_quality/-/settings/integrations)
+---
 
-## Collaborate with your team
+## 📁 โครงสร้างของโปรเจกต์
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+```text
+├── README.md                      # เอกสารภาพรวมและการใช้งานโปรเจกต์ (ไฟล์นี้)
+├── PROJECT_INFO.md                # สรุปข้อมูลโครงการและข้อกำหนดทางเทคนิค
+├── monitor.py                     # สคริปต์ Dashboard แสดงผล Real-time บน Terminal
+│
+├── src/                           # Source Code หลักสำหรับ Production
+│   └── air_quality_monitor/
+│       └── air_quality_monitor.ino  # 🌟 ไฟล์ Firmware หลักที่ต้องอัปโหลดขึ้น ESP32
+│
+├── docs/                          # เอกสารสเปกและงานออกแบบระบบ
+│   ├── wiring_design.md           # ผังวงจรและการต่อสาย Dual I2C Bus แบบละเอียด
+│   ├── adaptive_enose_analysis.md # วิเคราะห์ E-Nose, Airflow และโมเดลจำแนก
+│   ├── ml_model_analysis.md       # การออกแบบสถาปัตยกรรม 3 ชั้น และ Classification ML
+│   ├── web_platform_spec.md       # ข้อกำหนดระบบ Web Dashboard และ API
+│   └── experimental_components.md # รายการอุปกรณ์และ Datasheet อ้างอิง
+│
+├── test_1st_air_quality_box/      # โค้ดทดสอบเวอร์ชันแรก (WiFi/MQTT Prototype)
+│   ├── test_1st_air_quality_box.ino
+│   ├── test.ino
+│   └── secrets.h
+├── test_dht22_only/               # โค้ดทดสอบเฉพาะเซ็นเซอร์ DHT22
+│   └── test_dht22_only.ino
+├── debug_diagnostic/              # สคริปต์ตรวจสอบการทำงานของฮาร์ดแวร์
+│   └── debug_diagnostic.ino
+│
+├── reference/                     # งานวิจัย เปเปอร์ และการวิเคราะห์เปรียบเทียบ
+│   ├── sensor_comparison_and_market_analysis.md # เซ็นเซอร์ท้องตลาด vs E-Nose
+│   ├── note.md                    # บันทึกองค์ความรู้
+│   └── papers/                    # เอกสารวิจัย PDF อ้างอิง
+└── archive/                       # บันทึกประวัติและงานออกแบบรุ่นก่อนหน้า
+```
 
-## Test and Deploy
+---
 
-Use the built-in continuous integration in GitLab.
+## 🚀 คู่มือการใช้งาน Firmware (Arduino)
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+### 1. ไฟล์ Firmware ที่ต้องใช้งาน
+ให้เปิดไฟล์เฟิร์มแวร์หลักด้วย **Arduino IDE**:
+📂 **`src/air_quality_monitor/air_quality_monitor.ino`**
 
-***
+### 2. ติดตั้ง Libraries ที่จำเป็น
+เปิด **Arduino IDE** $\rightarrow$ ไปที่เมนู **Tools** $\rightarrow$ **Manage Libraries...** แล้วค้นหาและติดตั้ง:
+1. `Adafruit CCS811 Library` (by Adafruit)
+2. `Adafruit ADS1X15` (by Adafruit)
+3. `PMS Library` (by Mariusz Kacki)
+4. `DHT sensor library` (by Adafruit)
+5. `Adafruit Unified Sensor` (by Adafruit)
 
-# Editing this README
+### 3. การตั้งค่าบอร์ดใน Arduino IDE
+- **Board:** `ESP32 Dev Module` (หรือ `ESP32-WROOM-DA Module`)
+- **Upload Speed:** `921600` หรือ `115200`
+- **Flash Frequency:** `80MHz`
+- **Port:** เลือกพอร์ต Serial USB ของ ESP32 (เช่น `/dev/cu.usbserial-0001` บน Mac หรือ `COMx` บน Windows)
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### 4. การ Compile และ Upload
+1. กดปุ่ม **Verify (✓)** เพื่อตรวจสอบความถูกต้องของโค้ด
+2. กดปุ่ม **Upload (➔)** เพื่อแฟลชโปรแกรมลงบอร์ด ESP32
+3. เปิด **Serial Monitor** ที่ Baud Rate **`115200`**
 
-## Suggestions for a good README
+### 5. การทำงานและคำสั่งควบคุมผ่าน Serial
+เมื่อบอร์ดเริ่มต้นทำงาน:
+- ระบบจะทำ **Hardware Self-Diagnostic** เพื่อตรวจเช็คสถานะการเชื่อมต่อของเซ็นเซอร์ทุกตัว
+- เข้าสู่โหมด **Smart Warm-up** พร้อม Progress Bar นับเวลาถอยหลัง
+- **คำสั่ง Serial ลัด:**
+  - พิมพ์ **`s`** แล้วกด Enter: **ข้ามขั้นตอน Warm-up** ทันที (กรณีเซ็นเซอร์เปิดใช้งานต่อเนื่องและร้อนอยู่แล้ว)
+  - พิมพ์ **`w`** แล้วกด Enter: **สั่งเริ่มขั้นตอน Warm-up ใหม่อีกครั้ง**
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+---
 
-## Name
-Choose a self-explaining name for your project.
+## 🖥️ คู่มือการใช้งาน Real-time Terminal Monitor (Python)
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+โครงการนี้มีสคริปต์ `monitor.py` เพื่อใช้แสดงผลหน้าจอ Dashboard ผ่าน Terminal สวยงาม โดยไม่ต้องเปิด Arduino IDE Serial Monitor
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+### 1. ข้อกำหนดเบื้องต้น
+- ติดตั้ง **Python 3.8+**
+- ติดตั้งไลบรารี `pyserial`:
+  ```bash
+  pip install pyserial
+  ```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### 2. การสั่งรันมอนิเตอร์
+เปิด Terminal ในโฟลเดอร์โปรเจกต์แล้วรันคำสั่ง:
+```bash
+python3 monitor.py
+```
+*ระบบจะค้นหาพอร์ต USB Serial ของ ESP32 อัตโนมัติและเชื่อมต่อทันที*
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+หรือหากต้องการระบุพอร์ตโดยตรง:
+```bash
+python3 monitor.py --port /dev/cu.usbserial-0001
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### 3. ตัวอย่างหน้าจอแสดงผล (Terminal GUI)
+```text
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║             ADAPTIVE E-NOSE AIR QUALITY MONITOR — REALTIME DASHBOARD             ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+  DHT22 สภาพแวดล้อม:   อุณหภูมิ: 28.4 °C   ความชื้น: 54.2 %RH
+  PMS5003 ฝุ่น:        PM1.0: 12 ug/m3     PM2.5: 18 ug/m3     PM10: 22 ug/m3
+  CCS811 VOC:          eCO2: 412 ppm       TVOC: 15 ppb
+  MiCS-6814 (mV):      CO: 350 mV          NO2: 230 mV         NH3: 348 mV
+  MQ Sensors (ADC):    MQ-2: 650           MQ-3: 670           MQ-8: 1210   MQ-135: 715
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+ 💡 คำสั่งควบคุม: พิมพ์ 's' (ข้ามวอร์ม) | พิมพ์ 'w' (วอร์มใหม่)
+```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+---
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+## ⚖️ การสอบเทียบเซ็นเซอร์ (Baseline Calibration)
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+เซ็นเซอร์วัดแก๊สสารกึ่งตัวนำออกไซด์ของโลหะ (MOX Sensors) ใช้หลักการวัดความต้านทานสัมพัทธ์ $\frac{R_s}{R_0}$:
+- **$R_0$ (Clean Air Resistance):** ค่าความต้านทานในอากาศบริสุทธิ์
+- **ขั้นตอนการทำ Calibration:**
+  1. นำกล่องเซ็นเซอร์ไปวางในพื้นที่ **อากาศสะอาดบริสุทธิ์** (ไม่มีสารเคมี, ควัน หรือฝุ่น)
+  2. วอร์มเซ็นเซอร์ให้นิ่งอย่างน้อย **15–20 นาที**
+  3. บันทึกค่าเฉลี่ย $R_0$ ของ MQ ทุกตัว และค่า mV ของ MiCS-6814
+  4. ระบบจะจัดเก็บค่า $R_0$ อัตโนมัติลงในหน่วยความจำ Flash (Non-Volatile Storage / NVS ด้วย `Preferences.h`) ทำให้ไม่ต้องสอบเทียบใหม่ทุกครั้งที่เปิดเครื่อง
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+---
 
-## License
-For open source projects, say how it is licensed.
+## 🧠 แนวทางการพัฒนา Machine Learning (TinyML Roadmap)
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+1. **การเก็บรวบรวม Dataset (4 คลาส):**
+   - 🟢 `Class 0: Clean Air` (อากาศปกติในพื้นที่ทำงาน)
+   - 🟡 `Class 1: Paint Dust` (ละอองฝุ่นสีผงพ่นสี)
+   - 🟠 `Class 2: Thinner/Solvent` (ไอระเหยตัวทำละลายและสารอินทรีย์ระเหย)
+   - 🔴 `Class 3: Smoke/Fire` (ควันไฟและไอเสีย)
+2. **สถาปัตยกรรมโมเดล TinyML:**
+   - โครงข่ายประสาทเทียมแบบ Multi-Layer Perceptron (MLP) เล็กและเร็ว
+   - Quantization เป็น `INT8` (~100 KB) เพื่อรันบนชิป ESP32
+   - อัปเดตโมเดลทางไกลผ่านระบบ Over-the-Air (OTA-TinyML) ตามมาตรฐาน IEEE 2022
+
+---
+
+## 📚 งานวิจัยและเอกสารอ้างอิง
+
+- **OTA-TinyML (IEEE 2022):** *Over-the-Air Deployment of TinyML Models and Execution on IoT Devices*
+- **E-Nose Drift Adaptation:** *Domain Adaptation for Gas Sensor Drift in E-Nose Systems*
+- **Standard Guidelines:** เกณฑ์มาตรฐานสารอินทรีย์ระเหยง่ายในบรรยากาศ กรมควบคุมมลพิษ (PCD)
+- รายละเอียดเอกสารทางวิชาการทั้งหมดสามารถศึกษาเพิ่มเติมได้ที่โฟลเดอร์ [`reference/papers/`](file:///Users/urworld/paper_sensor_VOC/reference/papers/)

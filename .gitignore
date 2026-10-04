@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+venv/
+.venv/
+env/
+
+# Arduino build artifacts
+*.hex
+*.elf
+*.bin
+build/
+
+# Temporary / Scratch files
+*.tmp
+*.bak
