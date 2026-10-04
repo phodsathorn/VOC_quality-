@@ -1,12 +1,12 @@
 /**
- * VOC / E-Nose — ESP32-S3 Firmware (Circuit Design v2)
+ * VOC / E-Nose — ESP32 Firmware (Circuit Design v2)
  * ====================================================
- * รองรับฮาร์ดแวร์ V2:
- * - CCS811 (I2C: SDA=21, SCL=22) -> TVOC, eCO2
- * - ADS1115 (I2C: 0x48) -> MiCS-6814 (A0=CO, A1=NO2, A2=NH3)
- * - PMS5003 (UART2: RX=16, TX=17) -> PM2.5
- * - DHT22 (GPIO 4) -> Temp, RH
- * - MQ Sensors (ADC 3.3V) -> MQ-2(33), MQ-3(36), MQ-8(34), MQ-135(39)
+ * สอดคล้องกับสถาปัตยกรรม Circuit Design v2 และ voc_quality:
+ * - CCS811 (Bus #1 Hardware I2C: SDA=21, SCL=22, Addr=0x5B/0x5A) -> TVOC, eCO2
+ * - ADS1115 (Bus #2 TwoWire(1): SDA=32, SCL=13, Addr=0x48) -> MiCS-6814 (A0=CO, A1=NO2, A2=NH3 ในหน่วย mV)
+ * - PMS5003 (UART2: RX=16, TX=17, SET=23) -> PM2.5
+ * - DHT22 (GPIO 27) -> Temp, RH
+ * - MQ Sensors (ADC1 3.3V) -> MQ-2(33), MQ-3(36), MQ-8(34), MQ-135(39)
  * - Fan Intake (GPIO 25) / Exhaust (GPIO 26)
  *
  * Dependencies (Arduino Library Manager):
@@ -40,36 +40,44 @@ String      SESSION_LABEL       = "";
 const unsigned long SESSION_POLL_MS = 10000;
 unsigned long lastSessionPoll = 0;
 
-// ─── Pin Mapping (v2) ────────────────────────────────────────
-#define DHT_PIN     4
-#define DHT_TYPE    DHT22
+// ─── Pin Mapping (Circuit Design v2) ─────────────────────────
+#define DHT_PIN       27     // DHT22 DATA (GPIO 27 ตาม Circuit Design v2)
+#define DHT_TYPE      DHT22
 
-// I2C
-#define I2C_SDA     21
-#define I2C_SCL     22
+// I2C Bus #1: CCS811 (Hardware Wire)
+#define I2C1_SDA      21
+#define I2C1_SCL      22
+#define CCS811_ADDR   0x5B   // ADDR pin -> HIGH (สำรอง 0x5A หาก ADDR -> GND)
+
+// I2C Bus #2: ADS1115 (TwoWire Software/Secondary)
+#define I2C2_SDA      32
+#define I2C2_SCL      13
+#define ADS1115_ADDR  0x48   // ADDR pin -> GND
 
 // UART2 (PMS5003)
-#define PMS_RX      16
-#define PMS_TX      17
+#define PMS_RX        16
+#define PMS_TX        17
+#define PMS_SET_PIN   23     // PMS5003 SET pin (HIGH = ทำงานปกติ)
 
-// Analog MQs
-#define MQ2_PIN     33
-#define MQ3_PIN     36
-#define MQ8_PIN     34
-#define MQ135_PIN   39
+// Analog MQs (ADC1 - ปลอดภัยเมื่อเปิด Wi-Fi)
+#define MQ2_PIN       33
+#define MQ3_PIN       36
+#define MQ8_PIN       34
+#define MQ135_PIN     39
 
-// Fans
-#define FAN_INTAKE  25
-#define FAN_EXHAUST 26
+// Fans / Relays
+#define FAN_INTAKE    25
+#define FAN_EXHAUST   26
 
 // ─── Settings ────────────────────────────────────────────────
 const unsigned long SEND_INTERVAL_MS = 3000;
-const unsigned long WARMUP_TIME_MS   = 30000; // อุ่นเครื่อง MQ 30 วินาที
+const unsigned long WARMUP_TIME_MS   = 30000; // อุ่นเครื่องเริ่มต้น 30 วินาที
 
 // ─── Objects ─────────────────────────────────────────────────
 DHT dht(DHT_PIN, DHT_TYPE);
+TwoWire I2C2 = TwoWire(1);   // Bus #2 แยกป้องกันบัสล่มและ CCS811 ดึง SDA ค้าง
 Adafruit_CCS811 ccs;
-Adafruit_ADS1115 ads; // 16-bit ADC
+Adafruit_ADS1115 ads;         // 16-bit ADC สำหรับ MiCS-6814
 Adafruit_PM25AQI aqi = Adafruit_PM25AQI();
 
 unsigned long lastSend = 0;
@@ -112,9 +120,10 @@ void fetchActiveSession() {
 void setup() {
   Serial.begin(115200);
   Serial2.begin(9600, SERIAL_8N1, PMS_RX, PMS_TX); // PMS5003
-  Wire.begin(I2C_SDA, I2C_SCL);
-  delay(1000);
-  Serial.println("\n[VOC] Starting E-Nose v2...");
+
+  // Wake up PMS5003
+  pinMode(PMS_SET_PIN, OUTPUT);
+  digitalWrite(PMS_SET_PIN, HIGH);
 
   // Fan control
   pinMode(FAN_INTAKE, OUTPUT);
@@ -122,17 +131,41 @@ void setup() {
   digitalWrite(FAN_INTAKE, HIGH);   // เปิดพัดลมตลอดการทำงาน
   digitalWrite(FAN_EXHAUST, HIGH);
 
-  // Init Sensors
+  Serial.println("\n[VOC] Starting E-Nose v2 (Circuit Design v2)...");
+
+  // 1. Init Bus #2 (ADS1115) ก่อนเสมอ เนื่องจาก CCS811 มักดึง SDA ค้างช่วง Power-up
+  I2C2.begin(I2C2_SDA, I2C2_SCL);
+  I2C2.setClock(100000);
+  delay(50);
+  if (!ads.begin(ADS1115_ADDR, &I2C2)) {
+    Serial.println("[ERR] ADS1115 not found on Bus #2 (GPIO 32/13)!");
+  } else {
+    Serial.println("[OK] ADS1115 ready on Bus #2 (GPIO 32/13)");
+  }
+
+  // 2. Init Bus #1 (CCS811)
+  Wire.begin(I2C1_SDA, I2C1_SCL);
+  Wire.setClock(100000);
+  delay(100);
+
+  uint8_t ccs_addr = CCS811_ADDR;
+  Wire.beginTransmission(ccs_addr);
+  if (Wire.endTransmission() != 0) {
+    Wire.beginTransmission(0x5A);
+    if (Wire.endTransmission() == 0) ccs_addr = 0x5A;
+  }
+  if (!ccs.begin(ccs_addr, &Wire)) {
+    Serial.println("[ERR] CCS811 not found on Bus #1 (GPIO 21/22)! Check wiring & WAKE pin (connect to GND).");
+  } else {
+    Serial.printf("[OK] CCS811 ready on Bus #1 (0x%02X)\n", ccs_addr);
+  }
+
+  // 3. Init DHT22 & PMS5003
   dht.begin();
-  
-  if (!ccs.begin()) {
-    Serial.println("[ERR] CCS811 not found! Check I2C wiring.");
-  }
-  if (!ads.begin(0x48)) {
-    Serial.println("[ERR] ADS1115 not found! Check I2C wiring.");
-  }
   if (!aqi.begin_UART(&Serial2)) {
     Serial.println("[ERR] PMS5003 not found on UART2.");
+  } else {
+    Serial.println("[OK] PMS5003 ready on UART2");
   }
 
   // Connect WiFi
@@ -164,10 +197,13 @@ SensorData readSensors() {
   if (isnan(d.rh))   d.rh   = -1;
 
   // CCS811 (TVOC/eCO2)
-  // CCS811 มีฟังก์ชันชดเชยความชื้น/อุณหภูมิ เพื่อความแม่นยำ
-  if (d.temp > 0 && d.rh > 0) {
-    ccs.setEnvironmentalData(d.rh, d.temp);
+  // ชดเชยอุณหภูมิ/ความชื้นทุก 60 วินาที เพื่อไม่ให้ชิปรีเซ็ต Baseline บ่อยเกินไป
+  static unsigned long lastEnvUpdate = 0;
+  if (d.temp > 0 && d.rh > 0 && (millis() - lastEnvUpdate >= 60000)) {
+    lastEnvUpdate = millis();
+    ccs.setEnvironmentalData((uint8_t)d.rh, d.temp);
   }
+
   if (ccs.available() && !ccs.readData()) {
     d.tvoc = ccs.getTVOC();
     d.eco2 = ccs.geteCO2();
@@ -190,10 +226,11 @@ SensorData readSensors() {
   d.mq135  = analogRead(MQ135_PIN);
 
   // MiCS-6814 ผ่าน ADS1115 (16-bit ADC)
-  // A0 = RED(CO), A1 = OX(NO2), A2 = NH3
-  d.mics_co = ads.readADC_SingleEnded(0);
-  d.no2     = ads.readADC_SingleEnded(1);
-  d.nh3     = ads.readADC_SingleEnded(2);
+  // แปลงค่าเป็น mV ให้ตรงกับสเกลชุดข้อมูล Machine Learning และ backend
+  // A0 = RED (CO), A1 = OX (NO2), A2 = NH3
+  d.mics_co = (int)(ads.computeVolts(ads.readADC_SingleEnded(0)) * 1000.0f);
+  d.no2     = (int)(ads.computeVolts(ads.readADC_SingleEnded(1)) * 1000.0f);
+  d.nh3     = (int)(ads.computeVolts(ads.readADC_SingleEnded(2)) * 1000.0f);
 
   return d;
 }
