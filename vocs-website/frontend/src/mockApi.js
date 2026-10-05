@@ -65,16 +65,44 @@ initHistory();
 function rand(base, delta) { return +(base + (Math.random() - 0.5) * 2 * delta).toFixed(1); }
 function randInt(base, delta) { return Math.round(base + (Math.random() - 0.5) * 2 * delta); }
 
-function maybeAddAlert(level, message) {
-  const recent = state.alerts.find(a => a.status === 'Active' && a.level === level && a.message === message);
-  if (recent) return;
-  const now = new Date();
+// เก็บเวลาล่าสุดที่ยิง alert แต่ละประเภทเพื่อทำ Cooldown ใน Mock Mode
+const lastMockAlertTime = {};
+
+function maybeAddAlert(category, level, message) {
+  const now = Date.now();
+  // เช็คว่ามี Active alert ของ category นี้อยู่แล้วหรือไม่
+  const existing = state.alerts.find(a => a.status === 'Active' && a.category === category);
+  if (existing) {
+    // ถ้ามีอยู่แล้ว และระดับใหม่รุนแรงขึ้น (Warning -> Critical) ให้อัปเดตรายการเดิม ไม่แทรกซ้ำ
+    if (existing.level !== 'Critical' && level === 'Critical') {
+      existing.level = 'Critical';
+      existing.message = message;
+    }
+    return;
+  }
+
+  // Cooldown อย่างน้อย 60 วินาทีต่อประเภท ป้องกันยิงถี่รัว
+  if (now - (lastMockAlertTime[category] || 0) < 60000) {
+    return;
+  }
+
+  const nowDate = new Date();
   state.alerts.unshift({
     id: state.nextAlertId++,
-    time: now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
-    level, message, status: 'Active', created_at: now,
+    category,
+    time: nowDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+    level, message, status: 'Active', created_at: nowDate,
   });
+  lastMockAlertTime[category] = now;
   if (state.alerts.length > 50) state.alerts.pop();
+}
+
+function autoResolveMockAlert(category) {
+  state.alerts.forEach(a => {
+    if (a.status === 'Active' && a.category === category) {
+      a.status = 'Resolved';
+    }
+  });
 }
 
 function fmtLastSeen(d) {
@@ -102,9 +130,13 @@ function tickSensor() {
     state.sensor.nh3     = randInt(140, 30);
     state.ai = { prediction: 'THINNER', confidence: +(85 + Math.random() * 12).toFixed(1), is_dangerous: true };
 
-    if (state.sensor.tvoc >= 400) maybeAddAlert('Critical', `TVOC สูงเกินวิกฤต: ${Math.round(state.sensor.tvoc)} (เกณฑ์ 400)`);
-    else if (state.sensor.tvoc >= 200) maybeAddAlert('Warning', `TVOC สูงเกินปกติ: ${Math.round(state.sensor.tvoc)} (เกณฑ์ 200)`);
-    maybeAddAlert('High', `AI ตรวจพบสาร ${state.ai.prediction} (confidence ${state.ai.confidence}%)`);
+    if (state.sensor.tvoc >= 400) {
+      maybeAddAlert('TVOC', 'Critical', `TVOC สูงเกินวิกฤต: ${Math.round(state.sensor.tvoc)} (เกณฑ์ 400)`);
+    } else if (state.sensor.tvoc >= 200) {
+      maybeAddAlert('TVOC', 'Warning', `TVOC สูงเกินปกติ: ${Math.round(state.sensor.tvoc)} (เกณฑ์ 200)`);
+    }
+
+    maybeAddAlert('AI', 'High', `AI ตรวจพบสาร ${state.ai.prediction} (confidence ${state.ai.confidence}%)`);
   } else {
     state.sensor.tvoc    = rand(110, 40);
     state.sensor.eco2    = rand(560, 80);
@@ -118,6 +150,10 @@ function tickSensor() {
     state.sensor.no2     = randInt(42, 10);
     state.sensor.nh3     = randInt(55, 15);
     state.ai = { prediction: 'AMBIENT', confidence: +(90 + Math.random() * 8).toFixed(1), is_dangerous: false };
+
+    // Auto-resolve เมื่อค่ากลับมาเป็นปกติ
+    if (state.sensor.tvoc < 180) autoResolveMockAlert('TVOC');
+    if (!state.ai.is_dangerous) autoResolveMockAlert('AI');
   }
 
   const now = new Date();

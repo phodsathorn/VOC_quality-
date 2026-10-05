@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
-import { AlertTriangle, CheckCircle, RefreshCw, Bell, ShieldAlert, Info } from 'lucide-react';
+import { AlertTriangle, CheckCircle, RefreshCw, Bell, ShieldAlert, Info, Volume2, VolumeX, Volume1 } from 'lucide-react';
+import { isSoundEnabled, toggleSoundEnabled, triggerAlertSound } from '../utils/soundAlert';
 
-const API = 'http://localhost:8000';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const REFRESH_INTERVAL_MS = 10000;
 
 const LEVEL_CONFIG = {
@@ -16,6 +17,13 @@ export default function Alerts() {
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [filter, setFilter] = useState('All');
+  const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
+
+  useEffect(() => {
+    const handleToggle = (e) => setSoundOn(e.detail.enabled);
+    window.addEventListener('voc_sound_toggle', handleToggle);
+    return () => window.removeEventListener('voc_sound_toggle', handleToggle);
+  }, []);
 
   const fetchAlerts = useCallback(async () => {
     setLoading(true);
@@ -51,7 +59,7 @@ export default function Alerts() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Bell size={24} />
           Alerts
@@ -71,6 +79,71 @@ export default function Alerts() {
           }}>
             <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
             รีเฟรช
+          </button>
+        </div>
+      </div>
+
+      {/* Sound Settings & Test Bar */}
+      <div className="card" style={{
+        marginBottom: '1.5rem',
+        padding: '0.85rem 1.25rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '1rem',
+        backgroundColor: '#f8fafc',
+        border: '1px solid #e2e8f0',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button
+            onClick={() => {
+              const next = toggleSoundEnabled();
+              setSoundOn(next);
+            }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.4rem',
+              padding: '0.45rem 0.9rem', borderRadius: '0.5rem',
+              border: `1px solid ${soundOn ? '#86efac' : '#cbd5e1'}`,
+              backgroundColor: soundOn ? '#dcfce7' : '#f1f5f9',
+              color: soundOn ? '#166534' : '#475569',
+              fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            {soundOn ? 'เสียงแจ้งเตือน: เปิดอยู่' : 'เสียงแจ้งเตือน: ปิดอยู่'}
+          </button>
+          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+            เสียงจะดังอัตโนมัติเมื่อตรวจพบ Alert ใหม่ (มี Cooldown 10 วิ ป้องกันเสียงดังรัว)
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>ทดสอบเสียง:</span>
+          <button
+            onClick={() => triggerAlertSound('Warning', true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.35rem',
+              padding: '0.35rem 0.75rem', borderRadius: '0.375rem',
+              border: '1px solid #93c5fd', backgroundColor: '#eff6ff',
+              color: '#1d4ed8', fontSize: '0.8rem', fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <Volume1 size={14} /> โทน Warning
+          </button>
+          <button
+            onClick={() => triggerAlertSound('Critical', true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.35rem',
+              padding: '0.35rem 0.75rem', borderRadius: '0.375rem',
+              border: '1px solid #fca5a5', backgroundColor: '#fef2f2',
+              color: '#b91c1c', fontSize: '0.8rem', fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <ShieldAlert size={14} /> โทน Critical
           </button>
         </div>
       </div>
