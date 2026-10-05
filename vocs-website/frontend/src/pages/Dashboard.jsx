@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { AlertTriangle, CheckCircle, RefreshCw, Clock, Cpu, ChevronDown } from 'lucide-react';
 import { getThresholds, getGeneral } from '../utils/settings';
 
-const API = 'http://localhost:8000';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const REFRESH_INTERVAL_MS = 5000; // auto-refresh ทุก 5 วินาที
 
 export default function Dashboard() {
@@ -195,35 +195,126 @@ export default function Dashboard() {
       </div>
 
       {/* Environment */}
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 600, margin: '2rem 0 1rem' }}>Environment</h2>
+      <div style={{ margin: '2rem 0 1rem' }}>
+        <h2 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span>สภาพแวดล้อมทั่วไป (Environment)</span>
+        </h2>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          ตรวจวัดอุณหภูมิ ความชื้น ปริมาณฝุ่นละออง และก๊าซพื้นฐานในห้องพ่นสี
+        </p>
+      </div>
+
       <div className="dashboard-grid">
         {[
-          { label: 'Temperature', val: data.environment?.temp, unit: '°C' },
-          { label: 'Humidity',    val: data.environment?.rh,   unit: '%' },
-          { label: 'PM2.5', val: data.environment?.pm25, unit: 'µg/m³', warn: thresholds.pm25.warn, crit: thresholds.pm25.critical },
-          { label: 'TVOC',  val: data.environment?.tvoc, unit: 'ppb',   warn: thresholds.tvoc.warn, crit: thresholds.tvoc.critical },
-          { label: 'eCO2',  val: data.environment?.eco2, unit: 'ppm',   warn: thresholds.eco2.warn, crit: thresholds.eco2.critical },
-        ].map(({ label, val, unit, warn, crit }) => {
+          { 
+            key: 'temp', 
+            title: 'Temperature', 
+            thName: 'อุณหภูมิห้อง', 
+            desc: 'สภาวะความร้อนภายในห้อง', 
+            val: data.environment?.temp, 
+            unit: '°C' 
+          },
+          { 
+            key: 'rh', 
+            title: 'Humidity', 
+            thName: 'ความชื้นสัมพัทธ์', 
+            desc: 'ความชื้นในบรรยากาศ', 
+            val: data.environment?.rh, 
+            unit: '%RH' 
+          },
+          { 
+            key: 'pm25', 
+            title: 'PM2.5', 
+            thName: 'ฝุ่นละอองขนาดเล็ก', 
+            desc: 'ฝุ่นละอองและละอองผงสี', 
+            val: data.environment?.pm25, 
+            unit: 'µg/m³', 
+            warn: thresholds.pm25.warn, 
+            crit: thresholds.pm25.critical 
+          },
+          { 
+            key: 'tvoc', 
+            title: 'TVOC (CCS811)', 
+            thName: 'สารอินทรีย์ระเหยรวม', 
+            desc: 'ไอระเหยทินเนอร์ สี สารทำละลาย', 
+            val: data.environment?.tvoc, 
+            unit: 'ppb', 
+            warn: thresholds.tvoc.warn, 
+            crit: thresholds.tvoc.critical 
+          },
+          { 
+            key: 'eco2', 
+            title: 'eCO₂ (CCS811)', 
+            thName: 'คาร์บอนไดออกไซด์เทียบเท่า', 
+            desc: 'ก๊าซจากการหายใจ/การถ่ายเทอากาศ', 
+            val: data.environment?.eco2, 
+            unit: 'ppm', 
+            warn: thresholds.eco2.warn, 
+            crit: thresholds.eco2.critical 
+          },
+        ].map(({ key, title, thName, desc, val, unit, warn, crit }) => {
           const color = crit && val >= crit ? 'var(--danger-color)'
             : warn && val >= warn ? 'var(--warning-color)'
             : 'var(--text-main)';
           return (
-            <div className="card stat-card" key={label}>
-              <div className="stat-title">{label}</div>
-              <div><span className="stat-value" style={{ color }}>{val ?? '—'}</span>
-                <span className="stat-unit">{unit}</span></div>
+            <div className="card stat-card" key={key} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <div className="stat-title" style={{ fontWeight: 600 }}>{title}</div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--primary-color)', fontWeight: 500 }}>{thName}</span>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{desc}</div>
+              </div>
+              <div style={{ marginTop: '0.25rem' }}>
+                <span className="stat-value" style={{ color }}>{val ?? '—'}</span>
+                <span className="stat-unit" style={{ marginLeft: '0.25rem', fontSize: '0.85rem' }}>{unit}</span>
+              </div>
             </div>
           );
         })}
       </div>
 
       {/* E-Nose */}
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 600, margin: '2rem 0 1rem' }}>E-Nose Sensors (Raw)</h2>
-      <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-        {['mq2', 'mq3', 'mq135', 'mq8', 'mics_co', 'no2', 'nh3'].map(key => (
-          <div className="card stat-card" key={key}>
-            <div className="stat-title">{key.toUpperCase()}</div>
-            <div className="stat-value">{data.sensors?.[key] ?? '—'}</div>
+      <div style={{ margin: '2rem 0 1rem' }}>
+        <h2 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span>โครงข่ายจมูกอิเล็กทรอนิกส์ (E-Nose Sensor Array)</span>
+        </h2>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          เซนเซอร์ตรวจจับกลิ่นและจำแนกกลุ่มก๊าซมลพิษเฉพาะทาง สำหรับส่งให้โมเดล AI ประมวลผล
+        </p>
+      </div>
+
+      <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
+        {[
+          { key: 'mq2', title: 'MQ-2', target: 'ควันและก๊าซไวไฟ', sub: 'Smoke / LPG / Propane', unit: 'ADC' },
+          { key: 'mq3', title: 'MQ-3', target: 'ไอแอลกอฮอล์ / ทินเนอร์', sub: 'Alcohol / Solvent Vapors', unit: 'ADC' },
+          { key: 'mq135', title: 'MQ-135', target: 'คุณภาพอากาศ / เบนซีน', sub: 'Air Quality / Benzene / NH₃', unit: 'ADC' },
+          { key: 'mq8', title: 'MQ-8', target: 'ก๊าซไฮโดรเจน', sub: 'Hydrogen Gas (H₂)', unit: 'ADC' },
+          { key: 'mics_co', title: 'MiCS-6814 (CO)', target: 'คาร์บอนมอนอกไซด์', sub: 'Carbon Monoxide (เผาไหม้)', unit: 'mV' },
+          { key: 'no2', title: 'MiCS-6814 (NO₂)', target: 'ไนโตรเจนไดออกไซด์', sub: 'Nitrogen Dioxide (ไอเสีย/เตาอบ)', unit: 'mV' },
+          { key: 'nh3', title: 'MiCS-6814 (NH₃)', target: 'แอมโมเนียและกลิ่นฉุน', sub: 'Ammonia Gas', unit: 'mV' },
+        ].map(({ key, title, target, sub, unit }) => (
+          <div className="card stat-card" key={key} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1rem' }}>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--primary-color)' }}>{title}</span>
+                <span style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569' }}>
+                  {unit}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', marginTop: '0.2rem' }}>
+                {target}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                {sub}
+              </div>
+            </div>
+            <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
+              <div className="stat-value" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+                {data.sensors?.[key] ?? '—'}
+              </div>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{unit}</span>
+            </div>
           </div>
         ))}
       </div>
