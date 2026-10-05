@@ -1,10 +1,13 @@
-import { useState } from 'react';
-import { Settings as SettingsIcon, Save, RotateCcw, CheckCircle, Info, RefreshCw, Cpu } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Settings as SettingsIcon, Save, RotateCcw, CheckCircle, Info, RefreshCw, Cpu, Volume2, VolumeX, ShieldAlert, Volume1 } from 'lucide-react';
 import {
   getThresholds, saveThresholds, DEFAULT_THRESHOLDS,
   getGeneral,    saveGeneral,    DEFAULT_GENERAL,
   resetThresholds, resetGeneral,
 } from '../utils/settings';
+import {
+  isSoundEnabled, setSoundEnabled, toggleSoundEnabled, triggerAlertSound
+} from '../utils/soundAlert';
 
 // ข้อมูลประกอบแต่ละ sensor
 const SENSOR_META = {
@@ -31,8 +34,15 @@ export default function Settings() {
   const [saved,      setSaved]      = useState(false);
   const [syncStatus, setSyncStatus] = useState(null); // 'syncing' | 'ok' | 'error'
   const [modelMsg,   setModelMsg]   = useState(null);
+  const [soundOn,    setSoundOn]    = useState(() => isSoundEnabled());
   const isMock = !!window.__VOC_MOCK_MODE;
-  const API = 'http://localhost:8000';
+  const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+  useEffect(() => {
+    const handleToggle = (e) => setSoundOn(e.detail.enabled);
+    window.addEventListener('voc_sound_toggle', handleToggle);
+    return () => window.removeEventListener('voc_sound_toggle', handleToggle);
+  }, []);
 
   // ─── handlers ───────────────────────────────────────────────
   function handleThreshChange(key, field, raw) {
@@ -223,7 +233,7 @@ export default function Settings() {
       {/* ── Section 1: General ──────────────────────────────── */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem' }}>🔧 การตั้งค่าทั่วไป</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 500 }}>
               Box ID เริ่มต้น (Dashboard)
@@ -247,6 +257,72 @@ export default function Settings() {
               style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', fontFamily: 'inherit', fontSize: '0.875rem' }}
             />
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.375rem' }}>ค่าแนะนำ: 5–10 วิ &nbsp;|&nbsp; ขั้นต่ำ: 3 วิ</p>
+          </div>
+        </div>
+
+        {/* Sound Alert Setting Row */}
+        <div style={{
+          marginTop: '1.5rem',
+          paddingTop: '1.25rem',
+          borderTop: '1px solid var(--border-color)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {soundOn ? <Volume2 size={18} style={{ color: '#10b981' }} /> : <VolumeX size={18} style={{ color: '#64748b' }} />}
+              เสียงแจ้งเตือนผ่านเว็บ (Web Audio Sound Alert)
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.25rem 0 0' }}>
+              ส่งสัญญาณเสียงเตือนอัตโนมัติเมื่อเกิดเหตุการณ์ Warning หรือ Critical (มีระบบ Cooldown 10 วิ ป้องกันเสียงดังรบกวน)
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              type="button"
+              onClick={() => {
+                const next = toggleSoundEnabled();
+                setSoundOn(next);
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                padding: '0.45rem 0.875rem', borderRadius: '0.5rem',
+                border: `1px solid ${soundOn ? '#86efac' : '#cbd5e1'}`,
+                backgroundColor: soundOn ? '#dcfce7' : '#f1f5f9',
+                color: soundOn ? '#166534' : '#475569',
+                fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
+              }}
+            >
+              {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+              {soundOn ? 'เปิดใช้งานอยู่' : 'ปิดใช้งาน'}
+            </button>
+            <button
+              type="button"
+              onClick={() => triggerAlertSound('Warning', true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.35rem',
+                padding: '0.4rem 0.75rem', borderRadius: '0.375rem',
+                border: '1px solid #93c5fd', backgroundColor: '#eff6ff',
+                color: '#1d4ed8', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <Volume1 size={14} /> ทดสอบ Warning
+            </button>
+            <button
+              type="button"
+              onClick={() => triggerAlertSound('Critical', true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.35rem',
+                padding: '0.4rem 0.75rem', borderRadius: '0.375rem',
+                border: '1px solid #fca5a5', backgroundColor: '#fef2f2',
+                color: '#b91c1c', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <ShieldAlert size={14} /> ทดสอบ Critical
+            </button>
           </div>
         </div>
       </div>

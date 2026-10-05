@@ -368,35 +368,48 @@ class IngestPayload(BaseModel):
 _last_alert_time: dict = {}
 
 async def _auto_alert(pool, box_id: str, reading_id: int, reading: dict, ai_result: dict):
-    """สร้าง Alert อัตโนมัติ พร้อมระบบป้องกันการเด้งรัว (Deduplication + Auto-Resolve)"""
+    """สร้าง Alert อัตโนมัติ พร้อมระบบป้องกันการเด้งรัว (Deduplication + Escalation + Hysteresis Auto-Resolve)"""
     now = time.monotonic()
 
-    # 1) Threshold-based alerts
+    # 1) Threshold-based alerts (TVOC, PM2.5, eCO2)
     for field, limits in THRESHOLDS.items():
         val = reading.get(field)
         if val is None:
             continue
 
         field_prefix = f"{field.upper()}%"
-        
+        key = (box_id, field)
+
+        # Hysteresis / Deadband: เพื่อป้องกัน Sensor Jitter บริเวณขอบเกณฑ์ (เช่น TVOC แกว่ง 199 <-> 201)
+        # จะ Auto-resolve ก็ต่อเมื่อค่าตกลงมาต่ำกว่า recovery_limit (90% ของเกณฑ์ warn หรือ -5 หน่วย)
+        recovery_limit = (limits["warn"] - 5.0) if field == "pm25" else (limits["warn"] * 0.9)
+
         if val >= limits["critical"] or val >= limits["warn"]:
-            # เช็คว่ามี Active Alert ของเรื่องนี้อยู่แล้วหรือไม่ (ถ้ามีอยู่แล้ว ไม่ต้องส่งซ้ำ)
-            active_alert = await pool.fetchval(
-                "SELECT id FROM alerts WHERE box_id = $1 AND status = 'Active' AND message LIKE $2 LIMIT 1",
+            # เช็คว่ามี Active Alert ของเรื่องนี้อยู่แล้วหรือไม่
+            active_alert = await pool.fetchrow(
+                "SELECT id, level FROM alerts WHERE box_id = $1 AND status = 'Active' AND message LIKE $2 ORDER BY id DESC LIMIT 1",
                 box_id, field_prefix
             )
-            if active_alert:
-                continue
-
-            # เช็ค Cooldown ป้องกันยิงถี่เกินไป (อย่างน้อย 60 วินาที)
-            key = (box_id, field)
-            if now - _last_alert_time.get(key, 0) < 60:
-                continue
 
             level = "Critical" if val >= limits["critical"] else "Warning"
             status_text = "สูงเกินวิกฤต" if level == "Critical" else "สูงเกินปกติ"
             limit_val = limits["critical"] if level == "Critical" else limits["warn"]
             msg = f"{field.upper()} {status_text}: {val} (เกณฑ์ {limit_val})"
+
+            if active_alert:
+                # ถ้าระดับรุนแรงขึ้นจาก Warning เป็น Critical ให้อัปเกรด Alert เดิม ไม่สร้างแถวใหม่ซ้ำซ้อน
+                if active_alert["level"] == "Warning" and level == "Critical":
+                    await pool.execute(
+                        "UPDATE alerts SET level = $1, message = $2 WHERE id = $3",
+                        level, msg, active_alert["id"]
+                    )
+                    _last_alert_time[key] = now
+                # ถ้าระดับเดิมหรือต่ำกว่า ไม่ต้องสร้างใหม่
+                continue
+
+            # เช็ค Cooldown ป้องกันยิงถี่เกินไป (อย่างน้อย 60 วินาที)
+            if now - _last_alert_time.get(key, 0) < 60:
+                continue
 
             await pool.execute(
                 "INSERT INTO alerts (box_id, level, message, status) VALUES ($1, $2, $3, 'Active')",
@@ -404,24 +417,39 @@ async def _auto_alert(pool, box_id: str, reading_id: int, reading: dict, ai_resu
             )
             _last_alert_time[key] = now
 
-        else:
-            # เมื่อค่ากลับมาเป็นปกติแล้ว ให้ Auto-resolve alert เดิมที่เป็น Active ทันที
+        elif val < recovery_limit:
+            # เมื่อค่ากลับมาเป็นปกติจริงๆ (ต่ำกว่า recovery deadband) ให้ Auto-resolve alert เดิมที่เป็น Active ทันที
             await pool.execute(
                 "UPDATE alerts SET status = 'Resolved' WHERE box_id = $1 AND status = 'Active' AND message LIKE $2",
                 box_id, field_prefix
             )
 
     # 2) AI-based alert — เมื่อตรวจพบสารอันตราย
+    ai_key = (box_id, "AI")
+    active_ai = await pool.fetchrow(
+        "SELECT id FROM alerts WHERE box_id = $1 AND status = 'Active' AND (message LIKE 'AI%' OR level = 'High') ORDER BY id DESC LIMIT 1",
+        box_id
+    )
+
     if ai_result.get("is_dangerous"):
         pred = ai_result["prediction"]
         conf = ai_result["confidence"]
-        ai_key = (box_id, "AI", pred)
-        if now - _last_alert_time.get(ai_key, 0) >= 120:
+
+        # ถ้ามี Active Alert ของ AI เรื่องนี้อยู่แล้ว ไม่สร้างซ้ำ
+        if not active_ai:
+            if now - _last_alert_time.get(ai_key, 0) >= 60:
+                await pool.execute(
+                    "INSERT INTO alerts (box_id, level, message, status) VALUES ($1, 'High', $2, 'Active')",
+                    box_id, f"AI ตรวจพบสาร {pred} (confidence {conf}%)",
+                )
+                _last_alert_time[ai_key] = now
+    else:
+        # เมื่อสภาพอากาศกลับเป็นปกติ (ไม่ใช่สารอันตราย) Auto-resolve AI alert เดิม
+        if active_ai:
             await pool.execute(
-                "INSERT INTO alerts (box_id, level, message, status) VALUES ($1, 'High', $2, 'Active')",
-                box_id, f"AI ตรวจพบสาร {pred} (confidence {conf}%)",
+                "UPDATE alerts SET status = 'Resolved' WHERE id = $1",
+                active_ai["id"]
             )
-            _last_alert_time[ai_key] = now
 
 
 @app.post("/api/ingest")
