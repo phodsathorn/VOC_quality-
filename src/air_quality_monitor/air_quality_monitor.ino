@@ -21,6 +21,17 @@
 #include <Adafruit_CCS811.h>
 #include <DHT.h>
 #include <Preferences.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+// ═══════════════════════════════════════════════════════
+// WIRELESS (ANTENNA) CONFIGURATION
+// ═══════════════════════════════════════════════════════
+const char* WIFI_SSID     = "Urworld";
+const char* WIFI_PASSWORD = "REDACTED_PASSWORD";
+const char* API_URL       = "http://172.20.10.2:8000/api/ingest";
+const char* BOX_ID        = "BOX-001";
 
 // ═══════════════════════════════════════════════════════
 // PIN DEFINITIONS
@@ -219,10 +230,14 @@ void run_device_check() {
 
   // ── DHT22 ────────────────────────────────────────────
   dht.begin();
-  delay(2000);
+  delay(1000);
   {
-    float t = dht.readTemperature();
-    bool ok = !isnan(t);
+    bool ok = false;
+    for (int retry = 0; retry < 3; retry++) {
+      float t = dht.readTemperature();
+      if (!isnan(t)) { ok = true; break; }
+      delay(800);
+    }
     sensors[0].found = ok;
     if (!ok) snprintf(sensors[0].errMsg, 48, "No response GPIO %d", PIN_DHT22);
     print_check("DHT22", ok, ok ? "GPIO 27 OK" : sensors[0].errMsg);
@@ -299,8 +314,9 @@ void run_device_check() {
   if (all_ok) {
     decide_warmup_flow();
   } else {
-    Serial.println(B + R + "  Some devices FAILED. Check wiring and reset.\n" + RST);
-    currentPhase = PHASE_ERROR;
+    Serial.println(B + Y + "  [WARNING] อุปกรณ์บางชิ้นไม่พร้อม — กำลังข้ามและเริ่มระบบต่อด้วยเซนเซอร์ที่พร้อมใช้งาน...\n" + RST);
+    delay(1500);
+    decide_warmup_flow();
   }
 }
 
@@ -616,6 +632,15 @@ void print_running_display() {
   }
   Serial.println(CLR_LINE + B + C + "╠═══════════════════════════════════════════════════╣" + RST);
 
+  // Wireless Antenna
+  if (WiFi.status() == WL_CONNECTED) {
+    String sig = String(WiFi.RSSI()) + " dBm";
+    print_row("Antenna (WiFi)", "ONLINE", sig.c_str(), G);
+  } else {
+    print_row("Antenna (WiFi)", "CONNECTING", "...", Y);
+  }
+  print_sep();
+
   // DHT22 (2 rows + sep)
   print_row("Temperature",  isnan(data.temp)     ? "---" : String(data.temp,     1), "°C",  (!isnan(data.temp) && data.temp > 35) ? R : G);
   print_row("Humidity",     isnan(data.humidity) ? "---" : String(data.humidity, 1), "%RH", W);
@@ -819,6 +844,81 @@ void print_calibration_screen() {
 }
 
 // ═══════════════════════════════════════════════════════
+// WIRELESS (ANTENNA) TRANSMISSION
+// ═══════════════════════════════════════════════════════
+
+void init_wifi() {
+  Serial.println(B + C + "\n╔═══════════════════════════════════════════════════╗" + RST);
+  Serial.println(B + C + "║  CONNECTING TO 2.4GHz WIRELESS NETWORK (ANTENNA)  ║" + RST);
+  Serial.println(B + C + "╚═══════════════════════════════════════════════════╝" + RST);
+  Serial.print(F("  >> SSID   : ")); Serial.println(WIFI_SSID);
+  Serial.print(F("  >> Target : ")); Serial.println(API_URL);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  uint32_t t0 = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - t0 < 8000) {
+    delay(400);
+    Serial.print(F("."));
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println(B + G + "\n  [WiFi OK] เชื่อมต่อสำเร็จผ่านเสาอากาศ!" + RST);
+    Serial.print(F("  [WiFi] ESP32 IP : ")); Serial.println(WiFi.localIP());
+    Serial.print(F("  [WiFi] Signal   : ")); Serial.print(WiFi.RSSI()); Serial.println(F(" dBm"));
+  } else {
+    Serial.println(B + Y + "\n  [WiFi] ยังเชื่อมต่อไม่สำเร็จ (จะลองใหม่อัตโนมัติในพื้นหลัง)" + RST);
+  }
+  delay(1000);
+}
+
+void send_data_wifi() {
+  static uint32_t last_wifi_post = 0;
+  if (millis() - last_wifi_post < 2000) return; // ส่งขึ้นเว็บทุก 2 วินาที
+  last_wifi_post = millis();
+
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.reconnect();
+    return;
+  }
+
+  HTTPClient http;
+  http.begin(API_URL);
+  http.addHeader("Content-Type", "application/json");
+  http.setTimeout(1500);
+
+  JsonDocument doc;
+  doc["box_id"] = BOX_ID;
+  if (!isnan(data.temp))     doc["temp"] = round(data.temp * 10.0f) / 10.0f;
+  if (!isnan(data.humidity)) doc["rh"]   = round(data.humidity * 10.0f) / 10.0f;
+  doc["pm25"] = data.pm25;
+
+  if (data.eco2 >= 400) {
+    doc["eco2"] = data.eco2;
+    doc["tvoc"] = data.tvoc;
+  } else {
+    doc["eco2"] = 400;
+    doc["tvoc"] = 0;
+  }
+
+  doc["mq2"]   = data.mq2;
+  doc["mq3"]   = data.mq3;
+  doc["mq135"] = data.mq135;
+  doc["mq8"]   = data.mq8;
+
+  doc["mics_co"] = (int)round(data.co_mv);
+  doc["no2"]     = (int)round(data.no2_mv);
+  doc["nh3"]     = (int)round(data.nh3_mv);
+
+  String payload;
+  serializeJson(doc, payload);
+
+  http.POST(payload);
+  http.end();
+}
+
+// ═══════════════════════════════════════════════════════
 // SETUP & LOOP
 // ═══════════════════════════════════════════════════════
 
@@ -836,6 +936,9 @@ void setup() {
   load_baseline();
 
   run_device_check();
+
+  // เชื่อมต่อ WiFi สำหรับเสาอากาศ
+  init_wifi();
 }
 
 void loop() {
@@ -954,6 +1057,7 @@ void loop() {
       if (millis() - last_update >= RUN_INTERVAL) {
         last_update = millis();
         read_all_sensors();
+        send_data_wifi();
         print_running_display();
       }
       break;

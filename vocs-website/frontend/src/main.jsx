@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import './mockApi.js'   // 🟡 Mock API — intercept fetch ก่อน component โหลด
+// import './mockApi.js'   // 🟡 Mock API — ปิดเพื่อให้ต่อ API จริง
 import App from './App.jsx'
 import './index.css'
 

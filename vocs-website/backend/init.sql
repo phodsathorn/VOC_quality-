@@ -29,12 +29,14 @@ CREATE TABLE IF NOT EXISTS sensor_readings (
     eco2        NUMERIC(8, 2),
 
     -- E-Nose Sensors (raw ADC values)
+    mq2         INTEGER,
     mq3         INTEGER,
     mq135       INTEGER,
     mq8         INTEGER,
     mics_co     INTEGER,
     no2         INTEGER,
-    nh3         INTEGER
+    nh3         INTEGER,
+    session_id  BIGINT
 );
 
 -- Index สำหรับ query เร็ว (Time-series by box_id)

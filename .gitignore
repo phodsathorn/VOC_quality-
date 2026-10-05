@@ -35,3 +35,4 @@ dist/
 
 # Docker
 postgres_data/
+logs/
