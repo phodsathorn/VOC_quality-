@@ -473,7 +473,14 @@ async def ingest_reading(payload: IngestPayload, request: Request):
         payload.box_id,
     )
 
-    # 2. บันทึกค่าเซนเซอร์
+    # 2. บันทึกค่าเซนเซอร์ — เชื่อมต่อกับ active training session อัตโนมัติ (ถ้ามี)
+    active_session_id = payload.session_id
+    if active_session_id is None:
+        active_session_id = await pool.fetchval(
+            "SELECT id FROM training_sessions WHERE box_id = $1 AND ended_at IS NULL ORDER BY started_at DESC LIMIT 1",
+            payload.box_id,
+        )
+
     row = await pool.fetchrow(
         """
         INSERT INTO sensor_readings
@@ -484,7 +491,7 @@ async def ingest_reading(payload: IngestPayload, request: Request):
         payload.box_id,
         payload.temp, payload.rh, payload.pm25, payload.tvoc, payload.eco2,
         payload.mq2, payload.mq3, payload.mq135, payload.mq8, payload.mics_co, payload.no2, payload.nh3,
-        payload.session_id,
+        active_session_id,
     )
     reading_id = row["id"]
 
@@ -617,11 +624,11 @@ async def export_csv(session_id: Optional[int] = None):
     if session_id:
         rows = await pool.fetch(
             """
-            SELECT sr.recorded_at, sr.box_id, ts.label,
+            SELECT sr.recorded_at, sr.box_id, COALESCE(ts.label, 'UNLABELED') AS label,
                    sr.temp, sr.rh, sr.pm25, sr.tvoc, sr.eco2,
                    sr.mq2, sr.mq3, sr.mq135, sr.mq8, sr.mics_co, sr.no2, sr.nh3
             FROM sensor_readings sr
-            JOIN training_sessions ts ON ts.id = sr.session_id
+            LEFT JOIN training_sessions ts ON ts.id = sr.session_id
             WHERE sr.session_id = $1 ORDER BY sr.recorded_at
             """,
             session_id,
@@ -629,17 +636,17 @@ async def export_csv(session_id: Optional[int] = None):
     else:
         rows = await pool.fetch(
             """
-            SELECT sr.recorded_at, sr.box_id, ts.label,
+            SELECT sr.recorded_at, sr.box_id, COALESCE(ts.label, 'AMBIENT') AS label,
                    sr.temp, sr.rh, sr.pm25, sr.tvoc, sr.eco2,
                    sr.mq2, sr.mq3, sr.mq135, sr.mq8, sr.mics_co, sr.no2, sr.nh3
             FROM sensor_readings sr
-            JOIN training_sessions ts ON ts.id = sr.session_id
-            ORDER BY ts.label, sr.recorded_at
+            LEFT JOIN training_sessions ts ON ts.id = sr.session_id
+            ORDER BY sr.recorded_at ASC
             """
         )
 
     if not rows:
-        raise HTTPException(status_code=404, detail="No labeled data found")
+        raise HTTPException(status_code=404, detail="No sensor data found to export")
 
     output = io.StringIO()
     writer = csv.writer(output)

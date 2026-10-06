@@ -8,6 +8,9 @@ import {
 import {
   isSoundEnabled, setSoundEnabled, toggleSoundEnabled, triggerAlertSound
 } from '../utils/soundAlert';
+import {
+  getBaseline, saveBaseline, resetBaseline, DEFAULT_R0
+} from '../utils/ppmConverter';
 
 // ข้อมูลประกอบแต่ละ sensor
 const SENSOR_META = {
@@ -31,6 +34,8 @@ const SENSOR_META = {
 export default function Settings() {
   const [thresholds, setThresholds] = useState(() => getThresholds());
   const [general,    setGeneral]    = useState(() => getGeneral());
+  const [baseline,   setBaseline]   = useState(() => getBaseline());
+  const [captureMsg, setCaptureMsg] = useState(null); // 'loading' | 'ok' | 'nodata' | 'error'
   const [saved,      setSaved]      = useState(false);
   const [syncStatus, setSyncStatus] = useState(null); // 'syncing' | 'ok' | 'error'
   const [modelMsg,   setModelMsg]   = useState(null);
@@ -51,10 +56,44 @@ export default function Settings() {
     setThresholds(prev => ({ ...prev, [key]: { ...prev[key], [field]: val } }));
   }
 
+  function handleBaselineChange(key, raw) {
+    const val = parseFloat(raw);
+    if (isNaN(val)) return;
+    setBaseline(prev => ({ ...prev, [key]: val }));
+  }
+
+  async function handleCaptureBaseline() {
+    setCaptureMsg('loading');
+    try {
+      const res = await fetch(`${API}/api/dashboard/latest?box_id=${general.boxId || 'BOX-001'}`);
+      const json = await res.json();
+      if (json && json.sensors) {
+        const newB = {
+          mq2:     json.sensors.mq2     ?? baseline.mq2,
+          mq3:     json.sensors.mq3     ?? baseline.mq3,
+          mq8:     json.sensors.mq8     ?? baseline.mq8,
+          mq135:   json.sensors.mq135   ?? baseline.mq135,
+          mics_co: json.sensors.mics_co ?? baseline.mics_co,
+          no2:     json.sensors.no2     ?? baseline.no2,
+          nh3:     json.sensors.nh3     ?? baseline.nh3,
+        };
+        setBaseline(newB);
+        saveBaseline(newB);
+        setCaptureMsg('ok');
+      } else {
+        setCaptureMsg('nodata');
+      }
+    } catch {
+      setCaptureMsg('error');
+    }
+    setTimeout(() => setCaptureMsg(null), 4000);
+  }
+
   async function handleSave() {
     // 1. บันทึกลง localStorage
     saveThresholds(thresholds);
     saveGeneral(general);
+    saveBaseline(baseline);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
 
@@ -97,8 +136,10 @@ export default function Settings() {
   function handleReset() {
     resetThresholds();
     resetGeneral();
+    resetBaseline();
     setThresholds({ ...DEFAULT_THRESHOLDS });
     setGeneral({ ...DEFAULT_GENERAL });
+    setBaseline({ ...DEFAULT_R0 });
     setSaved(false);
   }
 
@@ -345,7 +386,78 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* ── Section 3: AI Model ──────────────────────────────── */}
+      {/* ── Section 3: Clean Air Baseline (R0 Calibration) ── */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>🌬️ จุดอ้างอิงอากาศบริสุทธิ์ (Clean Air Baseline / R₀)</span>
+            </h2>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+              ค่าความต้านทาน / แรงดันอ้างอิงในอากาศบริสุทธิ์ ใช้สำหรับคำนวณอัตราส่วน Rs/R₀ เพื่อแปลงเป็นหน่วย ~ppm
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              onClick={handleCaptureBaseline}
+              disabled={captureMsg === 'loading'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.375rem',
+                padding: '0.45rem 0.85rem', borderRadius: '0.5rem',
+                border: '1px solid #10b981', backgroundColor: '#ecfdf5',
+                color: '#047857', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <RefreshCw size={13} style={{ animation: captureMsg === 'loading' ? 'spin 1s linear infinite' : 'none' }} />
+              {captureMsg === 'loading' ? 'กำลังดึงค่า...' : '📥 ดึงค่าสดจากเครื่องเป็น Baseline'}
+            </button>
+            {captureMsg === 'ok' && (
+              <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 600 }}>✅ บันทึก Baseline ปัจจุบันแล้ว!</span>
+            )}
+            {captureMsg === 'nodata' && (
+              <span style={{ fontSize: '0.78rem', color: '#f59e0b' }}>⚠ ไม่พบข้อมูลเซนเซอร์</span>
+            )}
+            {captureMsg === 'error' && (
+              <span style={{ fontSize: '0.78rem', color: '#ef4444' }}>⚠ เชื่อมต่อไม่สำเร็จ</span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+          {[
+            { key: 'mq2', title: 'MQ-2 (Smoke/LPG)', unit: 'ADC', desc: 'Clean Air R₀ (ADC)' },
+            { key: 'mq3', title: 'MQ-3 (Alcohol)', unit: 'ADC', desc: 'Clean Air R₀ (ADC)' },
+            { key: 'mq8', title: 'MQ-8 (H₂)', unit: 'ADC', desc: 'Clean Air R₀ (ADC)' },
+            { key: 'mq135', title: 'MQ-135 (NH₃/Benzene)', unit: 'ADC', desc: 'Clean Air R₀ (ADC)' },
+            { key: 'mics_co', title: 'MiCS-6814 (CO)', unit: 'mV', desc: 'Clean Air V₀ (mV)' },
+            { key: 'no2', title: 'MiCS-6814 (NO₂)', unit: 'mV', desc: 'Clean Air V₀ (mV)' },
+            { key: 'nh3', title: 'MiCS-6814 (NH₃)', unit: 'mV', desc: 'Clean Air V₀ (mV)' },
+          ].map(({ key, title, unit, desc }) => (
+            <div key={key} style={{ padding: '0.75rem', borderRadius: '0.5rem', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--primary-color)' }}>{title}</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{unit}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <input
+                  type="number"
+                  value={baseline[key] ?? ''}
+                  onChange={e => handleBaselineChange(key, e.target.value)}
+                  style={{
+                    width: '100%', padding: '0.4rem 0.5rem',
+                    borderRadius: '0.375rem', border: '1.5px solid var(--border-color)',
+                    fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700,
+                    background: 'white', outline: 'none',
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Section 4: AI Model ──────────────────────────────── */}
       {!isMock && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

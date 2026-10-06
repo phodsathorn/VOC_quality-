@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pencil, Trash2, X, Save } from 'lucide-react';
 
-const API = 'http://localhost:8000';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // ─── Shared button styles ────────────────────────────────────
 const btnIcon = (color) => ({
