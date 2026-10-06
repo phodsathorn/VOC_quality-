@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { RefreshCw, Wind, Thermometer, Droplets, AlertTriangle, CheckCircle, Activity } from 'lucide-react';
+import { RefreshCw, Wind, Thermometer, Droplets, AlertTriangle, CheckCircle, Activity, Info } from 'lucide-react';
 import { getThresholds } from '../utils/settings';
+import { convertAllToPpm, formatPpm, getUnitMode, setUnitMode, convertTvocToPpm } from '../utils/ppmConverter';
 
-const API = 'http://localhost:8000';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const REFRESH_INTERVAL_MS = 3000;
 
 // อ่านค่า threshold จาก Settings (localStorage) — sync อัตโนมัติกับหน้า Settings
@@ -12,13 +13,13 @@ function getSensorThresholds() {
     tvoc:    { warn: t.tvoc.warn, crit: t.tvoc.critical, unit: 'ppb',    label: 'TVOC',              color: '#8b5cf6' },
     eco2:    { warn: t.eco2.warn, crit: t.eco2.critical, unit: 'ppm',    label: 'eCO\u2082',          color: '#0ea5e9' },
     pm25:    { warn: t.pm25.warn, crit: t.pm25.critical, unit: '\u00b5g/m\u00b3', label: 'PM2.5', color: '#f59e0b' },
-    mq2:     { warn: 2000, crit: 3000, unit: 'ADC', label: 'MQ-2 (Smoke/LPG)',   color: '#eab308' },
-    mq3:     { warn: 2500, crit: 3500, unit: 'ADC', label: 'MQ-3 (Alcohol)',    color: '#10b981' },
-    mq135:   { warn: 2000, crit: 3000, unit: 'ADC', label: 'MQ-135 (NH\u2083/NOx)', color: '#ef4444' },
+    mq2:     { warn: 1500, crit: 2500, unit: 'ADC', label: 'MQ-2 (Smoke/LPG)',   color: '#eab308' },
+    mq3:     { warn: 1500, crit: 2500, unit: 'ADC', label: 'MQ-3 (Alcohol)',    color: '#10b981' },
+    mq135:   { warn: 1500, crit: 2500, unit: 'ADC', label: 'MQ-135 (NH\u2083/NOx)', color: '#ef4444' },
     mq8:     { warn: 2000, crit: 3000, unit: 'ADC', label: 'MQ-8 (H\u2082)',    color: '#f97316' },
-    mics_co: { warn: 1500, crit: 2500, unit: 'ADC', label: 'MICS (CO)',         color: '#ec4899' },
-    no2:     { warn: 1000, crit: 1800, unit: 'ADC', label: 'NO\u2082',           color: '#a855f7' },
-    nh3:     { warn: 1500, crit: 2500, unit: 'ADC', label: 'NH\u2083',           color: '#14b8a6' },
+    mics_co: { warn: 600,  crit: 1200, unit: 'mV',  label: 'MiCS (CO)',         color: '#ec4899' },
+    no2:     { warn: 300,  crit: 600,  unit: 'mV',  label: 'NO\u2082',           color: '#a855f7' },
+    nh3:     { warn: 500,  crit: 1000, unit: 'mV',  label: 'NH\u2083',           color: '#14b8a6' },
   };
 }
 
@@ -35,8 +36,23 @@ function levelColor(level) {
   return '#10b981';
 }
 
-function SensorBadge({ sensorKey, value }) {
+function SensorBadge({ sensorKey, value, isPpm, ppmData }) {
   const thresh = getSensorThresholds()[sensorKey];
+  let displayVal = value;
+  let displayUnit = thresh.unit;
+
+  if (isPpm) {
+    if (sensorKey === 'tvoc') {
+      const ppmVal = convertTvocToPpm(value);
+      displayVal = ppmVal != null ? (ppmVal >= 10 ? ppmVal.toFixed(1) : ppmVal.toFixed(3)) : '—';
+      displayUnit = 'ppm';
+    } else if (ppmData && ppmData[sensorKey]) {
+      const p = ppmData[sensorKey];
+      displayVal = formatPpm(p.ppm, p.unit);
+      displayUnit = p.unit;
+    }
+  }
+
   const level = getLevel(value, thresh);
   const color = levelColor(level);
   const pct = value != null ? Math.min(100, (value / thresh.crit) * 100) : 0;
@@ -61,12 +77,14 @@ function SensorBadge({ sensorKey, value }) {
         borderRadius: '0 0 10px 10px',
       }} />
       <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: 2 }}>
-        {thresh.label}
+        {isPpm && ppmData?.[sensorKey]?.refGas ? `${thresh.label} (${ppmData[sensorKey].refGas})` : thresh.label}
       </div>
       <div style={{ fontSize: '1.25rem', fontWeight: 700, color: value != null ? color : '#94a3b8' }}>
-        {value != null ? value.toLocaleString() : '—'}
+        {displayVal != null ? displayVal : '—'}
       </div>
-      <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{thresh.unit}</div>
+      <div style={{ fontSize: '0.65rem', color: isPpm ? '#059669' : '#94a3b8', fontWeight: isPpm ? 600 : 400 }}>
+        {displayUnit}
+      </div>
       {level !== 'normal' && (
         <div style={{
           position: 'absolute', top: 6, right: 6,
@@ -104,6 +122,12 @@ export default function AirflowDiagram() {
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [animTick, setAnimTick] = useState(0);
+  const [unitMode, setUnitModeState] = useState(() => getUnitMode());
+
+  const handleUnitToggle = (mode) => {
+    setUnitModeState(mode);
+    setUnitMode(mode);
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -126,9 +150,12 @@ export default function AirflowDiagram() {
     return () => clearInterval(t);
   }, [fetchData]);
 
+  const SENSOR_THRESHOLDS = getSensorThresholds();
   const env = data?.environment ?? {};
   const sensors = data?.sensors ?? {};
   const ai = data?.ai_detection;
+  const ppmData = convertAllToPpm(sensors);
+  const isPpm = unitMode === 'ppm';
 
   // รวมค่าทั้งหมดเพื่อดูว่า overall status เป็นอะไร
   const allValues = {
@@ -150,17 +177,74 @@ export default function AirflowDiagram() {
   const flowSpeed = tvocLevel === 'critical' ? 3 : tvocLevel === 'warning' ? 5 : 8;
   const flowColor = overallColor;
 
+  if (!data) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', padding: '2rem' }}>
+        <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
+        กำลังโหลด Airflow Diagram...
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
         <div>
           <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>Airflow Diagram</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
             โฟลว์อากาศจากภายนอกสู่ระบบเซนเซอร์ — realtime update ทุก 3 วินาที
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {/* Unit Toggle */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            backgroundColor: '#f1f5f9',
+            padding: '3px',
+            borderRadius: '0.5rem',
+            border: '1px solid var(--border-color)',
+          }}>
+            <button
+              type="button"
+              onClick={() => handleUnitToggle('raw')}
+              style={{
+                padding: '0.35rem 0.65rem',
+                borderRadius: '0.375rem',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                backgroundColor: unitMode === 'raw' ? 'white' : 'transparent',
+                color: unitMode === 'raw' ? 'var(--primary-color)' : 'var(--text-muted)',
+                boxShadow: unitMode === 'raw' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              Raw (ADC/mV)
+            </button>
+            <button
+              type="button"
+              onClick={() => handleUnitToggle('ppm')}
+              style={{
+                padding: '0.35rem 0.65rem',
+                borderRadius: '0.375rem',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                backgroundColor: unitMode === 'ppm' ? 'var(--primary-color)' : 'transparent',
+                color: unitMode === 'ppm' ? 'white' : 'var(--text-muted)',
+                boxShadow: unitMode === 'ppm' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              ~ppm
+            </button>
+          </div>
+
           {lastUpdated && (
             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               อัปเดต {lastUpdated.toLocaleTimeString('th-TH')}
@@ -455,24 +539,24 @@ export default function AirflowDiagram() {
             <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>%RH</div>
           </div>
           <SensorBadge sensorKey="pm25" value={env.pm25} />
-          <SensorBadge sensorKey="tvoc" value={env.tvoc} />
-          <SensorBadge sensorKey="eco2" value={env.eco2} />
+          <SensorBadge sensorKey="tvoc" value={env.tvoc} isPpm={isPpm} ppmData={ppmData} />
+          <SensorBadge sensorKey="eco2" value={env.eco2} isPpm={isPpm} ppmData={ppmData} />
         </div>
       </div>
 
       {/* E-Nose Row */}
       <div>
         <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
-          🔬 E-NOSE SENSORS (RAW ADC)
+          🔬 E-NOSE SENSORS {isPpm ? '(~PPM CONCENTRATION)' : '(RAW ADC/mV)'}
         </div>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <SensorBadge sensorKey="mq2"     value={sensors.mq2 != null ? sensors.mq2 : null} />
-          <SensorBadge sensorKey="mq3"     value={sensors.mq3 != null ? sensors.mq3 : null} />
-          <SensorBadge sensorKey="mq135"   value={sensors.mq135 != null ? sensors.mq135 : null} />
-          <SensorBadge sensorKey="mq8"     value={sensors.mq8 != null ? sensors.mq8 : null} />
-          <SensorBadge sensorKey="mics_co" value={sensors.mics_co != null ? sensors.mics_co : null} />
-          <SensorBadge sensorKey="no2"     value={sensors.no2 != null ? sensors.no2 : null} />
-          <SensorBadge sensorKey="nh3"     value={sensors.nh3 != null ? sensors.nh3 : null} />
+          <SensorBadge sensorKey="mq2"     value={sensors.mq2 != null ? sensors.mq2 : null} isPpm={isPpm} ppmData={ppmData} />
+          <SensorBadge sensorKey="mq3"     value={sensors.mq3 != null ? sensors.mq3 : null} isPpm={isPpm} ppmData={ppmData} />
+          <SensorBadge sensorKey="mq135"   value={sensors.mq135 != null ? sensors.mq135 : null} isPpm={isPpm} ppmData={ppmData} />
+          <SensorBadge sensorKey="mq8"     value={sensors.mq8 != null ? sensors.mq8 : null} isPpm={isPpm} ppmData={ppmData} />
+          <SensorBadge sensorKey="mics_co" value={sensors.mics_co != null ? sensors.mics_co : null} isPpm={isPpm} ppmData={ppmData} />
+          <SensorBadge sensorKey="no2"     value={sensors.no2 != null ? sensors.no2 : null} isPpm={isPpm} ppmData={ppmData} />
+          <SensorBadge sensorKey="nh3"     value={sensors.nh3 != null ? sensors.nh3 : null} isPpm={isPpm} ppmData={ppmData} />
         </div>
       </div>
 

@@ -21,9 +21,13 @@ import re
 import csv
 import threading
 from datetime import datetime
+import queue
+import requests
 import serial
 import serial.tools.list_ports
 
+API_URL   = os.getenv("API_URL", "http://localhost:8000/api/ingest")
+BOX_ID    = os.getenv("BOX_ID", "BOX-001")
 BAUD_RATE = 115200
 
 # Regular expressions สำหรับดึงตัวเลขจากหน้าจอไปลง CSV
@@ -131,9 +135,27 @@ def main():
     input_thread = threading.Thread(target=user_input_thread, daemon=True)
     input_thread.start()
 
-    # Buffer สำหรับสะสมข้อความเพื่อ parse ลง CSV
+    web_queue = queue.Queue(maxsize=3)
+
+    def web_sync_worker():
+        while running:
+            try:
+                payload = web_queue.get(timeout=1.0)
+            except queue.Empty:
+                continue
+            try:
+                requests.post(API_URL, json=payload, timeout=1.5)
+            except Exception:
+                pass
+            finally:
+                web_queue.task_done()
+
+    sync_thread = threading.Thread(target=web_sync_worker, daemon=True)
+    sync_thread.start()
+
+    # Buffer สำหรับสะสมข้อความเพื่อ parse
     text_buffer = ""
-    current_readings = {}
+    last_web_post = 0
 
     try:
         while True:
@@ -143,40 +165,65 @@ def main():
                 sys.stdout.write(chunk)
                 sys.stdout.flush()
 
-                if logging_active:
-                    text_buffer += strip_ansi(chunk)
-                    # เมื่อจบรอบ frame (มีเครื่องหมาย ╚ หรือข้อความ Update:)
-                    if "Update:" in text_buffer or "╚" in text_buffer:
-                        # Extract ข้อมูล
-                        m_t   = RE_TEMP.search(text_buffer)
-                        m_h   = RE_HUM.search(text_buffer)
-                        m_co2 = RE_ECO2.search(text_buffer)
-                        m_voc = RE_TVOC.search(text_buffer)
-                        m_co  = RE_CO.search(text_buffer)
-                        m_no2 = RE_NO2.search(text_buffer)
-                        m_nh3 = RE_NH3.search(text_buffer)
-                        m_pm1 = RE_PM1.search(text_buffer)
-                        m_pm25= RE_PM25.search(text_buffer)
-                        m_pm10= RE_PM10.search(text_buffer)
-                        m_mq2 = RE_MQ2.search(text_buffer)
-                        m_mq3 = RE_MQ3.search(text_buffer)
-                        m_mq8 = RE_MQ8.search(text_buffer)
-                        m_mq135=RE_MQ135.search(text_buffer)
+                text_buffer += strip_ansi(chunk)
+                # เมื่อจบรอบ frame (มีเครื่องหมาย ╚ หรือข้อความ Update:)
+                if "Update:" in text_buffer or "╚" in text_buffer:
+                    # Extract ข้อมูล
+                    m_t   = RE_TEMP.search(text_buffer)
+                    m_h   = RE_HUM.search(text_buffer)
+                    m_co2 = RE_ECO2.search(text_buffer)
+                    m_voc = RE_TVOC.search(text_buffer)
+                    m_co  = RE_CO.search(text_buffer)
+                    m_no2 = RE_NO2.search(text_buffer)
+                    m_nh3 = RE_NH3.search(text_buffer)
+                    m_pm1 = RE_PM1.search(text_buffer)
+                    m_pm25= RE_PM25.search(text_buffer)
+                    m_pm10= RE_PM10.search(text_buffer)
+                    m_mq2 = RE_MQ2.search(text_buffer)
+                    m_mq3 = RE_MQ3.search(text_buffer)
+                    m_mq8 = RE_MQ8.search(text_buffer)
+                    m_mq135=RE_MQ135.search(text_buffer)
 
-                        if m_t and m_mq2 and csv_writer:
-                            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            csv_writer.writerow([
-                                ts,
-                                m_t.group(1), m_h.group(1) if m_h else "",
-                                m_co2.group(1) if m_co2 else "", m_voc.group(1) if m_voc else "",
-                                m_co.group(1) if m_co else "", m_no2.group(1) if m_no2 else "", m_nh3.group(1) if m_nh3 else "",
-                                m_pm1.group(1) if m_pm1 else "", m_pm25.group(1) if m_pm25 else "", m_pm10.group(1) if m_pm10 else "",
-                                m_mq2.group(1), m_mq3.group(1) if m_mq3 else "", m_mq8.group(1) if m_mq8 else "", m_mq135.group(1) if m_mq135 else ""
-                            ])
-                            log_file.flush()
-                            logged_rows += 1
-                        # ล้าง buffer หลัง parse จบ frame
-                        text_buffer = ""
+                    if logging_active and m_t and m_mq2 and csv_writer:
+                        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        csv_writer.writerow([
+                            ts,
+                            m_t.group(1), m_h.group(1) if m_h else "",
+                            m_co2.group(1) if m_co2 else "", m_voc.group(1) if m_voc else "",
+                            m_co.group(1) if m_co else "", m_no2.group(1) if m_no2 else "", m_nh3.group(1) if m_nh3 else "",
+                            m_pm1.group(1) if m_pm1 else "", m_pm25.group(1) if m_pm25 else "", m_pm10.group(1) if m_pm10 else "",
+                            m_mq2.group(1), m_mq3.group(1) if m_mq3 else "", m_mq8.group(1) if m_mq8 else "", m_mq135.group(1) if m_mq135 else ""
+                        ])
+                        log_file.flush()
+                        logged_rows += 1
+
+                    # ส่งข้อมูลขึ้น Web Dashboard
+                    now = time.time()
+                    if (now - last_web_post >= 0.8) and (m_t or m_mq2 or m_mq3):
+                        last_web_post = now
+                        payload = {
+                            "box_id": BOX_ID,
+                            "temp": float(m_t.group(1)) if m_t else None,
+                            "rh": float(m_h.group(1)) if m_h else None,
+                            "pm25": float(m_pm25.group(1)) if m_pm25 else 0.0,
+                            "tvoc": float(m_voc.group(1)) if m_voc else 0.0,
+                            "eco2": float(m_co2.group(1)) if m_co2 else 400.0,
+                            "mq2": int(m_mq2.group(1)) if m_mq2 else None,
+                            "mq3": int(m_mq3.group(1)) if m_mq3 else None,
+                            "mq8": int(m_mq8.group(1)) if m_mq8 else None,
+                            "mq135": int(m_mq135.group(1)) if m_mq135 else None,
+                            "mics_co": int(round(float(m_co.group(1)))) if m_co else 0,
+                            "no2": int(round(float(m_no2.group(1)))) if m_no2 else 0,
+                            "nh3": int(round(float(m_nh3.group(1)))) if m_nh3 else 0,
+                        }
+                        try:
+                            if not web_queue.full():
+                                web_queue.put_nowait(payload)
+                        except Exception:
+                            pass
+
+                    # ล้าง buffer หลัง parse จบ frame
+                    text_buffer = ""
             time.sleep(0.02)
     except KeyboardInterrupt:
         print("\n\n👋 ปิดการเชื่อมต่อเรียบร้อยครับ\n")

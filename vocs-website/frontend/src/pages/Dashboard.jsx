@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { AlertTriangle, CheckCircle, RefreshCw, Clock, Cpu, ChevronDown } from 'lucide-react';
+import { AlertTriangle, CheckCircle, RefreshCw, Clock, Cpu, ChevronDown, Info } from 'lucide-react';
 import { getThresholds, getGeneral } from '../utils/settings';
+import { convertAllToPpm, formatPpm, getUnitMode, setUnitMode } from '../utils/ppmConverter';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const REFRESH_INTERVAL_MS = 5000; // auto-refresh ทุก 5 วินาที
@@ -15,6 +16,12 @@ export default function Dashboard() {
   const [timeRange,   setTimeRange]   = useState('1h');
   const [deviceList,  setDeviceList]  = useState([]);
   const [boxId,       setBoxId]       = useState(() => getGeneral().boxId || 'BOX-001');
+  const [unitMode,    setUnitModeState] = useState(() => getUnitMode());
+
+  const handleUnitToggle = (mode) => {
+    setUnitModeState(mode);
+    setUnitMode(mode);
+  };
 
   // อ่าน threshold จาก Settings (localStorage) ทุก render
   const thresholds = getThresholds();
@@ -237,10 +244,12 @@ export default function Dashboard() {
             title: 'TVOC (CCS811)', 
             thName: 'สารอินทรีย์ระเหยรวม', 
             desc: 'ไอระเหยทินเนอร์ สี สารทำละลาย', 
-            val: data.environment?.tvoc, 
-            unit: 'ppb', 
-            warn: thresholds.tvoc.warn, 
-            crit: thresholds.tvoc.critical 
+            val: unitMode === 'ppm'
+              ? (data.environment?.tvoc != null ? (data.environment.tvoc / 1000 >= 10 ? (data.environment.tvoc / 1000).toFixed(1) : (data.environment.tvoc / 1000).toFixed(3)) : '—')
+              : data.environment?.tvoc, 
+            unit: unitMode === 'ppm' ? 'ppm' : 'ppb', 
+            warn: unitMode === 'ppm' ? (thresholds.tvoc.warn / 1000) : thresholds.tvoc.warn, 
+            crit: unitMode === 'ppm' ? (thresholds.tvoc.critical / 1000) : thresholds.tvoc.critical 
           },
           { 
             key: 'eco2', 
@@ -275,49 +284,142 @@ export default function Dashboard() {
       </div>
 
       {/* E-Nose */}
-      <div style={{ margin: '2rem 0 1rem' }}>
-        <h2 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span>โครงข่ายจมูกอิเล็กทรอนิกส์ (E-Nose Sensor Array)</span>
-        </h2>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          เซนเซอร์ตรวจจับกลิ่นและจำแนกกลุ่มก๊าซมลพิษเฉพาะทาง สำหรับส่งให้โมเดล AI ประมวลผล
-        </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', margin: '2rem 0 1rem' }}>
+        <div>
+          <h2 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>โครงข่ายจมูกอิเล็กทรอนิกส์ (E-Nose Sensor Array)</span>
+          </h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            เซนเซอร์ตรวจจับกลิ่นและจำแนกกลุ่มก๊าซมลพิษเฉพาะทาง สำหรับส่งให้โมเดล AI ประมวลผล
+          </p>
+        </div>
+
+        {/* Unit Selector Toggle */}
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          backgroundColor: '#f1f5f9',
+          padding: '3px',
+          borderRadius: '0.5rem',
+          border: '1px solid var(--border-color)',
+        }}>
+          <button
+            type="button"
+            onClick={() => handleUnitToggle('raw')}
+            style={{
+              padding: '0.35rem 0.75rem',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              backgroundColor: unitMode === 'raw' ? 'white' : 'transparent',
+              color: unitMode === 'raw' ? 'var(--primary-color)' : 'var(--text-muted)',
+              boxShadow: unitMode === 'raw' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            ADC / mV (Raw)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleUnitToggle('ppm')}
+            style={{
+              padding: '0.35rem 0.75rem',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              backgroundColor: unitMode === 'ppm' ? 'var(--primary-color)' : 'transparent',
+              color: unitMode === 'ppm' ? 'white' : 'var(--text-muted)',
+              boxShadow: unitMode === 'ppm' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            ~ppm (ความเข้มข้น)
+          </button>
+        </div>
       </div>
 
-      <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
-        {[
-          { key: 'mq2', title: 'MQ-2', target: 'ควันและก๊าซไวไฟ', sub: 'Smoke / LPG / Propane', unit: 'ADC' },
-          { key: 'mq3', title: 'MQ-3', target: 'ไอแอลกอฮอล์ / ทินเนอร์', sub: 'Alcohol / Solvent Vapors', unit: 'ADC' },
-          { key: 'mq135', title: 'MQ-135', target: 'คุณภาพอากาศ / เบนซีน', sub: 'Air Quality / Benzene / NH₃', unit: 'ADC' },
-          { key: 'mq8', title: 'MQ-8', target: 'ก๊าซไฮโดรเจน', sub: 'Hydrogen Gas (H₂)', unit: 'ADC' },
-          { key: 'mics_co', title: 'MiCS-6814 (CO)', target: 'คาร์บอนมอนอกไซด์', sub: 'Carbon Monoxide (เผาไหม้)', unit: 'mV' },
-          { key: 'no2', title: 'MiCS-6814 (NO₂)', target: 'ไนโตรเจนไดออกไซด์', sub: 'Nitrogen Dioxide (ไอเสีย/เตาอบ)', unit: 'mV' },
-          { key: 'nh3', title: 'MiCS-6814 (NH₃)', target: 'แอมโมเนียและกลิ่นฉุน', sub: 'Ammonia Gas', unit: 'mV' },
-        ].map(({ key, title, target, sub, unit }) => (
-          <div className="card stat-card" key={key} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1rem' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--primary-color)' }}>{title}</span>
-                <span style={{ fontSize: '0.7rem', padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569' }}>
-                  {unit}
-                </span>
-              </div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', marginTop: '0.2rem' }}>
-                {target}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {sub}
-              </div>
-            </div>
-            <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
-              <div className="stat-value" style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                {data.sensors?.[key] ?? '—'}
-              </div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{unit}</span>
-            </div>
+      {unitMode === 'ppm' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '0.5rem',
+          padding: '0.55rem 0.85rem', marginBottom: '1.25rem',
+          borderRadius: '0.5rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0',
+          color: '#166534', fontSize: '0.8rem'
+        }}>
+          <Info size={16} style={{ flexShrink: 0 }} />
+          <span>
+            <strong>โหมดแปลงค่า (~ppm):</strong> คำนวณจาก Power-Law Curve ตาม Datasheet เทียบกับจุดอ้างอิง Clean Air Baseline (R₀) | เป็นค่าประมาณการตามก๊าซอ้างอิงเพื่อดูแนวโน้ม
+          </span>
+        </div>
+      )}
+
+      {(() => {
+        const ppmData = convertAllToPpm(data?.sensors);
+        const isPpm = unitMode === 'ppm';
+
+        return (
+          <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
+            {[
+              { key: 'mq2', title: 'MQ-2', target: 'ควันและก๊าซไวไฟ', sub: 'Smoke / LPG / Propane' },
+              { key: 'mq3', title: 'MQ-3', target: 'ไอแอลกอฮอล์ / ทินเนอร์', sub: 'Alcohol / Solvent Vapors' },
+              { key: 'mq135', title: 'MQ-135', target: 'คุณภาพอากาศ / เบนซีน', sub: 'Air Quality / Benzene / NH₃' },
+              { key: 'mq8', title: 'MQ-8', target: 'ก๊าซไฮโดรเจน', sub: 'Hydrogen Gas (H₂)' },
+              { key: 'mics_co', title: 'MiCS-6814 (CO)', target: 'คาร์บอนมอนอกไซด์', sub: 'Carbon Monoxide (เผาไหม้)' },
+              { key: 'no2', title: 'MiCS-6814 (NO₂)', target: 'ไนโตรเจนไดออกไซด์', sub: 'Nitrogen Dioxide (ไอเสีย/เตาอบ)' },
+              { key: 'nh3', title: 'MiCS-6814 (NH₃)', target: 'แอมโมเนียและกลิ่นฉุน', sub: 'Ammonia Gas' },
+            ].map(({ key, title, target, sub }) => {
+              const rawVal = data.sensors?.[key];
+              const conv = ppmData[key] || {};
+              const displayVal = isPpm ? formatPpm(conv.ppm, conv.unit) : (rawVal ?? '—');
+              const displayUnit = isPpm ? conv.unit : conv.rawUnit;
+
+              return (
+                <div className="card stat-card" key={key} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1rem' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--primary-color)' }}>{title}</span>
+                      <span style={{
+                        fontSize: '0.7rem', padding: '0.15rem 0.45rem', borderRadius: '4px',
+                        backgroundColor: isPpm ? '#ecfdf5' : '#f1f5f9',
+                        color: isPpm ? '#059669' : '#475569',
+                        fontWeight: 600,
+                      }}>
+                        {isPpm ? `${conv.refGas}` : displayUnit}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', marginTop: '0.2rem' }}>
+                      {isPpm ? (conv.gasLabelTh || target) : target}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {sub}
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
+                      <div className="stat-value" style={{
+                        fontSize: '1.5rem',
+                        fontWeight: 700,
+                        color: isPpm && conv.ppm > 0 ? '#047857' : 'inherit'
+                      }}>
+                        {displayVal}
+                      </div>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{displayUnit}</span>
+                    </div>
+                    {isPpm && (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                        ดิบ: <strong>{rawVal ?? '—'}</strong> {conv.rawUnit} {conv.ratio ? `· Rs/R₀: ${conv.ratio}` : ''}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ))}
-      </div>
+        );
+      })()}
 
       {/* History Chart */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '2rem 0 1rem' }}>
