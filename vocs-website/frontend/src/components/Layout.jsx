@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Activity, Bell, Settings, LayoutDashboard, Box, Database, Wind, BookOpen,
-  X, AlertCircle, Volume2, VolumeX, ShieldAlert, AlertTriangle, Info
+  X, AlertCircle, Volume2, VolumeX, ShieldAlert, AlertTriangle, Info, Wrench
 } from 'lucide-react';
 import {
   isSoundEnabled, toggleSoundEnabled, triggerAlertSound
@@ -93,6 +93,7 @@ export default function Layout({ children }) {
     { name: 'Devices',         path: '/devices',        icon: <Box size={20} /> },
     { name: 'Data Collection', path: '/data-collection',icon: <Database size={20} /> },
     { name: 'Airflow Diagram', path: '/airflow',        icon: <Wind size={20} /> },
+    { name: 'Maintenance',     path: '/maintenance',    icon: <Wrench size={20} /> },
     { name: 'Alerts',          path: '/alerts',         icon: <Bell size={20} /> },
     { name: 'คู่มือการใช้งาน',  path: '/guide',          icon: <BookOpen size={20} /> },
     { name: 'Settings',        path: '/settings',       icon: <Settings size={20} /> },

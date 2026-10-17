@@ -24,14 +24,21 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <ArduinoOTA.h>
+#include <ESPmDNS.h>
+#include <WebServer.h>
+#include <Update.h>
 
 // ═══════════════════════════════════════════════════════
 // WIRELESS (ANTENNA) CONFIGURATION
 // ═══════════════════════════════════════════════════════
 const char* WIFI_SSID     = "Urworld";
 const char* WIFI_PASSWORD = "REDACTED_PASSWORD";
-const char* API_URL       = "http://172.20.10.2:8000/api/ingest";
 const char* BOX_ID        = "BOX-001";
+
+// Dynamic API Target (บันทึกและแก้ผ่านหน้าเว็บได้โดยไม่ต้องแฟลชใหม่)
+String api_url_str = "http://172.20.10.3:8000/api/ingest";
+WebServer server(80);
 
 // ═══════════════════════════════════════════════════════
 // PIN DEFINITIONS
@@ -61,10 +68,10 @@ const char* BOX_ID        = "BOX-001";
 // WARM-UP TIMES (วินาที)
 // ═══════════════════════════════════════════════════════
 const uint32_t WARMUP_DHT22    = 2;
-const uint32_t WARMUP_PMS5003  = 30;
-const uint32_t WARMUP_CCS811   = 20 * 60;   // 20 นาที
-const uint32_t WARMUP_MICS6814 = 120 * 60;  // 120 นาที
-const uint32_t WARMUP_MQ       = 5 * 60;    // 5 นาที ต่อตัว
+const uint32_t WARMUP_PMS5003  = 10;
+const uint32_t WARMUP_CCS811   = 30;   // อุ่นเครื่องเริ่มต้น 30 วินาที
+const uint32_t WARMUP_MICS6814 = 30;   // อุ่นเครื่องเริ่มต้น 30 วินาที
+const uint32_t WARMUP_MQ       = 30;   // อุ่นเครื่องเริ่มต้น 30 วินาที
 
 // ═══════════════════════════════════════════════════════
 // DISPLAY MODE CONFIG
@@ -847,12 +854,149 @@ void print_calibration_screen() {
 // WIRELESS (ANTENNA) TRANSMISSION
 // ═══════════════════════════════════════════════════════
 
+void setup_ota_and_web() {
+  if (MDNS.begin("airmon")) {
+    Serial.println(F("  [mDNS] http://airmon.local"));
+  }
+
+  // 1. ArduinoOTA (สำหรับแฟลชโค้ดตรงจาก Arduino IDE ผ่าน Wi-Fi)
+  ArduinoOTA.setHostname("airmon-box-001");
+  ArduinoOTA.onStart([]() {
+    Serial.println(F("\n[OTA] Firmware update starting via Wi-Fi..."));
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println(F("\n[OTA] Success! Rebooting..."));
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("[OTA] Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("[OTA] Error[%u]\n", error);
+  });
+  ArduinoOTA.begin();
+
+  // 2. Web Server: Live Dashboard & Config
+  server.on("/", HTTP_GET, []() {
+    String html = "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>";
+    html += "<title>Air Quality Monitor (BOX-001)</title>";
+    html += "<style>body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#f8fafc;padding:20px;max-width:600px;margin:auto}";
+    html += ".card{background:#1e293b;padding:16px;border-radius:12px;margin-bottom:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.3)}";
+    html += "h1{font-size:20px;color:#38bdf8;margin-bottom:6px}h2{font-size:15px;color:#94a3b8;margin-top:0}";
+    html += ".grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}";
+    html += ".val{font-size:18px;font-weight:bold;color:#10b981}";
+    html += "input[type=text]{width:100%;padding:10px;border-radius:6px;border:1px solid #475569;background:#0f172a;color:#fff;box-sizing:border-box;font-size:14px}";
+    html += "button,.btn{display:inline-block;padding:10px 16px;background:#0284c7;color:#fff;border:none;border-radius:6px;cursor:pointer;text-decoration:none;font-weight:bold;margin-top:8px}";
+    html += ".btn-danger{background:#ef4444}.btn-sec{background:#334155;color:#e2e8f0}</style></head><body>";
+    html += "<h1>🍃 Air Quality Monitor — BOX-001</h1>";
+    html += "<p style='color:#94a3b8;font-size:13px;margin-top:0'>IP: " + WiFi.localIP().toString() + " | RSSI: " + String(WiFi.RSSI()) + " dBm</p>";
+    
+    html += "<div class='card'><h2>📊 Live Sensor Telemetry</h2><div class='grid'>";
+    html += "<div>Temp: <span class='val'>" + String(data.temp, 1) + " &deg;C</span></div>";
+    html += "<div>RH: <span class='val'>" + String(data.humidity, 1) + " %</span></div>";
+    html += "<div>PM2.5: <span class='val'>" + String(data.pm25) + " ug/m3</span></div>";
+    html += "<div>TVOC: <span class='val'>" + String(data.tvoc) + " ppb</span></div>";
+    html += "<div>eCO2: <span class='val'>" + String(data.eco2) + " ppm</span></div>";
+    html += "<div>CO: <span class='val'>" + String(data.co_mv, 0) + " mV</span></div>";
+    html += "<div>NO2: <span class='val'>" + String(data.no2_mv, 0) + " mV</span></div>";
+    html += "<div>NH3: <span class='val'>" + String(data.nh3_mv, 0) + " mV</span></div>";
+    html += "<div>MQ-2: <span class='val'>" + String(data.mq2) + "</span></div>";
+    html += "<div>MQ-3: <span class='val'>" + String(data.mq3) + "</span></div>";
+    html += "<div>MQ-8: <span class='val'>" + String(data.mq8) + "</span></div>";
+    html += "<div>MQ-135: <span class='val'>" + String(data.mq135) + "</span></div>";
+    html += "</div></div>";
+
+    html += "<div class='card'><h2>⚙️ Backend Target API</h2>";
+    html += "<p style='font-size:12px;color:#94a3b8;margin:0 0 8px 0'>แก้ IP ปลายทางได้ทันทีโดยไม่ต้องแฟลชบอร์ดใหม่</p>";
+    html += "<form method='POST' action='/set_api'>";
+    html += "<input type='text' name='url' value='" + api_url_str + "'>";
+    html += "<button type='submit'>💾 Save New Target API</button>";
+    html += "</form></div>";
+
+    html += "<div class='card'><h2>🚀 Wireless OTA Update</h2>";
+    html += "<p style='font-size:13px;color:#94a3b8'>อัปเดตโค้ดใหม่ผ่าน Wi-Fi ได้ 2 ทาง:<br>";
+    html += "1. <b>Arduino IDE</b>: เลือก Port <i>airmon-box-001 (Network Port)</i> แล้วกด Upload ได้เลย<br>";
+    html += "2. <b>Web Browser</b>: กดปุ่มด้านล่างเพื่อเลือกไฟล์ .bin แล้วแฟลชผ่านหน้าเว็บ</p>";
+    html += "<a href='/update' class='btn'>⚡ Open Web OTA Updater</a> ";
+    html += "<a href='/restart' class='btn btn-danger' onclick='return confirm(\"Reboot ESP32?\")'>🔄 Reboot ESP32</a>";
+    html += "</div></body></html>";
+    server.send(200, "text/html", html);
+  });
+
+  server.on("/set_api", HTTP_POST, []() {
+    if (server.hasArg("url")) {
+      String new_url = server.arg("url");
+      new_url.trim();
+      if (new_url.length() > 5) {
+        api_url_str = new_url;
+        prefs.begin("airmon", false);
+        prefs.putString("api_url", api_url_str);
+        prefs.end();
+        Serial.printf("  [Config] Target URL updated: %s\n", api_url_str.c_str());
+      }
+    }
+    server.sendHeader("Location", "/");
+    server.send(303);
+  });
+
+  server.on("/restart", HTTP_GET, []() {
+    server.send(200, "text/plain", "Rebooting ESP32...");
+    delay(500);
+    ESP.restart();
+  });
+
+  // 3. Web OTA Form & Handler
+  server.on("/update", HTTP_GET, []() {
+    String html = "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>";
+    html += "<title>OTA Firmware Update</title>";
+    html += "<style>body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#fff;padding:20px;text-align:center}";
+    html += ".box{background:#1e293b;padding:30px;border-radius:12px;display:inline-block;margin-top:40px;box-shadow:0 4px 6px rgba(0,0,0,0.4);max-width:400px}";
+    html += "input[type=file]{margin:15px 0}button{padding:10px 20px;background:#10b981;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer}</style></head><body>";
+    html += "<div class='box'><h2>⚡ ESP32 Web Firmware Flash</h2>";
+    html += "<p style='color:#94a3b8;font-size:13px'>เลือกไฟล์ <b>.bin</b> เพื่อแฟลชไร้สายผ่าน Wi-Fi</p>";
+    html += "<form method='POST' action='/update' enctype='multipart/form-data'>";
+    html += "<input type='file' name='update' accept='.bin'><br>";
+    html += "<button type='submit'>🚀 Flash Firmware</button>";
+    html += "</form><br><a href='/' style='color:#38bdf8;text-decoration:none'>&larr; Back to Dashboard</a></div></body></html>";
+    server.send(200, "text/html", html);
+  });
+
+  server.on("/update", HTTP_POST, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", "<body style='font-family:sans-serif;background:#0f172a;color:#10b981;text-align:center;padding:50px'><h2>" +
+      String((Update.hasError()) ? "❌ UPDATE FAILED" : "✅ UPDATE SUCCESSFUL! Rebooting ESP32...") +
+      "</h2><p style='color:#94a3b8'>Please wait ~10 seconds then refresh.</p><script>setTimeout(function(){location.href='/';},10000);</script></body>");
+    delay(1000);
+    ESP.restart();
+  }, []() {
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      Serial.printf("[Web OTA] Update: %s\n", upload.filename.c_str());
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (Update.end(true)) {
+        Serial.printf("[Web OTA] Update Success: %u bytes\n", upload.totalSize);
+      } else {
+        Update.printError(Serial);
+      }
+    }
+  });
+
+  server.begin();
+  Serial.println(F("  [Web & OTA] Ready at http://airmon.local and via Arduino IDE Network Port"));
+}
+
 void init_wifi() {
   Serial.println(B + C + "\n╔═══════════════════════════════════════════════════╗" + RST);
   Serial.println(B + C + "║  CONNECTING TO 2.4GHz WIRELESS NETWORK (ANTENNA)  ║" + RST);
   Serial.println(B + C + "╚═══════════════════════════════════════════════════╝" + RST);
   Serial.print(F("  >> SSID   : ")); Serial.println(WIFI_SSID);
-  Serial.print(F("  >> Target : ")); Serial.println(API_URL);
+  Serial.print(F("  >> Target : ")); Serial.println(api_url_str);
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -867,6 +1011,7 @@ void init_wifi() {
     Serial.println(B + G + "\n  [WiFi OK] เชื่อมต่อสำเร็จผ่านเสาอากาศ!" + RST);
     Serial.print(F("  [WiFi] ESP32 IP : ")); Serial.println(WiFi.localIP());
     Serial.print(F("  [WiFi] Signal   : ")); Serial.print(WiFi.RSSI()); Serial.println(F(" dBm"));
+    setup_ota_and_web();
   } else {
     Serial.println(B + Y + "\n  [WiFi] ยังเชื่อมต่อไม่สำเร็จ (จะลองใหม่อัตโนมัติในพื้นหลัง)" + RST);
   }
@@ -879,12 +1024,17 @@ void send_data_wifi() {
   last_wifi_post = millis();
 
   if (WiFi.status() != WL_CONNECTED) {
-    WiFi.reconnect();
+    static uint32_t last_reconnect_try = 0;
+    if (millis() - last_reconnect_try > 8000) {
+      last_reconnect_try = millis();
+      Serial.println(F("  [WiFi] Connection lost, reconnecting..."));
+      WiFi.reconnect();
+    }
     return;
   }
 
   HTTPClient http;
-  http.begin(API_URL);
+  http.begin(api_url_str);
   http.addHeader("Content-Type", "application/json");
   http.setTimeout(1500);
 
@@ -914,7 +1064,12 @@ void send_data_wifi() {
   String payload;
   serializeJson(doc, payload);
 
-  http.POST(payload);
+  int httpCode = http.POST(payload);
+  if (httpCode > 0) {
+    // ส่งข้อมูลสำเร็จ
+  } else {
+    Serial.printf("  [WiFi POST Error] %s\n", http.errorToString(httpCode).c_str());
+  }
   http.end();
 }
 
@@ -932,6 +1087,12 @@ void setup() {
   pinMode(PIN_RELAY_IN1, OUTPUT); digitalWrite(PIN_RELAY_IN1, LOW);
   pinMode(PIN_RELAY_IN2, OUTPUT); digitalWrite(PIN_RELAY_IN2, LOW);
 
+  // โหลดค่า Dynamic Target API URL จาก Flash NVS
+  prefs.begin("airmon", false);
+  String saved_url = prefs.getString("api_url", "");
+  if (saved_url.length() > 5) api_url_str = saved_url;
+  prefs.end();
+
   // โหลดค่า Clean Air Baseline (R0) จาก Flash ถ้าเคย Calibrate ไว้
   load_baseline();
 
@@ -942,6 +1103,10 @@ void setup() {
 }
 
 void loop() {
+  // ให้สิทธิ์ OTA และ Web Server ทำงานก่อนเสมอ
+  ArduinoOTA.handle();
+  server.handleClient();
+
   static uint32_t last_update = 0;
 
   switch (currentPhase) {
@@ -996,6 +1161,8 @@ void loop() {
 
       if (millis() - last_update >= WARMUP_INTERVAL) {
         last_update = millis();
+        read_all_sensors();
+        send_data_wifi();
         print_warmup_table(false);
         if (all_ready()) {
           // วอร์มเสร็จตามเวลาธรรมชาติ -> บันทึกลง Flash

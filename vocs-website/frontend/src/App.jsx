@@ -7,6 +7,7 @@ import Alerts from './pages/Alerts';
 import AirflowDiagram from './pages/AirflowDiagram';
 import Settings from './pages/Settings';
 import Guide from './pages/Guide';
+import Maintenance from './pages/Maintenance';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <Route path="/alerts"          element={<Alerts />} />
           <Route path="/airflow"         element={<AirflowDiagram />} />
           <Route path="/guide"           element={<Guide />} />
+          <Route path="/maintenance"     element={<Maintenance />} />
           <Route path="/settings"        element={<Settings />} />
         </Routes>
       </Layout>
