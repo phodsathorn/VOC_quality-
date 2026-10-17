@@ -173,6 +173,20 @@ setInterval(tickSensor, 3000);
 // ─── Route handlers ───────────────────────────────────────────
 const routes = [
   {
+    method: 'GET', pattern: /\/api\/sensor\/latest/,
+    handler() {
+      const s = state.sensor;
+      return {
+        temp: s.temp, rh: s.rh,
+        pm25: s.pm25, pm10: Math.round(s.pm25 * 1.4),
+        tvoc: s.tvoc, eco2: s.eco2,
+        mq2: s.mq2, mq3: s.mq3, mq8: s.mq8, mq135: s.mq135,
+        mics_co: s.mics_co, no2: s.no2, nh3: s.nh3,
+      };
+    },
+  },
+
+  {
     method: 'GET', pattern: /\/api\/dashboard\/latest/,
     handler(url) {
       const boxId = new URL(url).searchParams.get('box_id') ?? 'BOX-001';
@@ -252,6 +266,83 @@ const routes = [
         ended_at: s.ended_at ? s.ended_at.toISOString() : null,
         reading_count: s.reading_count,
       }));
+    },
+  },
+
+  {
+    method: 'GET', pattern: /\/api\/maintenance\/status/,
+    handler() {
+      const now = new Date();
+      const SENSOR_META = [
+        { id:'mq2',    label:'MQ-2',      type:'Gas (MOS)',    pin:'GPIO 33', lifespan:730,  age:180, drift:0.12, noise:0.08, warnHI:60, critHI:40, calInterval:90,  color:'#d97706', measurands:['Smoke','LPG','Methane'], notes:'MQ semiconductor sensors drift ~5–8% per month' },
+        { id:'mq3',    label:'MQ-3',      type:'Gas (MOS)',    pin:'GPIO 36', lifespan:730,  age:210, drift:0.18, noise:0.10, warnHI:60, critHI:40, calInterval:90,  color:'#16a34a', measurands:['Alcohol','Benzene','Thinner'], notes:'Sensitive to humidity' },
+        { id:'mq8',    label:'MQ-8',      type:'Gas (MOS)',    pin:'GPIO 34', lifespan:730,  age:95,  drift:0.06, noise:0.05, warnHI:60, critHI:40, calInterval:90,  color:'#ea580c', measurands:['Hydrogen (H₂)','Flammable Gas'], notes:'High sensitivity to H₂' },
+        { id:'mq135',  label:'MQ-135',    type:'Gas (MOS)',    pin:'GPIO 39', lifespan:730,  age:320, drift:0.28, noise:0.16, warnHI:60, critHI:40, calInterval:90,  color:'#dc2626', measurands:['NH₃','Benzene','Smoke','CO₂'], notes:'Broadest cross-sensitivity' },
+        { id:'ccs811', label:'CCS811',    type:'MEMS (I²C)',   pin:'I²C Bus1',lifespan:1460, age:60,  drift:0.04, noise:0.03, warnHI:70, critHI:50, calInterval:180, color:'#7c3aed', measurands:['TVOC (ppb)','eCO₂ (ppm)'], notes:'Requires 48h burn-in when new' },
+        { id:'mics',   label:'MiCS-6814', type:'Multi-MEMS',   pin:'ADS1115', lifespan:1095, age:145, drift:0.11, noise:0.07, warnHI:65, critHI:45, calInterval:120, color:'#db2777', measurands:['CO (mV)','NO₂ (mV)','NH₃ (mV)'], notes:'3 independent sensing elements' },
+        { id:'pms',    label:'PMS5003',   type:'Laser Particle',pin:'UART2',  lifespan:1095, age:400, drift:0.22, noise:0.12, warnHI:65, critHI:45, calInterval:365, color:'#0284c7', measurands:['PM1.0','PM2.5','PM10 (µg/m³)'], notes:'Laser + fan degradation' },
+        { id:'dht22',  label:'DHT22',     type:'Capacitive',   pin:'GPIO 27', lifespan:2920, age:30,  drift:0.02, noise:0.01, warnHI:75, critHI:55, calInterval:365, color:'#475569', measurands:['Temperature (°C)','Humidity (%RH)'], notes:'Most reliable sensor' },
+      ];
+
+      const sensors = SENSOR_META.map(p => {
+        const ageFactor   = Math.max(0, 1 - p.age / p.lifespan);
+        const driftFactor = Math.max(0, 1 - p.drift / 0.40);
+        const noiseFactor = Math.max(0, 1 - p.noise / 0.25);
+        const hi = Math.round((0.40 * ageFactor + 0.35 * driftFactor + 0.25 * noiseFactor) * 100);
+        const degradRate = Math.max(0.01, (hi - p.critHI) / (p.age || 1));
+        const rul = Math.round((hi - p.critHI) / degradRate);
+        const lastCalDays = [70, 85, 30, 110, 25, 50, 140, 15][SENSOR_META.indexOf(p)];
+        const lastCal = new Date(now.getTime() - lastCalDays * 24 * 3600 * 1000);
+        const nextCal = new Date(lastCal.getTime() + p.calInterval * 24 * 3600 * 1000);
+
+        const trend = Array.from({ length: 30 }, (_, d) => {
+          const dayAgo = 29 - d;
+          return Math.max(p.critHI - 5, hi + dayAgo * (degradRate * 0.8) + (Math.sin(d) * 2));
+        });
+
+        return {
+          ...p,
+          hi,
+          rul: rul > 0 ? rul : 9999,
+          lastCal: lastCal.toLocaleDateString('th-TH'),
+          nextCal: nextCal.toLocaleDateString('th-TH'),
+          calOverdue: nextCal < now,
+          trend,
+        };
+      });
+
+      const filterAge = 95;
+      const filterHI = Math.round(Math.max(0, (1 - filterAge / 180) * 100));
+      const filterRUL = Math.round((filterHI - 20) / Math.max(0.1, filterHI / (filterAge || 1)));
+
+      return {
+        sensors,
+        filter: {
+          hi: filterHI,
+          rul: filterRUL,
+          age: filterAge,
+          lifespan: 180,
+          replaceBy: new Date(now.getTime() + filterRUL * 24 * 3600 * 1000).toLocaleDateString('th-TH'),
+        },
+        lastUpdate: now.toLocaleString('th-TH'),
+        systemUptime: 847,
+      };
+    },
+  },
+
+  {
+    method: 'POST', pattern: /\/api\/maintenance\/calibrate\/(.+)/,
+    handler(url) {
+      const match = url.match(/\/api\/maintenance\/calibrate\/(.+)/);
+      const sensorId = match ? match[1] : 'unknown';
+      return { success: true, sensor_id: sensorId, message: `Sensor ${sensorId} calibrated successfully` };
+    },
+  },
+
+  {
+    method: 'POST', pattern: /\/api\/maintenance\/replace-filter/,
+    handler() {
+      return { success: true, message: 'Filter replaced successfully' };
     },
   },
 
