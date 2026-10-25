@@ -11,13 +11,12 @@
  *  RUL (days) = (HI_threshold - HI_current) / degradation_rate
  * ─────────────────────────────────────────────────────────────────────
  */
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Activity, AlertTriangle, CheckCircle2, Clock, Cpu, Filter,
-  RefreshCw, TrendingDown, Wrench, Zap, Info, ChevronRight,
-  BarChart3, Shield, Wind, ThermometerSun, Gauge, FileText,
-  Printer, Check, Sparkles, Play, CheckCheck,
-  AlertCircle, Download, X
+  RefreshCw, Wrench, Zap, ChevronRight,
+  BarChart3, Gauge, FileText,
+  Printer, Check, Play
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';

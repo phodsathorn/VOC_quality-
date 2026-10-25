@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { RefreshCw, Wind, Thermometer, Droplets, AlertTriangle, CheckCircle, Activity, Info } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
 import { getThresholds } from '../utils/settings';
 import { convertAllToPpm, formatPpm, getUnitMode, setUnitMode, convertTvocToPpm } from '../utils/ppmConverter';
 
@@ -121,7 +121,6 @@ export default function AirflowDiagram() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [animTick, setAnimTick] = useState(0);
   const [unitMode, setUnitModeState] = useState(() => getUnitMode());
 
   const handleUnitToggle = (mode) => {
@@ -136,7 +135,6 @@ export default function AirflowDiagram() {
       const json = await res.json();
       setData(json);
       setLastUpdated(new Date());
-      setAnimTick(t => t + 1);
     } catch (e) {
       console.error(e);
     } finally {

@@ -16,8 +16,10 @@ FEATURE_COLS = [
     "mq2", "mq3", "mq135", "mq8", "mics_co", "no2", "nh3"
 ]
 
-# สารที่ถือว่าอันตราย (ไม่ใช่สภาพแวดล้อมปกติ)
-DANGEROUS_LABELS = {"THINNER", "ALCOHOL", "ACETONE", "BENZENE", "TOLUENE", "GASOLINE", "BLEACH"}
+DANGEROUS_LABELS = {
+    "THINNER", "ALCOHOL", "ETHANOL", "IPA", "ACETONE",
+    "BENZENE", "TOLUENE", "GASOLINE", "BLEACH", "AMMONIA", "แอลกอฮอล"
+}
 
 _pipeline = None
 

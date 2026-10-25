@@ -8,6 +8,7 @@ import AirflowDiagram from './pages/AirflowDiagram';
 import Settings from './pages/Settings';
 import Guide from './pages/Guide';
 import Maintenance from './pages/Maintenance';
+import History from './pages/History';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
       <Layout>
         <Routes>
           <Route path="/"                element={<Dashboard />} />
+          <Route path="/history"         element={<History />} />
           <Route path="/devices"         element={<Devices />} />
           <Route path="/data-collection" element={<DataCollection />} />
           <Route path="/alerts"          element={<Alerts />} />
