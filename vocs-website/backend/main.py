@@ -592,6 +592,21 @@ async def ingest_reading(payload: IngestPayload, request: Request):
             payload.box_id,
         )
 
+    # กรองค่าขยะ I2C bus error frames / Outliers (เช่น 64319, 39064, 32800)
+    # ป้องกันไม่ให้สัญญาณรบกวนฮาร์ดแวร์หลุดเข้าไปทำให้ AI ทายแอลกอฮอล์ผิดพลาด
+    if payload.tvoc is not None and (payload.tvoc > 3000 or payload.tvoc < 0):
+        payload.tvoc = None
+    if payload.eco2 is not None and (payload.eco2 > 10000 or payload.eco2 < 400):
+        payload.eco2 = None
+    if payload.temp is not None and payload.temp < -10:
+        payload.temp = None
+    if payload.rh is not None and payload.rh < 0:
+        payload.rh = None
+    if payload.no2 is not None and payload.no2 < 0:
+        payload.no2 = 0
+    if payload.nh3 is not None and payload.nh3 < 0:
+        payload.nh3 = 0
+
     row = await pool.fetchrow(
         """
         INSERT INTO sensor_readings
