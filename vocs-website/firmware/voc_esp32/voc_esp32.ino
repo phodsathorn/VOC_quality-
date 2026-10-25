@@ -34,7 +34,194 @@
 #include <HTTPUpdate.h>
 
 WebServer server(80);
-const char* FIRMWARE_VER = "1.0.0";
+const char* FIRMWARE_VER = "1.0.1";
+const char* BOX_ID       = "BOX-001";
+
+// ─── Premium Glassmorphic Web OTA Template (Stored in Flash PROGMEM) ──
+const char OTA_PAGE[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOC E-Nose — Firmware OTA</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { min-height: 100vh; background: radial-gradient(circle at top, #1e293b 0%, #090d16 100%); color: #f8fafc; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .card { width: 100%; max-width: 520px; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+  .title-group h1 { font-size: 1.25rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .title-group p { font-size: 0.8rem; color: #94a3b8; margin-top: 2px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 9999px; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+  .dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 10px #10b981; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+  .stat-box { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); padding: 12px 14px; border-radius: 12px; }
+  .stat-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-bottom: 4px; }
+  .stat-val { font-size: 0.95rem; font-weight: 700; color: #e2e8f0; font-family: ui-monospace, SFMono-Regular, monospace; }
+  .drop-zone { border: 2px dashed rgba(56, 189, 248, 0.3); border-radius: 16px; padding: 28px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: rgba(15, 23, 42, 0.4); margin-bottom: 20px; }
+  .drop-zone:hover, .drop-zone.dragover { border-color: #38bdf8; background: rgba(56, 189, 248, 0.05); }
+  .drop-icon { font-size: 2.2rem; margin-bottom: 8px; display: block; }
+  .drop-text { font-size: 0.88rem; color: #cbd5e1; font-weight: 500; }
+  .drop-sub { font-size: 0.75rem; color: #64748b; margin-top: 4px; }
+  .file-info { display: none; margin-top: 10px; font-size: 0.8rem; color: #38bdf8; font-weight: 600; word-break: break-all; }
+  input[type="file"] { display: none; }
+  .btn-submit { width: 100%; padding: 14px; border: none; border-radius: 12px; font-weight: 700; font-size: 0.95rem; cursor: pointer; background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%); color: #fff; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3); transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(14, 165, 233, 0.45); }
+  .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .progress-wrap { display: none; margin-top: 20px; }
+  .progress-bar { width: 100%; height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 9999px; overflow: hidden; }
+  .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #38bdf8, #10b981); transition: width 0.15s ease; border-radius: 9999px; }
+  .progress-text { display: flex; justify-content: space-between; font-size: 0.78rem; color: #94a3b8; margin-top: 8px; font-weight: 600; }
+  .status-modal { display: none; margin-top: 20px; padding: 16px; border-radius: 12px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); text-align: center; }
+  .status-title { font-size: 1rem; font-weight: 700; color: #34d399; margin-bottom: 4px; }
+  .status-desc { font-size: 0.8rem; color: #a7f3d0; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div class="title-group">
+      <h1>⚡ E-Nose Firmware OTA</h1>
+      <p>ระบบอัปเดตเฟิร์มแวร์ไร้สายความเร็วสูง</p>
+    </div>
+    <div class="badge"><div class="dot"></div> ESP32 ONLINE</div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-box">
+      <div class="stat-label">Device Box ID</div>
+      <div class="stat-val">%BOX_ID%</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Current Version</div>
+      <div class="stat-val" style="color:#38bdf8">%FIRMWARE_VER%</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Wi-Fi Network</div>
+      <div class="stat-val">%SSID%</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Free Heap RAM</div>
+      <div class="stat-val">%FREE_HEAP% KB</div>
+    </div>
+  </div>
+
+  <form id="uploadForm">
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <span class="drop-icon">🚀</span>
+      <div class="drop-text">คลิกเพื่อเลือกไฟล์ <strong>.bin</strong> หรือลากไฟล์มาวางที่นี่</div>
+      <div class="drop-sub">Compiled Binary จาก Arduino IDE (Cmd + Option + S)</div>
+      <div class="file-info" id="fileInfo"></div>
+    </div>
+    <input type="file" id="fileInput" name="update" accept=".bin" onchange="handleFileSelect(this.files)">
+    <button type="submit" class="btn-submit" id="btnSubmit" disabled>
+      ⚡ เริ่มต้นแฟลชเฟิร์มแวร์ (Flash Firmware)
+    </button>
+  </form>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-text"><span id="progressStatus">กำลังส่งข้อมูล...</span><span id="progressPct">0%</span></div>
+  </div>
+
+  <div class="status-modal" id="statusModal">
+    <div class="status-title">✅ แฟลชเฟิร์มแวร์สำเร็จเรียบร้อย!</div>
+    <div class="status-desc" id="countdownDesc">กำลังรีบูต ESP32 และเชื่อมต่อเครือข่ายใหม่... (10 วินาที)</div>
+  </div>
+</div>
+
+<script>
+  let selectedFile = null;
+  function handleFileSelect(files) {
+    if (!files.length) return;
+    selectedFile = files[0];
+    const info = document.getElementById('fileInfo');
+    info.style.display = 'block';
+    const sizeMb = (selectedFile.size / 1024 / 1024).toFixed(2);
+    info.innerHTML = '📄 ' + selectedFile.name + ' (' + sizeMb + ' MB)';
+    document.getElementById('btnSubmit').disabled = false;
+  }
+
+  const dropZone = document.getElementById('dropZone');
+  ['dragenter', 'dragover'].forEach(e => dropZone.addEventListener(e, (ev) => { ev.preventDefault(); dropZone.classList.add('dragover'); }));
+  ['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, (ev) => { ev.preventDefault(); dropZone.classList.remove('dragover'); }));
+  dropZone.addEventListener('drop', (ev) => {
+    ev.preventDefault();
+    if (ev.dataTransfer.files.length) {
+      document.getElementById('fileInput').files = ev.dataTransfer.files;
+      handleFileSelect(ev.dataTransfer.files);
+    }
+  });
+
+  document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    if (!selectedFile) return;
+    const btn = document.getElementById('btnSubmit');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ กำลังส่งไฟล์เข้าสู่ชิป ESP32...';
+
+    const pWrap = document.getElementById('progressWrap');
+    const pFill = document.getElementById('progressFill');
+    const pPct  = document.getElementById('progressPct');
+    const pStat = document.getElementById('progressStatus');
+    pWrap.style.display = 'block';
+
+    const fd = new FormData();
+    fd.append('update', selectedFile);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/update', true);
+
+    xhr.upload.onprogress = function(ev) {
+      if (ev.lengthComputable) {
+        const pct = Math.round((ev.loaded / ev.total) * 100);
+        pFill.style.width = pct + '%';
+        pPct.innerText = pct + '%';
+        pStat.innerText = 'อัปโหลด: ' + (ev.loaded / 1024 / 1024).toFixed(1) + ' MB / ' + (ev.total / 1024 / 1024).toFixed(1) + ' MB';
+      }
+    };
+
+    xhr.onload = function() {
+      pFill.style.width = '100%';
+      pPct.innerText = '100%';
+      document.getElementById('statusModal').style.display = 'block';
+      let sec = 10;
+      const timer = setInterval(() => {
+        sec--;
+        document.getElementById('countdownDesc').innerText = 'กำลังรีบูต ESP32 และเชื่อมต่อใหม่... (' + sec + ' วินาที)';
+        if (sec <= 0) {
+          clearInterval(timer);
+          location.href = '/update';
+        }
+      }, 1000);
+    };
+
+    xhr.onerror = function() {
+      document.getElementById('statusModal').style.display = 'block';
+      let sec = 10;
+      const timer = setInterval(() => {
+        sec--;
+        document.getElementById('countdownDesc').innerText = 'กำลังรีบูต ESP32 และเชื่อมต่อใหม่... (' + sec + ' วินาที)';
+        if (sec <= 0) { clearInterval(timer); location.href = '/update'; }
+      }, 1000);
+    };
+
+    xhr.send(fd);
+  });
+</script>
+</body>
+</html>
+)rawliteral";
+
+void handleServeOTA() {
+  String html = FPSTR(OTA_PAGE);
+  html.replace("%BOX_ID%", BOX_ID);
+  html.replace("%FIRMWARE_VER%", FIRMWARE_VER);
+  html.replace("%SSID%", WiFi.SSID().length() > 0 ? WiFi.SSID() : "N/A");
+  html.replace("%FREE_HEAP%", String(ESP.getFreeHeap() / 1024));
+  server.send(200, "text/html; charset=utf-8", html);
+}
 
 // ─── Data Structure ──────────────────────────────────────────
 struct SensorData {
@@ -47,7 +234,6 @@ WiFiMulti wifiMulti;
 
 // ─── API ─────────────────────────────────────────────────────
 const char* API_URL       = "https://voc-backend-api.onrender.com/api/ingest";
-const char* BOX_ID        = "BOX-001";
 const char* ACTIVE_SESSION_URL = "https://voc-backend-api.onrender.com/api/active-session";
 
 int         SESSION_ID          = 0;
@@ -211,27 +397,11 @@ void setup() {
   if (MDNS.begin("airmon")) {
     Serial.println("[mDNS] Responder started: http://airmon.local");
   }
-  server.on("/", HTTP_GET, []() {
-    String html = "<!DOCTYPE html><html><body style='font-family:sans-serif;background:#0f172a;color:#fff;padding:20px;text-align:center;'>";
-    html += "<h2>⚡ VOC E-Nose Box Online</h2><p><a href='/update' style='color:#38bdf8;font-weight:bold'>🚀 Open Web Firmware OTA Updater</a></p></body></html>";
-    server.send(200, "text/html", html);
-  });
-  server.on("/update", HTTP_GET, []() {
-    String html = "<!DOCTYPE html><html><body style='font-family:sans-serif;background:#0f172a;color:#fff;padding:20px;text-align:center'>";
-    html += "<div style='background:#1e293b;padding:30px;border-radius:12px;display:inline-block'>";
-    html += "<h2>⚡ ESP32 Web Firmware Flash</h2>";
-    html += "<p style='color:#94a3b8;font-size:13px'>เลือกไฟล์ <b>.bin</b> เพื่อแฟลชไร้สายผ่าน Wi-Fi</p>";
-    html += "<form method='POST' action='/update' enctype='multipart/form-data'>";
-    html += "<input type='file' name='update' accept='.bin'><br><br>";
-    html += "<button type='submit' style='padding:10px 20px;background:#10b981;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer'>🚀 Flash Firmware</button>";
-    html += "</form></div></body></html>";
-    server.send(200, "text/html", html);
-  });
+  server.on("/", HTTP_GET, handleServeOTA);
+  server.on("/update", HTTP_GET, handleServeOTA);
   server.on("/update", HTTP_POST, []() {
     server.sendHeader("Connection", "close");
-    server.send(200, "text/html", "<body style='font-family:sans-serif;background:#0f172a;color:#10b981;text-align:center;padding:50px'><h2>" +
-      String((Update.hasError()) ? "❌ UPDATE FAILED" : "✅ UPDATE SUCCESSFUL! Rebooting ESP32...") +
-      "</h2><script>setTimeout(function(){location.href='/';},10000);</script></body>");
+    server.send(200, "text/plain; charset=utf-8", (Update.hasError()) ? "FAIL" : "OK");
     delay(1000);
     ESP.restart();
   }, []() {
