@@ -58,6 +58,7 @@ Frontend จะรันที่ `http://localhost:5173`
 | หน้า | URL | รายละเอียด |
 |---|---|---|
 | Dashboard | `/` | ค่าเซนเซอร์ real-time, กราฟ, ผลทำนาย AI, เลือก Box ได้ |
+| ประวัติอากาศ | `/history` | ค้นข้อมูลคุณภาพอากาศย้อนหลังรายชั่วโมง/รายวันตามอุปกรณ์และช่วงวันที่ |
 | Devices | `/devices` | รายการกล่องเซนเซอร์ — แก้ไข/ลบได้ |
 | Data Collection | `/data-collection` | เก็บข้อมูลและติด Label สำหรับเทรน AI — แก้ไข/ลบ session |
 | Airflow Diagram | `/airflow` | แผนผัง airflow แบบ SVG animation พร้อม sensor badge |
@@ -73,6 +74,8 @@ Frontend จะรันที่ `http://localhost:5173`
 |---|---|---|
 | GET | `/api/dashboard/latest` | ข้อมูลล่าสุดพร้อมผล AI |
 | GET | `/api/dashboard/history` | ประวัติค่าเซนเซอร์ |
+| GET | `/api/air-quality/daily` | (ต้องพัฒนา) สรุป min/mean/max และ coverage ต่อวัน พร้อมตัวกรอง |
+| GET | `/api/air-quality/history` | (ต้องพัฒนา) ประวัติรายชั่วโมง/วันตามพารามิเตอร์และช่วงวันที่ |
 | POST | `/api/ingest` | รับข้อมูลจาก ESP32-S3 |
 | GET | `/api/devices` | รายการอุปกรณ์ทั้งหมด |
 | PATCH | `/api/devices/{box_id}` | แก้ไข firmware / status |

@@ -1,5 +1,7 @@
 # 🌐 Web Platform Specification — Adaptive E-Nose System
 
+> ข้อกำหนดเพิ่มเติมเรื่อง daily air-quality log, อะไหล่/RUL, หลักการ UI และรีวิวเว็บ อ้างอิงเอกสาร [`website_review_and_requirements.md`](website_review_and_requirements.md)
+
 > **เอกสารฉบับนี้สำหรับส่งมอบให้เพื่อนที่รับผิดชอบพัฒนา Web Platform**
 > ออกแบบจากการวิเคราะห์ระบบทั้งหมด เพื่อให้เข้าใจบทบาทของเว็บ, ข้อมูลที่ต้องรับ-ส่ง, หน้าตา UI ที่ต้องมี, และ Backend logic ที่ต้องทำ
 

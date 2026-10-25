@@ -83,6 +83,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 
@@ -544,16 +545,33 @@ class SessionCreate(BaseModel):
     box_id: str
     label: str
     note: Optional[str] = None
+    target_ppm: Optional[float] = None
+    liquid_volume: Optional[float] = None
+    volume_unit: Optional[str] = None
+    chamber_volume_l: Optional[float] = None
 
 
 @app.post("/api/training/sessions")
 async def create_session(body: SessionCreate):
     pool = await get_pool()
     row = await pool.fetchrow(
-        "INSERT INTO training_sessions (box_id, label, note) VALUES ($1,$2,$3) RETURNING id, label, started_at",
-        body.box_id, body.label.upper(), body.note,
+        """
+        INSERT INTO training_sessions 
+        (box_id, label, note, target_ppm, liquid_volume, volume_unit, chamber_volume_l) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7) 
+        RETURNING id, label, started_at, target_ppm, liquid_volume, volume_unit, chamber_volume_l
+        """,
+        body.box_id, body.label.upper(), body.note, body.target_ppm, body.liquid_volume, body.volume_unit, body.chamber_volume_l,
     )
-    return {"session_id": row["id"], "label": row["label"], "started_at": str(row["started_at"])}
+    return {
+        "session_id": row["id"],
+        "label": row["label"],
+        "started_at": str(row["started_at"]),
+        "target_ppm": float(row["target_ppm"]) if row["target_ppm"] is not None else None,
+        "liquid_volume": float(row["liquid_volume"]) if row["liquid_volume"] is not None else None,
+        "volume_unit": row["volume_unit"],
+        "chamber_volume_l": float(row["chamber_volume_l"]) if row["chamber_volume_l"] is not None else None,
+    }
 
 
 @app.patch("/api/training/sessions/{session_id}/end")
@@ -583,16 +601,31 @@ async def list_sessions():
     rows = await pool.fetch(
         """
         SELECT ts.id, ts.box_id, ts.label, ts.note, ts.started_at, ts.ended_at,
+               ts.target_ppm, ts.liquid_volume, ts.volume_unit, ts.chamber_volume_l,
                COUNT(sr.id) AS reading_count
         FROM training_sessions ts
         LEFT JOIN sensor_readings sr ON sr.session_id = ts.id
         GROUP BY ts.id ORDER BY ts.started_at DESC
         """
     )
-    return [dict(r) for r in rows]
+    return [
+        {
+            **dict(r),
+            "target_ppm": float(r["target_ppm"]) if r["target_ppm"] is not None else None,
+            "liquid_volume": float(r["liquid_volume"]) if r["liquid_volume"] is not None else None,
+            "chamber_volume_l": float(r["chamber_volume_l"]) if r["chamber_volume_l"] is not None else None,
+        }
+        for r in rows
+    ]
 
 
 class SessionUpdate(BaseModel):
+    label: Optional[str] = None
+    note: Optional[str] = None
+    target_ppm: Optional[float] = None
+    liquid_volume: Optional[float] = None
+    volume_unit: Optional[str] = None
+    chamber_volume_l: Optional[float] = None
     label: Optional[str] = None
     note: Optional[str] = None
 
@@ -642,6 +675,7 @@ async def export_csv(session_id: Optional[int] = None):
         rows = await pool.fetch(
             """
             SELECT sr.recorded_at, sr.box_id, COALESCE(ts.label, 'UNLABELED') AS label,
+                   ts.target_ppm, ts.liquid_volume, ts.volume_unit, ts.chamber_volume_l,
                    sr.temp, sr.rh, sr.pm25, sr.tvoc, sr.eco2,
                    sr.mq2, sr.mq3, sr.mq135, sr.mq8, sr.mics_co, sr.no2, sr.nh3
             FROM sensor_readings sr
@@ -654,6 +688,7 @@ async def export_csv(session_id: Optional[int] = None):
         rows = await pool.fetch(
             """
             SELECT sr.recorded_at, sr.box_id, COALESCE(ts.label, 'AMBIENT') AS label,
+                   ts.target_ppm, ts.liquid_volume, ts.volume_unit, ts.chamber_volume_l,
                    sr.temp, sr.rh, sr.pm25, sr.tvoc, sr.eco2,
                    sr.mq2, sr.mq3, sr.mq135, sr.mq8, sr.mics_co, sr.no2, sr.nh3
             FROM sensor_readings sr
@@ -669,21 +704,30 @@ async def export_csv(session_id: Optional[int] = None):
     writer = csv.writer(output)
     writer.writerow([
         "recorded_at", "box_id", "label",
+        "target_ppm", "liquid_volume", "volume_unit", "chamber_volume_l",
         "temp", "rh", "pm25", "tvoc", "eco2",
         "mq2", "mq3", "mq135", "mq8", "mics_co", "no2", "nh3"
     ])
     for r in rows:
         writer.writerow([
             r["recorded_at"], r["box_id"], r["label"],
+            r["target_ppm"] if r["target_ppm"] is not None else "",
+            r["liquid_volume"] if r["liquid_volume"] is not None else "",
+            r["volume_unit"] or "",
+            r["chamber_volume_l"] if r["chamber_volume_l"] is not None else "",
             r["temp"], r["rh"], r["pm25"], r["tvoc"], r["eco2"],
             r["mq2"], r["mq3"], r["mq135"], r["mq8"], r["mics_co"], r["no2"], r["nh3"]
         ])
 
     output.seek(0)
+    filename = f"voc_session_{session_id}_data.csv" if session_id else "voc_training_data_all.csv"
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=voc_training_data.csv"}
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        }
     )
 
 

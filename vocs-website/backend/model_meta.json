@@ -1,0 +1,38 @@
+{
+  "model_type": "RandomForestClassifier",
+  "features": [
+    "temp",
+    "rh",
+    "pm25",
+    "tvoc",
+    "eco2",
+    "mq2",
+    "mq3",
+    "mq135",
+    "mq8",
+    "mics_co",
+    "no2",
+    "nh3"
+  ],
+  "classes": [
+    "ALCOHOL",
+    "AMBIENT"
+  ],
+  "accuracy": 1.0,
+  "n_train": 203,
+  "n_test": 51,
+  "feature_importance": {
+    "no2": 0.1943,
+    "rh": 0.1872,
+    "temp": 0.1746,
+    "mics_co": 0.0977,
+    "nh3": 0.0946,
+    "mq3": 0.0799,
+    "mq2": 0.0747,
+    "mq135": 0.0586,
+    "mq8": 0.0384,
+    "pm25": 0.0,
+    "tvoc": 0.0,
+    "eco2": 0.0
+  }
+}

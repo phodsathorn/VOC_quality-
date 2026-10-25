@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Activity, Bell, Settings, LayoutDashboard, Box, Database, Wind, BookOpen,
+  Activity, Bell, Settings, LayoutDashboard, Box, Database, Wind, BookOpen, CalendarDays,
   X, AlertCircle, Volume2, VolumeX, ShieldAlert, AlertTriangle, Info, Wrench
 } from 'lucide-react';
 import {
@@ -90,6 +90,7 @@ export default function Layout({ children }) {
 
   const navItems = [
     { name: 'Dashboard',       path: '/',               icon: <LayoutDashboard size={20} /> },
+    { name: 'ประวัติอากาศ',    path: '/history',         icon: <CalendarDays size={20} /> },
     { name: 'Devices',         path: '/devices',        icon: <Box size={20} /> },
     { name: 'Data Collection', path: '/data-collection',icon: <Database size={20} /> },
     { name: 'Airflow Diagram', path: '/airflow',        icon: <Wind size={20} /> },
