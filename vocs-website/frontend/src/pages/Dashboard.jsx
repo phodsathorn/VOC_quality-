@@ -13,9 +13,9 @@ export default function Dashboard() {
   const [alerts,      setAlerts]      = useState([]);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [loading,     setLoading]     = useState(false);
-  const [timeRange,   setTimeRange]   = useState('1h');
+  const [timeRange,   setTimeRange]   = useState(() => localStorage.getItem('voc_dashboard_range') || '1h');
   const [deviceList,  setDeviceList]  = useState([]);
-  const [boxId,       setBoxId]       = useState(() => getGeneral().boxId || 'BOX-001');
+  const [boxId,       setBoxId]       = useState(() => localStorage.getItem('voc_selected_box') || getGeneral().boxId || 'BOX-001');
   const [unitMode,    setUnitModeState] = useState(() => getUnitMode());
 
   const handleUnitToggle = (mode) => {
@@ -66,12 +66,14 @@ export default function Dashboard() {
 
   const handleRangeChange = (range) => {
     setTimeRange(range);
+    localStorage.setItem('voc_dashboard_range', range);
     fetchAll(range, boxId);
   };
 
   // เปลี่ยน Box
   const handleBoxChange = (newBox) => {
     setBoxId(newBox);
+    localStorage.setItem('voc_selected_box', newBox);
     setData(null);
     fetchAll(timeRange, newBox);
   };

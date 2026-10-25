@@ -888,7 +888,11 @@ export default function Maintenance() {
   const [calibratingSensor, setCalibratingSensor] = useState(null);
   const [showDiagModal, setShowDiagModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [filterTab, setFilterTab] = useState('all'); // all | warn | ok
+  const [filterTab, setFilterTabState] = useState(() => localStorage.getItem('voc_maint_filter') || 'all'); // all | warn | ok
+  const setFilterTab = (tab) => {
+    setFilterTabState(tab);
+    localStorage.setItem('voc_maint_filter', tab);
+  };
   const [toastMsg, setToastMsg] = useState(null);
 
   // Load maintenance data
@@ -921,6 +925,16 @@ export default function Maintenance() {
   const handleCalibrateComplete = async (sensorId) => {
     try {
       await fetch(`${API}/api/maintenance/calibrate/${sensorId}`, { method: 'POST' });
+      await fetch(`${API}/api/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: 'MAINTENANCE',
+          action: 'CALIBRATE_BASELINE',
+          status: 'SUCCESS',
+          detail: `สอบเทียบ Zero-Air Baseline สำหรับเซนเซอร์ ${sensorId.toUpperCase()} สำเร็จ`
+        }),
+      }).catch(() => {});
     } catch { /* silent */ }
 
     setData(prev => {

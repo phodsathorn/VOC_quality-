@@ -49,6 +49,28 @@ export default function Settings() {
     return () => window.removeEventListener('voc_sound_toggle', handleToggle);
   }, []);
 
+  // Sync กับ Backend เมื่อเปิดหน้า Settings
+  useEffect(() => {
+    async function syncBackendThresholds() {
+      try {
+        const res = await fetch(`${API}/api/thresholds`);
+        if (res.ok) {
+          const t = await res.json();
+          if (t && t.tvoc && t.pm25 && t.eco2) {
+            const merged = {
+              tvoc: { warn: t.tvoc.warn, critical: t.tvoc.critical },
+              pm25: { warn: t.pm25.warn, critical: t.pm25.critical },
+              eco2: { warn: t.eco2.warn, critical: t.eco2.critical },
+            };
+            setThresholds(merged);
+            saveThresholds(merged);
+          }
+        }
+      } catch {}
+    }
+    syncBackendThresholds();
+  }, []);
+
   // ─── handlers ───────────────────────────────────────────────
   function handleThreshChange(key, field, raw) {
     const val = parseFloat(raw);
@@ -114,6 +136,18 @@ export default function Settings() {
           }),
         });
         setSyncStatus(res.ok ? 'ok' : 'error');
+
+        // บันทึก Activity Log ลง DB
+        await fetch(`${API}/api/logs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: 'SETTINGS',
+            action: 'UPDATE_THRESHOLDS',
+            status: 'SUCCESS',
+            detail: `ปรับปรุงเกณฑ์แจ้งเตือน: TVOC ${thresholds.tvoc.warn}/${thresholds.tvoc.critical} ppb, PM2.5 ${thresholds.pm25.warn}/${thresholds.pm25.critical} µg/m³`
+          }),
+        }).catch(() => {});
       } catch {
         setSyncStatus('error');
       }
@@ -141,6 +175,17 @@ export default function Settings() {
     setGeneral({ ...DEFAULT_GENERAL });
     setBaseline({ ...DEFAULT_R0 });
     setSaved(false);
+
+    fetch(`${API}/api/logs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        category: 'SETTINGS',
+        action: 'RESET_DEFAULTS',
+        status: 'WARNING',
+        detail: 'รีเซ็ตการตั้งค่าและเกณฑ์ทั้งหมดกลับสู่ค่าเริ่มต้นจากโรงงาน'
+      }),
+    }).catch(() => {});
   }
 
   // ─── sub-components ──────────────────────────────────────────

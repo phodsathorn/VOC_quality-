@@ -61,9 +61,67 @@ async def purge_old_data_task():
         await asyncio.sleep(86400)
 
 
+async def _init_db_tables():
+    """สร้างตารางที่จำเป็นสำหรับ OTA Safety, History และ Logs อัตโนมัติเมื่อ Backend สตาร์ต"""
+    try:
+        pool = await get_pool()
+        if pool:
+            await pool.execute("""
+                CREATE TABLE IF NOT EXISTS ota_firmwares (
+                    id SERIAL PRIMARY KEY,
+                    version VARCHAR(30) UNIQUE NOT NULL,
+                    filename VARCHAR(150) NOT NULL,
+                    size_bytes BIGINT NOT NULL,
+                    status VARCHAR(20) DEFAULT 'ACTIVE',
+                    release_notes TEXT,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+                CREATE TABLE IF NOT EXISTS ota_reports (
+                    id BIGSERIAL PRIMARY KEY,
+                    box_id VARCHAR(50) NOT NULL,
+                    version VARCHAR(30) NOT NULL,
+                    status VARCHAR(20) NOT NULL,
+                    error_code INTEGER DEFAULT 0,
+                    error_detail TEXT,
+                    reported_at TIMESTAMPTZ DEFAULT NOW()
+                );
+                CREATE TABLE IF NOT EXISTS system_logs (
+                    id BIGSERIAL PRIMARY KEY,
+                    category VARCHAR(30) NOT NULL,
+                    action VARCHAR(50) NOT NULL,
+                    status VARCHAR(20) DEFAULT 'INFO',
+                    detail TEXT,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+                ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_ota_status VARCHAR(50);
+                ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_ota_error TEXT;
+
+                INSERT INTO ota_firmwares (version, filename, size_bytes, status, release_notes)
+                VALUES ('1.0.2', 'firmware_1.0.2.bin', 1198560, 'ACTIVE', 'Production baseline firmware with I2C glitch filter and glassmorphism Web OTA')
+                ON CONFLICT (version) DO NOTHING;
+            """)
+            print("[DB] Self-healing schema init completed.")
+    except Exception as e:
+        print(f"[DB] Init tables warning: {e}")
+
+
+async def log_activity(category: str, action: str, status: str = "INFO", detail: str = ""):
+    """บันทึก Log ลงฐานข้อมูลถาวร เพื่อให้เรียกดูย้อนหลังได้ไม่สูญหายแม้ reload หน้าเว็บ"""
+    try:
+        pool = await get_pool()
+        if pool:
+            await pool.execute(
+                "INSERT INTO system_logs (category, action, status, detail) VALUES ($1, $2, $3, $4)",
+                category, action, status, detail
+            )
+    except Exception as e:
+        print(f"[Log Error] {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_db()
+    await _init_db_tables()
     load_model()  # โหลด AI Model ตอนเริ่มต้น
     
     # เริ่ม Background Task ลบข้อมูลเก่า
@@ -95,7 +153,7 @@ async def root_health():
 
 
 # ==================================================================
-# CLOUD PULL OTA — จัดการ Firmware สำหรับ ESP32 อัปเดตข้ามเครือข่าย
+# CLOUD PULL OTA & SAFETY ROLLBACK SYSTEM
 # ==================================================================
 OTA_DIR = Path(__file__).parent / "ota_firmware"
 OTA_DIR.mkdir(parents=True, exist_ok=True)
@@ -116,8 +174,8 @@ def _save_ota_meta(meta: dict):
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
 @app.post("/api/ota/upload")
-async def upload_ota_firmware(request: Request, version: str = "1.0.1", file: UploadFile = File(...)):
-    """รับไฟล์ .bin จากหน้าเว็บ Devices และบันทึกเป็น latest.bin สำหรับ ESP32 pull"""
+async def upload_ota_firmware(request: Request, version: str = "1.0.2", file: UploadFile = File(...)):
+    """รับไฟล์ .bin, เก็บประวัติเวอร์ชันเพื่อ Rollback และตั้งเป็น latest.bin"""
     if not file.filename.endswith(".bin"):
         raise HTTPException(status_code=400, detail="Only .bin firmware files are supported")
     
@@ -125,6 +183,10 @@ async def upload_ota_firmware(request: Request, version: str = "1.0.1", file: Up
     if len(content) == 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
     
+    ver_clean = version.strip()
+    versioned_file = OTA_DIR / f"firmware_{ver_clean}.bin"
+    with open(versioned_file, "wb") as f:
+        f.write(content)
     with open(OTA_BIN_PATH, "wb") as f:
         f.write(content)
         
@@ -134,18 +196,138 @@ async def upload_ota_firmware(request: Request, version: str = "1.0.1", file: Up
 
     meta = {
         "available": True,
-        "version": version.strip(),
+        "version": ver_clean,
         "filename": file.filename,
         "size": len(content),
         "uploaded_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "url": download_url,
     }
     _save_ota_meta(meta)
+
+    # บันทึกประวัติและ Log ลง DB
+    pool = await get_pool()
+    if pool:
+        try:
+            await pool.execute("UPDATE ota_firmwares SET status = 'ARCHIVED' WHERE status = 'ACTIVE'")
+            await pool.execute(
+                """
+                INSERT INTO ota_firmwares (version, filename, size_bytes, status, release_notes)
+                VALUES ($1, $2, $3, 'ACTIVE', $4)
+                ON CONFLICT (version) DO UPDATE SET filename = $2, size_bytes = $3, status = 'ACTIVE', created_at = NOW()
+                """,
+                ver_clean, file.filename, len(content), f"Release v{ver_clean}"
+            )
+            await log_activity("OTA", "UPLOAD", "SUCCESS", f"ปล่อยเฟิร์มแวร์ใหม่ v{ver_clean} ({file.filename})")
+        except Exception as e:
+            print(f"[OTA Upload DB Error] {e}")
+
     return {
         "status": "ok",
         "message": f"Firmware version {version} uploaded successfully",
         "meta": meta,
     }
+
+class RollbackRequest(BaseModel):
+    version: str
+
+@app.post("/api/ota/rollback")
+async def rollback_ota(body: RollbackRequest, request: Request):
+    """ถอยกลับ (Rollback) สู่เวอร์ชันก่อนหน้าทันทีใน 1-click"""
+    target_ver = body.version.strip()
+    target_file = OTA_DIR / f"firmware_{target_ver}.bin"
+    if not target_file.exists():
+        raise HTTPException(status_code=404, detail=f"ไม่พบไฟล์ไบนารีของเวอร์ชัน {target_ver} บนเซิร์ฟเวอร์")
+    
+    with open(target_file, "rb") as f_src:
+        with open(OTA_BIN_PATH, "wb") as f_dst:
+            f_dst.write(f_src.read())
+
+    download_url = f"{str(request.base_url).rstrip('/')}/api/ota/download"
+    if "onrender.com" in download_url and download_url.startswith("http://"):
+        download_url = download_url.replace("http://", "https://")
+
+    meta = {
+        "available": True,
+        "version": target_ver,
+        "filename": f"firmware_{target_ver}.bin",
+        "size": target_file.stat().st_size,
+        "uploaded_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "url": download_url,
+        "rollback": True,
+    }
+    _save_ota_meta(meta)
+
+    pool = await get_pool()
+    if pool:
+        try:
+            await pool.execute("UPDATE ota_firmwares SET status = 'ARCHIVED' WHERE status = 'ACTIVE'")
+            await pool.execute("UPDATE ota_firmwares SET status = 'ACTIVE' WHERE version = $1", target_ver)
+            await log_activity("OTA", "ROLLBACK", "WARNING", f"สั่งถอยกลับ (Rollback) สู่เวอร์ชัน v{target_ver}")
+        except Exception as e:
+            print(f"[Rollback DB Error] {e}")
+
+    return {"status": "ok", "message": f"Rollback to v{target_ver} successful", "meta": meta}
+
+@app.get("/api/ota/history")
+async def get_ota_history():
+    """ดึงประวัติเวอร์ชันเฟิร์มแวร์ทั้งหมดที่มีในระบบ"""
+    pool = await get_pool()
+    if not pool:
+        return []
+    try:
+        rows = await pool.fetch(
+            """
+            SELECT id, version, filename, size_bytes, status, release_notes,
+                   to_char(created_at AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI:SS') AS released_at
+            FROM ota_firmwares
+            ORDER BY id DESC
+            """
+        )
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+class OtaReportPayload(BaseModel):
+    box_id: str
+    version: str
+    status: str  # "SUCCESS" | "FAILED"
+    error_code: Optional[int] = 0
+    error_detail: Optional[str] = None
+
+@app.post("/api/ota/report")
+async def report_ota_status(payload: OtaReportPayload):
+    """ESP32 รายงานผลการแฟลช หรือแจ้งข้อผิดพลาดเมื่ออัปเดตไม่สำเร็จ"""
+    pool = await get_pool()
+    if pool:
+        try:
+            await pool.execute(
+                """
+                INSERT INTO ota_reports (box_id, version, status, error_code, error_detail)
+                VALUES ($1, $2, $3, $4, $5)
+                """,
+                payload.box_id, payload.version, payload.status, payload.error_code, payload.error_detail
+            )
+            if payload.status == "FAILED":
+                err_msg = payload.error_detail or f"Error Code {payload.error_code}"
+                await pool.execute(
+                    "UPDATE devices SET last_ota_status = 'FAILED', last_ota_error = $1 WHERE box_id = $2",
+                    err_msg, payload.box_id
+                )
+                await log_activity("OTA", "FLASH_FAIL", "ERROR", f"กล่อง {payload.box_id} อัปเดต v{payload.version} ล้มเหลว: {err_msg}")
+                # ส่ง Alert สีแดงทันที
+                await pool.execute(
+                    "INSERT INTO alerts (box_id, level, message, status) VALUES ($1, 'Critical', $2, 'Active')",
+                    payload.box_id, f"OTA ล้มเหลวบน {payload.box_id} (v{payload.version}): {err_msg}"
+                )
+            elif payload.status == "SUCCESS":
+                await pool.execute(
+                    "UPDATE devices SET firmware = $1, last_ota_status = 'SUCCESS', last_ota_error = NULL WHERE box_id = $2",
+                    payload.version, payload.box_id
+                )
+                await log_activity("OTA", "FLASH_SUCCESS", "SUCCESS", f"กล่อง {payload.box_id} อัปเดตสู่ v{payload.version} สำเร็จเรียบร้อย")
+        except Exception as e:
+            print(f"[OTA Report Error] {e}")
+    return {"status": "ok"}
 
 @app.get("/api/ota/status")
 async def get_ota_status(request: Request):
@@ -178,6 +360,43 @@ async def clear_ota():
     if OTA_META_PATH.exists():
         OTA_META_PATH.unlink(missing_ok=True)
     return {"status": "ok", "message": "OTA firmware cleared"}
+
+
+# ==================================================================
+# SYSTEM & AUDIT LOGS ENDPOINTS
+# ==================================================================
+@app.get("/api/logs")
+async def get_system_logs(limit: int = 50):
+    """ดึง Log การทำงานของระบบย้อนหลัง ไม่หายแม้ reload หน้าเว็บ"""
+    pool = await get_pool()
+    if not pool:
+        return []
+    try:
+        rows = await pool.fetch(
+            """
+            SELECT id, category, action, status, detail,
+                   to_char(created_at AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI:SS') AS timestamp
+            FROM system_logs
+            ORDER BY id DESC
+            LIMIT $1
+            """,
+            limit
+        )
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+class LogCreate(BaseModel):
+    category: str
+    action: str
+    status: Optional[str] = "INFO"
+    detail: Optional[str] = ""
+
+@app.post("/api/logs")
+async def create_system_log(body: LogCreate):
+    """บันทึก Log การกระทำจากหน้าเว็บ"""
+    await log_activity(body.category, body.action, body.status, body.detail)
+    return {"status": "ok"}
 
 
 # ==================================================================
@@ -402,6 +621,7 @@ async def get_devices():
     rows = await pool.fetch(
         """
         SELECT box_id AS id, status, firmware, model_ver AS model,
+               last_ota_status, last_ota_error,
                CASE
                    WHEN last_seen IS NULL THEN 'Never'
                    WHEN last_seen > NOW() - INTERVAL '5 minutes' THEN 'Just now'
@@ -460,6 +680,7 @@ async def delete_device(box_id: str):
 
 class IngestPayload(BaseModel):
     box_id: str
+    firmware_ver: Optional[str] = None
     temp: Optional[float] = None
     rh: Optional[float] = None
     pm25: Optional[float] = None
@@ -575,14 +796,28 @@ async def ingest_reading(payload: IngestPayload, request: Request):
     pool = await get_pool()
 
     # 1. อัปเดต / สร้าง device
-    await pool.execute(
-        """
-        INSERT INTO devices (box_id, status, last_seen)
-        VALUES ($1, 'ONLINE', NOW())
-        ON CONFLICT (box_id) DO UPDATE SET status = 'ONLINE', last_seen = NOW()
-        """,
-        payload.box_id,
-    )
+    if payload.firmware_ver:
+        await pool.execute(
+            """
+            INSERT INTO devices (box_id, status, firmware, last_seen)
+            VALUES ($1, 'ONLINE', $2, NOW())
+            ON CONFLICT (box_id) DO UPDATE SET 
+                status = 'ONLINE', 
+                firmware = EXCLUDED.firmware, 
+                last_seen = NOW()
+            """,
+            payload.box_id,
+            payload.firmware_ver,
+        )
+    else:
+        await pool.execute(
+            """
+            INSERT INTO devices (box_id, status, last_seen)
+            VALUES ($1, 'ONLINE', NOW())
+            ON CONFLICT (box_id) DO UPDATE SET status = 'ONLINE', last_seen = NOW()
+            """,
+            payload.box_id,
+        )
 
     # 2. บันทึกค่าเซนเซอร์ — เชื่อมต่อกับ active training session อัตโนมัติ (ถ้ามี)
     active_session_id = payload.session_id
