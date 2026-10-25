@@ -28,6 +28,12 @@
 #include <Adafruit_ADS1X15.h>
 #include <Adafruit_PM25AQI.h>
 
+// ─── Data Structure ──────────────────────────────────────────
+struct SensorData {
+  float temp, rh, pm25, tvoc, eco2;
+  int   mq2, mq3, mq135, mq8, mics_co, no2, nh3;
+};
+
 // ─── WiFi Multi (รองรับทั้งเน็ตแล็บ robot_club และเน็ตมือถือ) ─
 WiFiMulti wifiMulti;
 
@@ -195,12 +201,6 @@ void setup() {
   
   Serial.println("[System] Warming up MQ sensors (30s)...");
 }
-
-// ─── Data Structure ──────────────────────────────────────────
-struct SensorData {
-  float temp, rh, pm25, tvoc, eco2;
-  int   mq2, mq3, mq135, mq8, mics_co, no2, nh3;
-};
 
 // ─── Read Sensors ────────────────────────────────────────────
 SensorData readSensors() {
