@@ -33,10 +33,18 @@
 #include <Update.h>
 #include <HTTPUpdate.h>
 
+// ─── Data Structure ──────────────────────────────────────────
+struct SensorData {
+  float temp, rh, pm25, tvoc, eco2;
+  int   mq2, mq3, mq135, mq8, mics_co, no2, nh3;
+};
+
 WebServer server(80);
 const char* FIRMWARE_VER = "1.0.2";
 const char* BOX_ID       = "BOX-001";
 
+SensorData readSensors();
+void sendData(const SensorData& d);
 void reportOtaStatus(const char* status, int errCode, const char* errDetail);
 void performCloudOTA(const char* ota_url);
 
@@ -225,12 +233,6 @@ void handleServeOTA() {
   html.replace("%FREE_HEAP%", String(ESP.getFreeHeap() / 1024));
   server.send(200, "text/html; charset=utf-8", html);
 }
-
-// ─── Data Structure ──────────────────────────────────────────
-struct SensorData {
-  float temp, rh, pm25, tvoc, eco2;
-  int   mq2, mq3, mq135, mq8, mics_co, no2, nh3;
-};
 
 // ─── WiFi Multi (รองรับทั้งเน็ตแล็บ robot_club และเน็ตมือถือ) ─
 WiFiMulti wifiMulti;
