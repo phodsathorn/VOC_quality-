@@ -22,6 +22,7 @@
 #include <DHT.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <ArduinoOTA.h>
@@ -37,7 +38,7 @@ const char* WIFI_PASSWORD = "REDACTED_PASSWORD";
 const char* BOX_ID        = "BOX-001";
 
 // Dynamic API Target (บันทึกและแก้ผ่านหน้าเว็บได้โดยไม่ต้องแฟลชใหม่)
-String api_url_str = "http://172.20.10.3:8000/api/ingest";
+String api_url_str = "https://voc-backend-api.onrender.com/api/ingest";
 WebServer server(80);
 
 // ═══════════════════════════════════════════════════════
@@ -1034,9 +1035,15 @@ void send_data_wifi() {
   }
 
   HTTPClient http;
-  http.begin(api_url_str);
+  if (api_url_str.startsWith("https://")) {
+    WiFiClientSecure client;
+    client.setInsecure();
+    http.begin(client, api_url_str);
+  } else {
+    http.begin(api_url_str);
+  }
   http.addHeader("Content-Type", "application/json");
-  http.setTimeout(1500);
+  http.setTimeout(4000);
 
   JsonDocument doc;
   doc["box_id"] = BOX_ID;

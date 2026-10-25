@@ -31,6 +31,7 @@ dist/
 
 # ML outputs & Models
 *.pkl
+!vocs-website/backend/voc_model.pkl
 *.pkl.gz
 
 # Docker

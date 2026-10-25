@@ -18,7 +18,7 @@ import serial
 import serial.tools.list_ports
 import requests
 
-API_URL = os.getenv("API_URL", "http://localhost:8000/api/ingest")
+API_URL = os.getenv("API_URL", "https://voc-backend-api.onrender.com/api/ingest")
 BOX_ID  = os.getenv("BOX_ID", "BOX-001")
 BAUD_RATE = 115200
 

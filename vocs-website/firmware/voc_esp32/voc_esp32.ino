@@ -18,6 +18,7 @@
  */
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Wire.h>
@@ -31,9 +32,9 @@ const char* WIFI_SSID     = "Urworld";
 const char* WIFI_PASSWORD = "REDACTED_PASSWORD";
 
 // ─── API ─────────────────────────────────────────────────────
-const char* API_URL       = "http://172.20.10.3:8000/api/ingest";
+const char* API_URL       = "https://voc-backend-api.onrender.com/api/ingest";
 const char* BOX_ID        = "BOX-001";
-const char* ACTIVE_SESSION_URL = "http://172.20.10.3:8000/api/active-session";
+const char* ACTIVE_SESSION_URL = "https://voc-backend-api.onrender.com/api/active-session";
 
 int         SESSION_ID          = 0;
 String      SESSION_LABEL       = "";
@@ -89,7 +90,14 @@ void fetchActiveSession() {
 
   HTTPClient http;
   String url = String(ACTIVE_SESSION_URL) + "?box_id=" + BOX_ID;
-  http.begin(url);
+  if (url.startsWith("https://")) {
+    WiFiClientSecure client;
+    client.setInsecure();
+    http.begin(client, url);
+  } else {
+    http.begin(url);
+  }
+  http.setTimeout(4000);
   int code = http.GET();
 
   if (code == 200) {
@@ -263,8 +271,16 @@ void sendData(const SensorData& d) {
   serializeJson(doc, payload);
 
   HTTPClient http;
-  http.begin(API_URL);
+  String url = String(API_URL);
+  if (url.startsWith("https://")) {
+    WiFiClientSecure client;
+    client.setInsecure();
+    http.begin(client, url);
+  } else {
+    http.begin(url);
+  }
   http.addHeader("Content-Type", "application/json");
+  http.setTimeout(4000);
 
   int code = http.POST(payload);
   if (code == 200) {
