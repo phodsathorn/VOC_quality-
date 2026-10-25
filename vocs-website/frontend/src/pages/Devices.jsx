@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pencil, Trash2, X, Save } from 'lucide-react';
+import { Pencil, Trash2, X, Save, Upload, Cloud, CheckCircle, RefreshCw, Radio } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -43,12 +43,58 @@ export default function Devices() {
   const [delTarget,  setDelTarget]  = useState(null); // box_id string
   const [saving,     setSaving]     = useState(false);
 
-  useEffect(() => { fetchDevices(); }, []);
+  // ─── Cloud OTA State ───────────────────────────────────────
+  const [otaStatus,   setOtaStatus]   = useState(null);
+  const [otaFile,     setOtaFile]     = useState(null);
+  const [otaVer,      setOtaVer]      = useState('1.0.1');
+  const [otaUploading,setOtaUploading]= useState(false);
+  const [otaMsg,      setOtaMsg]      = useState(null);
+
+  useEffect(() => { 
+    fetchDevices(); 
+    fetchOtaStatus();
+  }, []);
 
   async function fetchDevices() {
-    const res = await fetch(`${API}/api/devices`);
-    const data = await res.json();
-    setDevices(data);
+    try {
+      const res = await fetch(`${API}/api/devices`);
+      const data = await res.json();
+      setDevices(data);
+    } catch {}
+  }
+
+  async function fetchOtaStatus() {
+    try {
+      const res = await fetch(`${API}/api/ota/status`);
+      if (res.ok) setOtaStatus(await res.json());
+    } catch {}
+  }
+
+  async function handleOtaUpload(e) {
+    e.preventDefault();
+    if (!otaFile) return;
+    setOtaUploading(true);
+    setOtaMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', otaFile);
+      const res = await fetch(`${API}/api/ota/upload?version=${encodeURIComponent(otaVer)}`, {
+        method: 'POST',
+        body: fd,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setOtaMsg({ type: 'success', text: `✅ ปล่อยเฟิร์มแวร์เวอร์ชัน ${otaVer} สำเร็จ! กล่องที่แล็บจะดึงไปแฟลชตัวเองอัตโนมัติ` });
+        fetchOtaStatus();
+        setOtaFile(null);
+      } else {
+        setOtaMsg({ type: 'error', text: `❌ ${data.detail || 'อัปโหลดล้มเหลว'}` });
+      }
+    } catch (err) {
+      setOtaMsg({ type: 'error', text: `❌ เชื่อมต่อ Backend ล้มเหลว: ${err.message}` });
+    } finally {
+      setOtaUploading(false);
+    }
   }
 
   // ─── Save edit ──────────────────────────────────────────────
@@ -128,6 +174,89 @@ export default function Devices() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* ── Cloud Pull OTA Card ──────────────────────────────── */}
+      <div style={{
+        marginTop: '2rem', padding: '1.5rem', borderRadius: '0.875rem',
+        backgroundColor: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #e2e8f0)',
+        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+            <div style={{ padding: '0.5rem', borderRadius: '0.5rem', backgroundColor: '#e0f2fe', color: '#0284c7' }}>
+              <Cloud size={20} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Cloud Remote OTA (อัปเดตเฟิร์มแวร์ข้ามเน็ตจากหอพัก)</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748b)', margin: 0 }}>
+                ปล่อยไฟล์เฟิร์มแวร์ <strong>.bin</strong> ขึ้น Cloud — กล่อง ESP32 ที่ห้องแล็บจะดึงไปแฟลชตัวเองและรีสตาร์ทอัตโนมัติ
+              </p>
+            </div>
+          </div>
+          {otaStatus && (
+            <span style={{ fontSize: '0.78rem', padding: '0.25rem 0.6rem', borderRadius: '9999px', backgroundColor: otaStatus.available ? '#dcfce7' : '#f1f5f9', color: otaStatus.available ? '#16a34a' : '#64748b', fontWeight: 600 }}>
+              {otaStatus.available ? `ปล่อย OTA ver: ${otaStatus.version}` : 'ยังไม่มีไฟล์ OTA ในคลาวด์'}
+            </span>
+          )}
+        </div>
+
+        {otaMsg && (
+          <div style={{
+            padding: '0.75rem 1rem', borderRadius: '0.5rem', marginBottom: '1rem',
+            backgroundColor: otaMsg.type === 'success' ? '#f0fdf4' : '#fef2f2',
+            color: otaMsg.type === 'success' ? '#166534' : '#991b1b',
+            border: `1px solid ${otaMsg.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
+            fontSize: '0.875rem', fontWeight: 500
+          }}>
+            {otaMsg.text}
+          </div>
+        )}
+
+        <form onSubmit={handleOtaUpload} style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted, #64748b)', marginBottom: '0.25rem' }}>
+              เวอร์ชันใหม่ (Target Version)
+            </label>
+            <input
+              type="text"
+              value={otaVer}
+              onChange={e => setOtaVer(e.target.value)}
+              placeholder="เช่น 1.0.1"
+              required
+              style={{ ...inputStyle, width: 140 }}
+            />
+          </div>
+
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted, #64748b)', marginBottom: '0.25rem' }}>
+              เลือกไฟล์ Firmware (.bin จาก Arduino IDE)
+            </label>
+            <input
+              type="file"
+              accept=".bin"
+              onChange={e => setOtaFile(e.target.files[0])}
+              required
+              style={{ ...inputStyle, padding: '0.35rem 0.5rem' }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={otaUploading || !otaFile}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+              padding: '0.625rem 1.25rem', borderRadius: '0.5rem',
+              backgroundColor: otaFile ? '#0284c7' : '#94a3b8',
+              color: 'white', fontWeight: 600, fontSize: '0.875rem',
+              border: 'none', cursor: otaFile ? 'pointer' : 'not-allowed',
+              transition: 'background-color 0.15s',
+            }}
+          >
+            <Upload size={16} />
+            {otaUploading ? 'กำลังอัปโหลด...' : '🚀 ปล่อย OTA สู่กล่องที่แล็บ'}
+          </button>
+        </form>
       </div>
 
       {/* ── Edit Modal ─────────────────────────────────────── */}

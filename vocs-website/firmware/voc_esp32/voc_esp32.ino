@@ -31,8 +31,10 @@
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <Update.h>
+#include <HTTPUpdate.h>
 
 WebServer server(80);
+const char* FIRMWARE_VER = "1.0.0";
 
 // ─── Data Structure ──────────────────────────────────────────
 struct SensorData {
@@ -351,11 +353,38 @@ void sendData(const SensorData& d) {
       const char* pred = resp_doc["ai"]["prediction"] | "—";
       float conf       = resp_doc["ai"]["confidence"] | 0.0;
       Serial.printf("[AI]  %s (%.1f%%)\n", pred, conf);
+
+      // ─── Cloud Pull OTA Auto Update ──────────────────────────
+      bool otaAvailable = resp_doc["ota"]["available"] | false;
+      const char* otaVer = resp_doc["ota"]["version"] | "";
+      const char* otaUrl = resp_doc["ota"]["url"] | "";
+
+      if (otaAvailable && strlen(otaVer) > 0 && strcmp(otaVer, FIRMWARE_VER) != 0 && strlen(otaUrl) > 0) {
+        Serial.printf("\n[Cloud OTA] New version detected: %s (current: %s)\n", otaVer, FIRMWARE_VER);
+        http.end();
+        performCloudOTA(otaUrl);
+        return;
+      }
     }
   } else {
     Serial.printf("[ERR] HTTP %d\n", code);
   }
   http.end();
+}
+
+// ─── Cloud Pull OTA Execution ────────────────────────────────
+void performCloudOTA(const char* ota_url) {
+  Serial.printf("[Cloud OTA] Pulling firmware from Cloud: %s\n", ota_url);
+  WiFiClientSecure otaClient;
+  otaClient.setInsecure();
+  httpUpdate.rebootOnUpdate(true);
+
+  t_httpUpdate_return ret = httpUpdate.update(otaClient, ota_url);
+  if (ret == HTTP_UPDATE_FAILED) {
+    Serial.printf("[Cloud OTA] Failed! Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+  } else if (ret == HTTP_UPDATE_OK) {
+    Serial.println("[Cloud OTA] Update success! Rebooting into new firmware...");
+  }
 }
 
 // ─── Loop ────────────────────────────────────────────────────
