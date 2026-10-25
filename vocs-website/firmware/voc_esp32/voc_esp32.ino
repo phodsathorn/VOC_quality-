@@ -18,6 +18,7 @@
  */
 
 #include <WiFi.h>
+#include <WiFiMulti.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -27,9 +28,8 @@
 #include <Adafruit_ADS1X15.h>
 #include <Adafruit_PM25AQI.h>
 
-// ─── WiFi ────────────────────────────────────────────────────
-const char* WIFI_SSID     = "Urworld";
-const char* WIFI_PASSWORD = "REDACTED_PASSWORD";
+// ─── WiFi Multi (รองรับทั้งเน็ตแล็บ robot_club และเน็ตมือถือ) ─
+WiFiMulti wifiMulti;
 
 // ─── API ─────────────────────────────────────────────────────
 const char* API_URL       = "https://voc-backend-api.onrender.com/api/ingest";
@@ -86,7 +86,7 @@ bool isWarmup = true;
 
 // ─── Fetch Active Session ─────────────────────────────────────
 void fetchActiveSession() {
-  if (WiFi.status() != WL_CONNECTED) return;
+  if (wifiMulti.run() != WL_CONNECTED) return;
 
   HTTPClient http;
   String url = String(ACTIVE_SESSION_URL) + "?box_id=" + BOX_ID;
@@ -176,14 +176,22 @@ void setup() {
     Serial.println("[OK] PMS5003 ready on UART2");
   }
 
-  // Connect WiFi
-  Serial.printf("[WiFi] Connecting to %s", WIFI_SSID);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED) {
+  // Connect WiFi (Auto-select robot_club / Urworld)
+  wifiMulti.addAP("robot_club", "REDACTED_PASSWORD");
+  wifiMulti.addAP("Urworld", "REDACTED_PASSWORD");
+
+  Serial.println("[WiFi] Connecting to WiFi (robot_club / Urworld)...");
+  int wifiRetry = 0;
+  while (wifiMulti.run() != WL_CONNECTED && wifiRetry < 30) {
     delay(500);
     Serial.print(".");
+    wifiRetry++;
   }
-  Serial.printf("\n[WiFi] Connected! IP: %s\n", WiFi.localIP().toString().c_str());
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.printf("\n[WiFi] Connected to: %s | IP: %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+  } else {
+    Serial.println("\n[WiFi] Waiting for network connection in background...");
+  }
   
   Serial.println("[System] Warming up MQ sensors (30s)...");
 }
@@ -245,7 +253,7 @@ SensorData readSensors() {
 
 // ─── Send to API ─────────────────────────────────────────────
 void sendData(const SensorData& d) {
-  if (WiFi.status() != WL_CONNECTED) return;
+  if (wifiMulti.run() != WL_CONNECTED) return;
 
   JsonDocument doc;
   doc["box_id"]   = BOX_ID;

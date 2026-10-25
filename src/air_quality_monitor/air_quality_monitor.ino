@@ -33,9 +33,11 @@
 // ═══════════════════════════════════════════════════════
 // WIRELESS (ANTENNA) CONFIGURATION
 // ═══════════════════════════════════════════════════════
-const char* WIFI_SSID     = "Urworld";
-const char* WIFI_PASSWORD = "REDACTED_PASSWORD";
-const char* BOX_ID        = "BOX-001";
+const char* WIFI_SSID        = "robot_club";
+const char* WIFI_PASSWORD    = "REDACTED_PASSWORD";
+const char* WIFI_BACKUP_SSID = "Urworld";
+const char* WIFI_BACKUP_PASS = "REDACTED_PASSWORD";
+const char* BOX_ID           = "BOX-001";
 
 // Dynamic API Target (บันทึกและแก้ผ่านหน้าเว็บได้โดยไม่ต้องแฟลชใหม่)
 String api_url_str = "https://voc-backend-api.onrender.com/api/ingest";
@@ -1000,18 +1002,30 @@ void init_wifi() {
   Serial.print(F("  >> Target : ")); Serial.println(api_url_str);
 
   WiFi.mode(WIFI_STA);
+  Serial.print(F("  >> Trying Primary : ")); Serial.println(WIFI_SSID);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   uint32_t t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t0 < 8000) {
+  while (WiFi.status() != WL_CONNECTED && millis() - t0 < 6000) {
     delay(400);
     Serial.print(F("."));
   }
 
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.print(F("\n  >> Trying Backup  : ")); Serial.println(WIFI_BACKUP_SSID);
+    WiFi.begin(WIFI_BACKUP_SSID, WIFI_BACKUP_PASS);
+    t0 = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 6000) {
+      delay(400);
+      Serial.print(F("."));
+    }
+  }
+
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println(B + G + "\n  [WiFi OK] เชื่อมต่อสำเร็จผ่านเสาอากาศ!" + RST);
-    Serial.print(F("  [WiFi] ESP32 IP : ")); Serial.println(WiFi.localIP());
-    Serial.print(F("  [WiFi] Signal   : ")); Serial.print(WiFi.RSSI()); Serial.println(F(" dBm"));
+    Serial.print(F("  [WiFi] Connected to: ")); Serial.println(WiFi.SSID());
+    Serial.print(F("  [WiFi] ESP32 IP   : ")); Serial.println(WiFi.localIP());
+    Serial.print(F("  [WiFi] Signal     : ")); Serial.print(WiFi.RSSI()); Serial.println(F(" dBm"));
     setup_ota_and_web();
   } else {
     Serial.println(B + Y + "\n  [WiFi] ยังเชื่อมต่อไม่สำเร็จ (จะลองใหม่อัตโนมัติในพื้นหลัง)" + RST);
