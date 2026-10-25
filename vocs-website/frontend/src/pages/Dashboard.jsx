@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle, RefreshCw, Clock, Cpu, ChevronDown, Info } 
 import { getThresholds, getGeneral } from '../utils/settings';
 import { convertAllToPpm, formatPpm, getUnitMode, setUnitMode } from '../utils/ppmConverter';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API } from '../config';
 const REFRESH_INTERVAL_MS = 5000; // auto-refresh ทุก 5 วินาที
 
 export default function Dashboard() {

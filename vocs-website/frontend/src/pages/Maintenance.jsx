@@ -19,7 +19,7 @@ import {
   Printer, Check, Play
 } from 'lucide-react';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API } from '../config';
 
 /* ─────────────────────────────────────────────────────────────
    SENSOR DEFINITIONS WITH MAINTENANCE PARAMS

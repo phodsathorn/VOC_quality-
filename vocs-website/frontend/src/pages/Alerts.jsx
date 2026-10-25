@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { AlertTriangle, CheckCircle, RefreshCw, Bell, ShieldAlert, Info, Volume2, VolumeX, Volume1 } from 'lucide-react';
 import { isSoundEnabled, toggleSoundEnabled, triggerAlertSound } from '../utils/soundAlert';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API } from '../config';
 const REFRESH_INTERVAL_MS = 10000;
 
 const LEVEL_CONFIG = {

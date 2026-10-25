@@ -8,6 +8,7 @@ import {
 import {
   isSoundEnabled, setSoundEnabled, toggleSoundEnabled, triggerAlertSound
 } from '../utils/soundAlert';
+import { API } from '../config';
 import {
   getBaseline, saveBaseline, resetBaseline, DEFAULT_R0
 } from '../utils/ppmConverter';
@@ -40,8 +41,7 @@ export default function Settings() {
   const [syncStatus, setSyncStatus] = useState(null); // 'syncing' | 'ok' | 'error'
   const [modelMsg,   setModelMsg]   = useState(null);
   const [soundOn,    setSoundOn]    = useState(() => isSoundEnabled());
-  const isMock = !!window.__VOC_MOCK_MODE;
-  const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const isMock = false;
 
   useEffect(() => {
     const handleToggle = (e) => setSoundOn(e.detail.enabled);
@@ -507,7 +507,7 @@ export default function Settings() {
               value: isMock ? '🟡 Mock Mode' : '🟢 Live Mode',
               sub: isMock ? 'ข้อมูลจำลอง — ยังไม่เชื่อมต่อ Backend' : 'เชื่อมต่อ Backend แล้ว',
             },
-            { label: 'Backend URL',    value: 'localhost:8000',    sub: 'FastAPI + PostgreSQL' },
+            { label: 'Backend URL',    value: API.replace(/^https?:\/\//, ''),    sub: 'FastAPI + Neon PostgreSQL' },
             { label: 'Frontend',       value: 'React + Vite',      sub: 'v1.0.0' },
             { label: 'AI Framework',   value: 'scikit-learn',      sub: 'RandomForest Classifier' },
           ].map(item => (

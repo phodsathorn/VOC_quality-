@@ -29,7 +29,7 @@ from sklearn.metrics import classification_report, accuracy_score, confusion_mat
 # ================================================================
 # 1. LOAD DATA
 # ================================================================
-CSV_URL = os.getenv("CSV_URL", "http://localhost:8000/api/export/csv")
+CSV_URL = os.getenv("CSV_URL", "https://voc-backend-api.onrender.com/api/export/csv")
 LOCAL_CSV = sys.argv[1] if len(sys.argv) > 1 else None
 
 df = None
@@ -225,7 +225,8 @@ print(f"\nModel artifacts saved successfully!")
 # 7. NOTIFY BACKEND TO RELOAD MODEL
 # ================================================================
 try:
-    reload_url = "http://localhost:8000/api/model/reload"
+    backend_base = os.getenv("BACKEND_URL", "https://voc-backend-api.onrender.com")
+    reload_url = f"{backend_base}/api/model/reload"
     req = urllib.request.Request(reload_url, data=b"", method="POST")
     with urllib.request.urlopen(req, timeout=3) as resp:
         res_data = json.loads(resp.read().decode())

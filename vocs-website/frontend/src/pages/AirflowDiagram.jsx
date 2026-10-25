@@ -3,7 +3,7 @@ import { RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
 import { getThresholds } from '../utils/settings';
 import { convertAllToPpm, formatPpm, getUnitMode, setUnitMode, convertTvocToPpm } from '../utils/ppmConverter';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API } from '../config';
 const REFRESH_INTERVAL_MS = 3000;
 
 // อ่านค่า threshold จาก Settings (localStorage) — sync อัตโนมัติกับหน้า Settings
