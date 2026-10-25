@@ -27,6 +27,12 @@
 #include <Adafruit_CCS811.h>
 #include <Adafruit_ADS1X15.h>
 #include <Adafruit_PM25AQI.h>
+#include <ArduinoOTA.h>
+#include <ESPmDNS.h>
+#include <WebServer.h>
+#include <Update.h>
+
+WebServer server(80);
 
 // ─── Data Structure ──────────────────────────────────────────
 struct SensorData {
@@ -199,6 +205,50 @@ void setup() {
     Serial.println("\n[WiFi] Waiting for network connection in background...");
   }
   
+  // 4. Init Web OTA & ArduinoOTA
+  if (MDNS.begin("airmon")) {
+    Serial.println("[mDNS] Responder started: http://airmon.local");
+  }
+  server.on("/", HTTP_GET, []() {
+    String html = "<!DOCTYPE html><html><body style='font-family:sans-serif;background:#0f172a;color:#fff;padding:20px;text-align:center;'>";
+    html += "<h2>⚡ VOC E-Nose Box Online</h2><p><a href='/update' style='color:#38bdf8;font-weight:bold'>🚀 Open Web Firmware OTA Updater</a></p></body></html>";
+    server.send(200, "text/html", html);
+  });
+  server.on("/update", HTTP_GET, []() {
+    String html = "<!DOCTYPE html><html><body style='font-family:sans-serif;background:#0f172a;color:#fff;padding:20px;text-align:center'>";
+    html += "<div style='background:#1e293b;padding:30px;border-radius:12px;display:inline-block'>";
+    html += "<h2>⚡ ESP32 Web Firmware Flash</h2>";
+    html += "<p style='color:#94a3b8;font-size:13px'>เลือกไฟล์ <b>.bin</b> เพื่อแฟลชไร้สายผ่าน Wi-Fi</p>";
+    html += "<form method='POST' action='/update' enctype='multipart/form-data'>";
+    html += "<input type='file' name='update' accept='.bin'><br><br>";
+    html += "<button type='submit' style='padding:10px 20px;background:#10b981;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer'>🚀 Flash Firmware</button>";
+    html += "</form></div></body></html>";
+    server.send(200, "text/html", html);
+  });
+  server.on("/update", HTTP_POST, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", "<body style='font-family:sans-serif;background:#0f172a;color:#10b981;text-align:center;padding:50px'><h2>" +
+      String((Update.hasError()) ? "❌ UPDATE FAILED" : "✅ UPDATE SUCCESSFUL! Rebooting ESP32...") +
+      "</h2><script>setTimeout(function(){location.href='/';},10000);</script></body>");
+    delay(1000);
+    ESP.restart();
+  }, []() {
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      Serial.printf("[Web OTA] Update: %s\n", upload.filename.c_str());
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) Update.printError(Serial);
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) Update.printError(Serial);
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (Update.end(true)) Serial.printf("[Web OTA] Success: %u bytes\n", upload.totalSize);
+      else Update.printError(Serial);
+    }
+  });
+  server.begin();
+  ArduinoOTA.setHostname("airmon-box-001");
+  ArduinoOTA.begin();
+  Serial.println("[OTA] Web OTA ready at http://airmon.local/update and Arduino IDE Network Port");
+  
   Serial.println("[System] Warming up MQ sensors (30s)...");
 }
 
@@ -310,6 +360,10 @@ void sendData(const SensorData& d) {
 
 // ─── Loop ────────────────────────────────────────────────────
 void loop() {
+  // OTA Server handlers
+  server.handleClient();
+  ArduinoOTA.handle();
+
   unsigned long now = millis();
 
   // 1. Session Polling
