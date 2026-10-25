@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from pydantic import BaseModel
 from typing import Optional
-import csv, io, time, asyncio
+from pathlib import Path
+import csv, io, time, asyncio, json
 from collections import defaultdict
 from db import connect_db, disconnect_db, get_pool
 from model_loader import load_model, predict, is_loaded
@@ -85,6 +86,98 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],
 )
+
+
+@app.get("/")
+@app.head("/")
+async def root_health():
+    return {"status": "ok", "service": "voc-backend-api"}
+
+
+# ==================================================================
+# CLOUD PULL OTA — จัดการ Firmware สำหรับ ESP32 อัปเดตข้ามเครือข่าย
+# ==================================================================
+OTA_DIR = Path(__file__).parent / "ota_firmware"
+OTA_DIR.mkdir(parents=True, exist_ok=True)
+OTA_BIN_PATH = OTA_DIR / "latest.bin"
+OTA_META_PATH = OTA_DIR / "meta.json"
+
+def _load_ota_meta():
+    if OTA_META_PATH.exists():
+        try:
+            with open(OTA_META_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"available": False, "version": None, "url": ""}
+
+def _save_ota_meta(meta: dict):
+    with open(OTA_META_PATH, "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False, indent=2)
+
+@app.post("/api/ota/upload")
+async def upload_ota_firmware(request: Request, version: str = "1.0.1", file: UploadFile = File(...)):
+    """รับไฟล์ .bin จากหน้าเว็บ Devices และบันทึกเป็น latest.bin สำหรับ ESP32 pull"""
+    if not file.filename.endswith(".bin"):
+        raise HTTPException(status_code=400, detail="Only .bin firmware files are supported")
+    
+    content = await file.read()
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    
+    with open(OTA_BIN_PATH, "wb") as f:
+        f.write(content)
+        
+    download_url = f"{str(request.base_url).rstrip('/')}/api/ota/download"
+    if "onrender.com" in download_url and download_url.startswith("http://"):
+        download_url = download_url.replace("http://", "https://")
+
+    meta = {
+        "available": True,
+        "version": version.strip(),
+        "filename": file.filename,
+        "size": len(content),
+        "uploaded_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "url": download_url,
+    }
+    _save_ota_meta(meta)
+    return {
+        "status": "ok",
+        "message": f"Firmware version {version} uploaded successfully",
+        "meta": meta,
+    }
+
+@app.get("/api/ota/status")
+async def get_ota_status(request: Request):
+    """ส่งข้อมูลสถานะเฟิร์มแวร์ล่าสุดที่มีบน Cloud"""
+    meta = _load_ota_meta()
+    if meta.get("available") and OTA_BIN_PATH.exists():
+        download_url = f"{str(request.base_url).rstrip('/')}/api/ota/download"
+        if "onrender.com" in download_url and download_url.startswith("http://"):
+            download_url = download_url.replace("http://", "https://")
+        meta["url"] = download_url
+        return meta
+    return {"available": False, "version": None, "url": ""}
+
+@app.get("/api/ota/download")
+async def download_ota_firmware():
+    """ESP32 ยิง GET มาโหลดไฟล์ไบนารี .bin ไปแฟลชตัวเอง"""
+    if not OTA_BIN_PATH.exists():
+        raise HTTPException(status_code=404, detail="No firmware available for OTA download")
+    return FileResponse(
+        path=str(OTA_BIN_PATH),
+        media_type="application/octet-stream",
+        filename="firmware.bin",
+    )
+
+@app.delete("/api/ota")
+async def clear_ota():
+    """ลบเฟิร์มแวร์ออกจาก Cloud"""
+    if OTA_BIN_PATH.exists():
+        OTA_BIN_PATH.unlink(missing_ok=True)
+    if OTA_META_PATH.exists():
+        OTA_META_PATH.unlink(missing_ok=True)
+    return {"status": "ok", "message": "OTA firmware cleared"}
 
 
 # ==================================================================
@@ -530,10 +623,19 @@ async def ingest_reading(payload: IngestPayload, request: Request):
     # 5. Auto Alert
     await _auto_alert(pool, payload.box_id, reading_id, reading_dict, ai_result)
 
+    # 6. Check OTA Firmware for ESP32
+    ota_info = _load_ota_meta()
+    ota_resp = {
+        "available": bool(ota_info.get("available", False) and OTA_BIN_PATH.exists()),
+        "version": ota_info.get("version", "") or "",
+        "url": ota_info.get("url", "") or "",
+    }
+
     return {
         "status": "ok",
         "reading_id": reading_id,
         "ai": ai_result,
+        "ota": ota_resp,
     }
 
 
