@@ -1048,9 +1048,9 @@ void send_data_wifi() {
     return;
   }
 
+  WiFiClientSecure client;
   HTTPClient http;
   if (api_url_str.startsWith("https://")) {
-    WiFiClientSecure client;
     client.setInsecure();
     http.begin(client, api_url_str);
   } else {

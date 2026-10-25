@@ -94,10 +94,10 @@ bool isWarmup = true;
 void fetchActiveSession() {
   if (wifiMulti.run() != WL_CONNECTED) return;
 
+  WiFiClientSecure client;
   HTTPClient http;
   String url = String(ACTIVE_SESSION_URL) + "?box_id=" + BOX_ID;
   if (url.startsWith("https://")) {
-    WiFiClientSecure client;
     client.setInsecure();
     http.begin(client, url);
   } else {
@@ -278,10 +278,10 @@ void sendData(const SensorData& d) {
   String payload;
   serializeJson(doc, payload);
 
+  WiFiClientSecure client;
   HTTPClient http;
   String url = String(API_URL);
   if (url.startsWith("https://")) {
-    WiFiClientSecure client;
     client.setInsecure();
     http.begin(client, url);
   } else {
