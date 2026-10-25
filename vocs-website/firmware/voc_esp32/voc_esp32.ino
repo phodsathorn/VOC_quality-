@@ -34,7 +34,7 @@
 #include <HTTPUpdate.h>
 
 WebServer server(80);
-const char* FIRMWARE_VER = "1.0.1";
+const char* FIRMWARE_VER = "1.0.2";
 const char* BOX_ID       = "BOX-001";
 
 // ─── Premium Glassmorphic Web OTA Template (Stored in Flash PROGMEM) ──
@@ -428,11 +428,15 @@ void setup() {
 SensorData readSensors() {
   SensorData d = {0};
 
-  // DHT22
-  d.temp = dht.readTemperature();
-  d.rh   = dht.readHumidity();
-  if (isnan(d.temp)) d.temp = -1;
-  if (isnan(d.rh))   d.rh   = -1;
+  // DHT22 (ป้องกันค่าหลุด NaN หรือ -1 ซึ่งทำให้ AI เสียหาย)
+  static float lastValidTemp = 25.0;
+  static float lastValidRh   = 55.0;
+  float t = dht.readTemperature();
+  float h = dht.readHumidity();
+  if (!isnan(t) && t >= -10.0 && t <= 80.0) lastValidTemp = t;
+  if (!isnan(h) && h >= 0.0 && h <= 100.0)  lastValidRh   = h;
+  d.temp = lastValidTemp;
+  d.rh   = lastValidRh;
 
   // CCS811 (TVOC/eCO2)
   // ชดเชยอุณหภูมิ/ความชื้นทุก 60 วินาที เพื่อไม่ให้ชิปรีเซ็ต Baseline บ่อยเกินไป
@@ -442,12 +446,21 @@ SensorData readSensors() {
     ccs.setEnvironmentalData((uint8_t)d.rh, d.temp);
   }
 
-  if (ccs.available() && !ccs.readData()) {
-    d.tvoc = ccs.getTVOC();
-    d.eco2 = ccs.geteCO2();
-  } else {
-    d.tvoc = -1; d.eco2 = -1;
+  static float lastValidTvoc = 10.0;
+  static float lastValidEco2 = 400.0;
+
+  if (ccs.available() && !ccs.checkError() && !ccs.readData()) {
+    uint16_t raw_tvoc = ccs.getTVOC();
+    uint16_t raw_eco2 = ccs.geteCO2();
+    // กรองขยะ I2C bus error frames (เช่น 64319, 39064, 32800) ซึ่งทำให้ AI ทายแอลกอฮอล์ผิดพลาด
+    // ช่วงสเปกปกติของ CCS811: TVOC = 0 - 1187 ppb (สูงสุดไม่เกิน 2000), eCO2 = 400 - 8192 ppm
+    if (raw_tvoc <= 2000 && raw_eco2 >= 400 && raw_eco2 <= 8192) {
+      lastValidTvoc = (float)raw_tvoc;
+      lastValidEco2 = (float)raw_eco2;
+    }
   }
+  d.tvoc = lastValidTvoc;
+  d.eco2 = lastValidEco2;
 
   // PMS5003 (PM2.5)
   PM25_AQI_Data pmData;
@@ -464,11 +477,13 @@ SensorData readSensors() {
   d.mq135  = analogRead(MQ135_PIN);
 
   // MiCS-6814 ผ่าน ADS1115 (16-bit ADC)
-  // แปลงค่าเป็น mV ให้ตรงกับสเกลชุดข้อมูล Machine Learning และ backend
-  // A0 = RED (CO), A1 = OX (NO2), A2 = NH3
-  d.mics_co = (int)(ads.computeVolts(ads.readADC_SingleEnded(0)) * 1000.0f);
-  d.no2     = (int)(ads.computeVolts(ads.readADC_SingleEnded(1)) * 1000.0f);
-  d.nh3     = (int)(ads.computeVolts(ads.readADC_SingleEnded(2)) * 1000.0f);
+  // แปลงค่าเป็น mV และ clamp ค่าไม่ให้ติดลบ
+  int v0 = (int)(ads.computeVolts(ads.readADC_SingleEnded(0)) * 1000.0f);
+  int v1 = (int)(ads.computeVolts(ads.readADC_SingleEnded(1)) * 1000.0f);
+  int v2 = (int)(ads.computeVolts(ads.readADC_SingleEnded(2)) * 1000.0f);
+  d.mics_co = max(0, v0);
+  d.no2     = max(0, v1);
+  d.nh3     = max(0, v2);
 
   return d;
 }
