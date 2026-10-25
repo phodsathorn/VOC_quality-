@@ -4,7 +4,7 @@ import os
 # ดึงค่า connection string จาก environment variable หรือใช้ค่า default สำหรับ local dev
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://voc_user:voc_password@localhost:5432/voc_db"
+    "postgresql://neondb_owner:REDACTED_PASSWORD@ep-calm-glade-a1e1ttwn-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
 )
 
 _pool: asyncpg.Pool = None

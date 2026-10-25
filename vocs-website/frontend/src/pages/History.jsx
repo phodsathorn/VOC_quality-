@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CalendarDays, Download, RefreshCw } from 'lucide-react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API } from '../config';
 const PARAMETERS = [
   { key: 'pm25', label: 'PM2.5', unit: 'µg/m³', color: '#ea580c' },
   { key: 'tvoc', label: 'TVOC', unit: 'ppb', color: '#2563eb' },

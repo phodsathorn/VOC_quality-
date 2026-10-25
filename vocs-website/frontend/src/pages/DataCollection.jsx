@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Pencil, Trash2, X, Save, Square, Play, Calculator, FlaskConical } from 'lucide-react';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API } from '../config';
 
 const SUBSTANCE_DATA = {
   ALCOHOL:  { name: 'Ethanol / Alcohol', mw: 46.07, density: 0.789, desc: 'เอทานอล / แอลกอฮอล์ C₂H₅OH' },

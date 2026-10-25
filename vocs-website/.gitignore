@@ -11,6 +11,7 @@ env/
 dist/
 build/
 *.pkl
+!backend/voc_model.pkl
 *.pkl.gz
 
 # Node.js

@@ -8,28 +8,16 @@ import {
   isSoundEnabled, toggleSoundEnabled, triggerAlertSound
 } from '../utils/soundAlert';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API } from '../config';
 
 export default function Layout({ children }) {
   const location = useLocation();
-  const [showMockBanner, setShowMockBanner] = useState(false);
   const [soundActive, setSoundActive] = useState(() => isSoundEnabled());
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
   const [toastAlert, setToastAlert] = useState(null);
 
   const seenAlertIds = useRef(new Set());
   const isFirstRun = useRef(true);
-
-  useEffect(() => {
-    if (window.__VOC_MOCK_MODE && !sessionStorage.getItem('voc_mock_banner_dismissed')) {
-      setShowMockBanner(true);
-    }
-  }, []);
-
-  function dismissBanner() {
-    sessionStorage.setItem('voc_mock_banner_dismissed', '1');
-    setShowMockBanner(false);
-  }
 
   // ซิงค์สถานะเสียงเมื่อมีการเปิด/ปิดจากหน้าอื่น
   useEffect(() => {
@@ -124,19 +112,6 @@ export default function Layout({ children }) {
       <main className="main-content">
         <header className="topbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', marginLeft: 'auto' }}>
-            {window.__VOC_MOCK_MODE && (
-              <span style={{
-                fontSize: '0.72rem', fontWeight: 700,
-                padding: '0.2rem 0.65rem', borderRadius: '999px',
-                backgroundColor: '#fef3c7', color: '#92400e',
-                border: '1px solid #fcd34d',
-                display: 'flex', alignItems: 'center', gap: '0.3rem',
-                letterSpacing: '0.03em',
-              }}>
-                🟡 MOCK MODE
-              </span>
-            )}
-
             {/* ปุ่มเปิด/ปิดเสียงแจ้งเตือน */}
             <button
               onClick={() => {
@@ -192,35 +167,6 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        {/* ── Mock Mode Banner ── */}
-        {showMockBanner && (
-          <div style={{
-            backgroundColor: '#fffbeb',
-            borderBottom: '1px solid #fcd34d',
-            padding: '0.65rem 2rem',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#92400e', fontSize: '0.875rem' }}>
-              <AlertCircle size={16} style={{ flexShrink: 0 }} />
-              <span>
-                <strong>ข้อมูลจำลอง (Mock Mode)</strong> — ระบบยังไม่ได้เชื่อมต่อกับ Backend หรือ ESP32 จริง ข้อมูลที่เห็นเป็นการ simulate เท่านั้น
-              </span>
-              <Link
-                to="/guide"
-                style={{ color: '#92400e', fontWeight: 700, textDecoration: 'underline', whiteSpace: 'nowrap' }}
-              >
-                ดูคู่มือตั้งค่า →
-              </Link>
-            </div>
-            <button
-              onClick={dismissBanner}
-              title="ปิดข้อความนี้ (จะกลับมาเมื่อ reload)"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', display: 'flex', alignItems: 'center', padding: '0.2rem', borderRadius: '0.25rem', flexShrink: 0 }}
-            >
-              <X size={16} />
-            </button>
-          </div>
-        )}
 
         {/* ── Floating Toast Alert Notification ── */}
         {toastAlert && (
