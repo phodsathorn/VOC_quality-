@@ -37,6 +37,9 @@ WebServer server(80);
 const char* FIRMWARE_VER = "1.0.2";
 const char* BOX_ID       = "BOX-001";
 
+void reportOtaStatus(const char* status, int errCode, const char* errDetail);
+void performCloudOTA(const char* ota_url);
+
 // ─── Premium Glassmorphic Web OTA Template (Stored in Flash PROGMEM) ──
 const char OTA_PAGE[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
@@ -389,6 +392,7 @@ void setup() {
   }
   if (WiFi.status() == WL_CONNECTED) {
     Serial.printf("\n[WiFi] Connected to: %s | IP: %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+    reportOtaStatus("SUCCESS", 0, "Online and running");
   } else {
     Serial.println("\n[WiFi] Waiting for network connection in background...");
   }
@@ -488,17 +492,49 @@ SensorData readSensors() {
   return d;
 }
 
+// ─── OTA Diagnostic Report ───────────────────────────────────
+void reportOtaStatus(const char* status, int errCode, const char* errDetail) {
+  if (wifiMulti.run() != WL_CONNECTED) return;
+  JsonDocument doc;
+  doc["box_id"] = BOX_ID;
+  doc["version"] = FIRMWARE_VER;
+  doc["status"] = status;
+  doc["error_code"] = errCode;
+  doc["error_detail"] = errDetail;
+  String payload;
+  serializeJson(doc, payload);
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  String reportUrl = String(API_URL);
+  int lastSlash = reportUrl.lastIndexOf("/api/");
+  if (lastSlash != -1) {
+    reportUrl = reportUrl.substring(0, lastSlash) + "/api/ota/report";
+  } else {
+    reportUrl = reportUrl + "/api/ota/report";
+  }
+
+  http.begin(client, reportUrl);
+  http.addHeader("Content-Type", "application/json");
+  http.setTimeout(4000);
+  int code = http.POST(payload);
+  Serial.printf("[OTA Report] %s (ver %s) -> HTTP %d\n", status, FIRMWARE_VER, code);
+  http.end();
+}
+
 // ─── Send to API ─────────────────────────────────────────────
 void sendData(const SensorData& d) {
   if (wifiMulti.run() != WL_CONNECTED) return;
 
   JsonDocument doc;
-  doc["box_id"]   = BOX_ID;
-  doc["temp"]     = d.temp;
-  doc["rh"]       = d.rh;
-  doc["pm25"]     = d.pm25;
-  doc["tvoc"]     = d.tvoc;
-  doc["eco2"]     = d.eco2;
+  doc["box_id"]       = BOX_ID;
+  doc["firmware_ver"] = FIRMWARE_VER;
+  doc["temp"]         = d.temp;
+  doc["rh"]           = d.rh;
+  doc["pm25"]         = d.pm25;
+  doc["tvoc"]         = d.tvoc;
+  doc["eco2"]         = d.eco2;
   
   // Note: Backend might need update to save mq2 if needed
   doc["mq2"]      = d.mq2; 
@@ -566,7 +602,10 @@ void performCloudOTA(const char* ota_url) {
 
   t_httpUpdate_return ret = httpUpdate.update(otaClient, ota_url);
   if (ret == HTTP_UPDATE_FAILED) {
-    Serial.printf("[Cloud OTA] Failed! Error (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+    int errCode = httpUpdate.getLastError();
+    String errStr = httpUpdate.getLastErrorString();
+    Serial.printf("[Cloud OTA] Failed! Error (%d): %s\n", errCode, errStr.c_str());
+    reportOtaStatus("FAILED", errCode, errStr.c_str());
   } else if (ret == HTTP_UPDATE_OK) {
     Serial.println("[Cloud OTA] Update success! Rebooting into new firmware...");
   }
