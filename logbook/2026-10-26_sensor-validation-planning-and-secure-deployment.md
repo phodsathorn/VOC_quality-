@@ -104,3 +104,9 @@
 
 - คำสั่งหรือ bookmark เก่าที่อ้าง root path เดิมของ firmware/test/tool ต้องเปลี่ยนตามโครงสร้างใหม่
 - เอกสาร historical ใน `archive/` จะคง path เดิมไว้โดยตั้งใจ เพราะเป็นหลักฐานย้อนหลัง ไม่ใช่คู่มือใช้งานปัจจุบัน
+
+## อัปเดตเวลา 12:xx ICT — เผยแพร่โครงสร้างใหม่
+
+- Commit `7d53493` (`chore: organize project structure and logbook`) ถูก push ไป GitHub branch `main` สำเร็จ
+- GitLab branch `main` ยัง push ไม่สำเร็จ เพราะเป็น protected branch และไม่อนุญาต force-push ซึ่งจำเป็นต่อการแทนที่ประวัติเก่าที่เคยมี credential
+- ขั้นตอนที่ต้องทำ: Maintainer เปิด `Allow force push` ชั่วคราวสำหรับ GitLab `main` แล้วจึง push cleaned history ด้วย `--force-with-lease`; หลังเสร็จควรเปิด protection กลับทันที
