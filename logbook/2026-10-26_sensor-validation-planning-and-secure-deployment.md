@@ -110,3 +110,26 @@
 - Commit `7d53493` (`chore: organize project structure and logbook`) ถูก push ไป GitHub branch `main` สำเร็จ
 - GitLab branch `main` ยัง push ไม่สำเร็จ เพราะเป็น protected branch และไม่อนุญาต force-push ซึ่งจำเป็นต่อการแทนที่ประวัติเก่าที่เคยมี credential
 - ขั้นตอนที่ต้องทำ: Maintainer เปิด `Allow force push` ชั่วคราวสำหรับ GitLab `main` แล้วจึง push cleaned history ด้วย `--force-with-lease`; หลังเสร็จควรเปิด protection กลับทันที
+
+## อัปเดตเวลา 12:xx ICT — เพิ่ม Agent Skills สำหรับข้อมูลและ UI
+
+### ติดตั้งแล้ว
+
+- `security-audit` จาก Cloudflare สำหรับ security review แบบ source-first
+- `modern-web-guidance` จาก Google Chrome สำหรับ modern web, accessibility และ performance
+- `impeccable` สำหรับ UX/UI critique และ polish ของ dashboard
+- DuckDB Skills จาก `duckdb/duckdb-skills`: `attach-db`, `query`, `read-file`, `convert-file`, `duckdb-docs` และ skill ประกอบอื่น ๆ
+- `senior-data-scientist` จาก `davila7/claude-code-templates` สำหรับ validation, drift, experiment design และ model evaluation
+- `data-analyst` จาก `siddsachar/row-bot` สำหรับสรุปข้อมูล กราฟ และรายงาน
+
+### ขอบเขตและข้อควรระวัง
+
+- ใช้ DuckDB แบบ read-only เป็นค่าเริ่มต้นกับ CSV/Parquet/log ใน local workspace; ห้ามเชื่อม/แก้ฐานข้อมูล production โดยไม่มีคำสั่งชัดเจน
+- ไม่ใช้ `read-memories`, `s3-explore` หรือ `chrome-extensions` กับข้อมูลโรงงาน เว้นแต่ผู้ใช้อนุมัติเป็นรายงาน เพราะไม่จำเป็นต่อ workflow ปัจจุบัน
+- ยังไม่ติดตั้ง `wandb-monitor`: จะเพิ่มเมื่อเริ่มมีการ train/retrain หลาย run และตัดสินใจเรื่องบัญชี, retention, การส่งข้อมูลออกนอกองค์กรแล้ว
+- ยังไม่ติดตั้ง `senior-data-engineer`: จะเพิ่มเมื่อเริ่มใช้งานหลายกล่องหรือมี pipeline/retention ระยะยาวที่เกินความสามารถของ PostgreSQL + job แบบง่าย
+
+## อัปเดตเวลา 12:xx ICT — เอกสารประกอบสไลด์สอบโครงงาน
+
+- สร้าง `docs/product/RESEARCH_PROJECT_PRESENTATION_BRIEF_TH.md` เป็นโครงสไลด์ภาษาไทย 18 สไลด์ พร้อมเนื้อหาพูด, สถานะงาน, วิธีประเมินผล, หลักฐานที่ต้องเก็บ และข้อกล่าวอ้างที่ควรหลีกเลี่ยง
+- เน้นการนำเสนออย่างถูกต้อง: ระบบเป็น E-Nose/monitoring prototype; ความแม่นยำเชิงปริมาณและการรับรองการปล่อยตามกฎหมายต้องใช้ calibration/reference/stack measurement เพิ่มเติม
