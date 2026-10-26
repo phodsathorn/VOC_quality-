@@ -9,7 +9,7 @@
 > - **Backend API:** [vocs-website/backend/main.py](file:///Users/urworld/paper_sensor_VOC/vocs-website/backend/main.py#L719) (`/api/maintenance/status`)
 > - **Frontend UI:** [vocs-website/frontend/src/pages/Maintenance.jsx](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/Maintenance.jsx)
 > - **Flow & Chamber Diagram:** [vocs-website/frontend/src/pages/AirflowDiagram.jsx](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/AirflowDiagram.jsx)
-> - **Edge Firmware:** [src/air_quality_monitor/air_quality_monitor.ino](file:///Users/urworld/paper_sensor_VOC/src/air_quality_monitor/air_quality_monitor.ino)
+> - **Edge Firmware (รุ่นเก่าที่เก็บอ้างอิง):** [experimental/legacy-firmware/air_quality_monitor/air_quality_monitor.ino](file:///Users/urworld/paper_sensor_VOC/experimental/legacy-firmware/air_quality_monitor/air_quality_monitor.ino)
 
 ---
 
