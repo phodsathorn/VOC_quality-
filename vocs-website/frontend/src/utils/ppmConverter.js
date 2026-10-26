@@ -62,7 +62,10 @@ export const MQ_CURVES = {
     b: -1.504,
     cleanRatio: 60.0, // Rs/R0 ในอากาศบริสุทธิ์
     minRatio: 0.01,
-    maxPpm: 5000,
+    // Winsen MQ-3/MQ-3B datasheet: specified alcohol detection range is
+    // 25–500 ppm.  Do not present extrapolated values above this as measured.
+    minPpm: 25,
+    maxPpm: 500,
     unit: 'ppm',
   },
   mq8: {
@@ -229,6 +232,9 @@ function mqRsR0ToPpm(ratio, curve) {
   let ppm = curve.a * Math.pow(r, curve.b);
 
   if (ppm < 0) ppm = 0;
+  // Below a sensor's specified range means "below quantification range", not
+  // a trustworthy numerical zero.  Retain 0 for the UI but expose the state.
+  if (curve.minPpm && ppm < curve.minPpm) return 0;
   if (ppm > curve.maxPpm) ppm = curve.maxPpm;
 
   return ppm;

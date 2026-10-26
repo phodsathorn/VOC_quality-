@@ -2,12 +2,11 @@ import asyncio
 import asyncpg
 import os
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://neondb_owner:REDACTED_PASSWORD@ep-calm-glade-a1e1ttwn-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 async def migrate():
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL is not configured. Set it before running this migration.")
     try:
         conn = await asyncpg.connect(DATABASE_URL)
         print("Connected to DB. Adding mq2 column...")

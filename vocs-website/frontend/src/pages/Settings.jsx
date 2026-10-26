@@ -41,6 +41,9 @@ export default function Settings() {
   const [syncStatus, setSyncStatus] = useState(null); // 'syncing' | 'ok' | 'error'
   const [modelMsg,   setModelMsg]   = useState(null);
   const [soundOn,    setSoundOn]    = useState(() => isSoundEnabled());
+  const [calibration, setCalibration] = useState(null);
+  const [health, setHealth] = useState(null);
+  const [runtime, setRuntime] = useState(null);
   const isMock = false;
 
   useEffect(() => {
@@ -48,6 +51,40 @@ export default function Settings() {
     window.addEventListener('voc_sound_toggle', handleToggle);
     return () => window.removeEventListener('voc_sound_toggle', handleToggle);
   }, []);
+
+  useEffect(() => {
+    const box = general.boxId || 'BOX-001';
+    const loadHealth = () => {
+      fetch(`${API}/api/sensor-health?box_id=${box}`).then(r => r.ok ? r.json() : null).then(setHealth).catch(() => {});
+      fetch(`${API}/api/sensor-runtime?box_id=${box}&limit=10`).then(r => r.ok ? r.json() : null).then(setRuntime).catch(() => {});
+    };
+    loadHealth();
+    const timer = setInterval(loadHealth, 5000);
+    return () => clearInterval(timer);
+  }, [general.boxId]);
+
+  async function requestHardwareCalibration() {
+    if (!window.confirm('ยืนยันว่าเครื่องอยู่ในอากาศสะอาดและ MQ-3 ผ่าน preheat แล้ว? ระบบจะบันทึก baseline จาก ESP32 จริง')) return;
+    setCalibration({ status: 'requesting' });
+    try {
+      const res = await fetch(`${API}/api/calibration/request`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ box_id: general.boxId || 'BOX-001' }) });
+      const job = await res.json();
+      if (!res.ok) throw new Error(job.detail);
+      setCalibration({ status: 'waiting', id: job.calibration_id });
+      const poll = async () => {
+        const r = await fetch(`${API}/api/calibration/${job.calibration_id}`);
+        const result = await r.json();
+        if (result.status === 'COMPLETE') {
+          const next = { ...baseline, ...result.baselines };
+          setBaseline(next); saveBaseline(next);
+          setCalibration({ status: 'complete', id: job.calibration_id });
+        } else if (result.status === 'REJECTED') {
+          setCalibration({ status: 'error', detail: result.detail });
+        } else setTimeout(poll, 3000);
+      };
+      setTimeout(poll, 3000);
+    } catch (e) { setCalibration({ status: 'error', detail: e.message }); }
+  }
 
   // Sync กับ Backend เมื่อเปิดหน้า Settings
   useEffect(() => {
@@ -443,6 +480,9 @@ export default function Settings() {
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button onClick={requestHardwareCalibration} disabled={calibration?.status === 'waiting' || calibration?.status === 'requesting'} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.45rem 0.85rem', borderRadius: '0.5rem', border: '1px solid #2563eb', backgroundColor: '#eff6ff', color: '#1d4ed8', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
+              <Cpu size={13} /> {calibration?.status === 'waiting' ? 'รอ ESP32 ทำ Calibration...' : 'สั่ง ESP32 Capture Baseline'}
+            </button>
             <button
               onClick={handleCaptureBaseline}
               disabled={captureMsg === 'loading'}
@@ -465,6 +505,8 @@ export default function Settings() {
             {captureMsg === 'error' && (
               <span style={{ fontSize: '0.78rem', color: '#ef4444' }}>⚠ เชื่อมต่อไม่สำเร็จ</span>
             )}
+            {calibration?.status === 'complete' && <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 600 }}>✅ ESP32 ส่ง baseline จริงกลับมาแล้ว</span>}
+            {calibration?.status === 'error' && <span style={{ fontSize: '0.78rem', color: '#ef4444' }}>⚠ Calibration ไม่สำเร็จ: {calibration.detail}</span>}
           </div>
         </div>
 
@@ -502,7 +544,28 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* ── Section 4: AI Model ──────────────────────────────── */}
+      {/* ── Section 4: Real sensor diagnostics ─────────────── */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.35rem' }}>🩺 ตรวจคุณภาพสัญญาณจริงจากทุก Sensor</h2>
+        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>ตรวจขอบเขต datasheet/interface และความแกว่งของ 12 ตัวอย่างล่าสุด ไม่ใช่ค่าจำลอง</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.6rem' }}>
+          {Object.entries(health?.sensors || {}).map(([id, item]) => <div key={id} style={{ padding: '0.65rem', borderRadius: 8, border: `1px solid ${item.state === 'OK' ? '#86efac' : item.state === 'WARNING' ? '#fcd34d' : '#fca5a5'}`, background: item.state === 'OK' ? '#f0fdf4' : '#fff7ed' }}>
+            <div style={{ fontWeight: 700, fontSize: '0.8rem' }}>{item.rule.label} · {item.state}</div>
+            <div style={{ fontSize: '0.75rem', marginTop: 3 }}>{item.value ?? '—'} {item.rule.unit}</div>
+            <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 3 }}>{item.reason}</div>
+          </div>)}
+        </div>
+        {health?.stale && <p style={{ color: '#dc2626', fontSize: '0.78rem', marginTop: 8 }}>⚠ ข้อมูลจากอุปกรณ์เก่ากว่า 30 วินาที</p>}
+        <div style={{ marginTop: '0.85rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: 6 }}>⏱ ชั่วโมงทำงานสะสมจริง (ใช้ ESP32 uptime)</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            {(runtime?.sensors || []).map(s => <span key={s.sensor_id} style={{ padding: '0.35rem 0.55rem', background: '#f1f5f9', borderRadius: 6, fontSize: '0.72rem' }}><strong>{s.sensor_id.toUpperCase()}</strong> {(Number(s.online_seconds || 0) / 3600).toFixed(2)} ชม.</span>)}
+          </div>
+          {runtime?.logs?.[0] && <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 6 }}>มี status log ล่าสุด {new Date(runtime.logs[0].recorded_at).toLocaleString('th-TH')} · เก็บ log ทุก 60 วินาที</div>}
+        </div>
+      </div>
+
+      {/* ── Section 5: AI Model ──────────────────────────────── */}
       {!isMock && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

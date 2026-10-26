@@ -45,3 +45,5 @@ ml/confusion_matrix.png
 ml/feature_importance.png
 ml/voc_training_data.csv
 ml/model_meta.json
+firmware/voc_esp32/secrets.h
+backend/.env

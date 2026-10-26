@@ -32,6 +32,7 @@
 #include <WebServer.h>
 #include <Update.h>
 #include <HTTPUpdate.h>
+#include "secrets.h"  // Local-only Wi-Fi credentials; see secrets.example.h
 
 // ─── Data Structure ──────────────────────────────────────────
 struct SensorData {
@@ -47,6 +48,8 @@ SensorData readSensors();
 void sendData(const SensorData& d);
 void reportOtaStatus(const char* status, int errCode, const char* errDetail);
 void performCloudOTA(const char* ota_url);
+void pollDeviceCommand();
+void reportCalibration(int calibrationId);
 
 // ─── Premium Glassmorphic Web OTA Template (Stored in Flash PROGMEM) ──
 const char OTA_PAGE[] PROGMEM = R"rawliteral(
@@ -278,6 +281,10 @@ unsigned long lastSessionPoll = 0;
 // ─── Settings ────────────────────────────────────────────────
 const unsigned long SEND_INTERVAL_MS = 3000;
 const unsigned long WARMUP_TIME_MS   = 30000; // อุ่นเครื่องเริ่มต้น 30 วินาที
+// MQ-3 datasheet specifies >48 h preheat for a calibrated measurement.
+// Keep streaming during this period, but mark MQ-3 as not ready so the server
+// cannot turn an unconditioned sensor into an alcohol alarm.
+const unsigned long MQ3_PREHEAT_TIME_MS = 48UL * 60UL * 60UL * 1000UL;
 
 // ─── Objects ─────────────────────────────────────────────────
 DHT dht(DHT_PIN, DHT_TYPE);
@@ -288,6 +295,27 @@ Adafruit_PM25AQI aqi = Adafruit_PM25AQI();
 
 unsigned long lastSend = 0;
 bool isWarmup = true;
+unsigned long lastCommandPoll = 0;
+const unsigned long COMMAND_POLL_MS = 10000;
+
+// Median rejects one-off ADC spikes from Wi-Fi/relay noise better than a single read.
+int readMedianAdc(uint8_t pin, int *spread = nullptr) {
+  const uint8_t samples = 9;
+  int values[samples];
+  for (uint8_t i = 0; i < samples; ++i) {
+    values[i] = analogRead(pin);
+    delay(2);
+  }
+  for (uint8_t i = 0; i < samples - 1; ++i) {
+    for (uint8_t j = i + 1; j < samples; ++j) {
+      if (values[j] < values[i]) {
+        int t = values[i]; values[i] = values[j]; values[j] = t;
+      }
+    }
+  }
+  if (spread) *spread = values[samples - 1] - values[0];
+  return values[samples / 2];
+}
 
 // ─── Fetch Active Session ─────────────────────────────────────
 void fetchActiveSession() {
@@ -323,6 +351,59 @@ void fetchActiveSession() {
           SESSION_ID    = 0;
           SESSION_LABEL = "";
         }
+      }
+    }
+  }
+  http.end();
+}
+
+String apiEndpoint(const char* path) {
+  String base = String(API_URL);
+  int apiPos = base.indexOf("/api/");
+  return (apiPos >= 0 ? base.substring(0, apiPos) : base) + path;
+}
+
+// Baseline capture is intentionally initiated only from the web UI.  The user
+// must first ensure clean air and a conditioned sensor; this is not a forced
+// zero calibration of a gas concentration.
+void reportCalibration(int calibrationId) {
+  SensorData d = readSensors();
+  JsonDocument doc;
+  doc["box_id"] = BOX_ID;
+  doc["calibration_id"] = calibrationId;
+  doc["mq3_ready"] = millis() >= MQ3_PREHEAT_TIME_MS;
+  JsonObject b = doc["baselines"].to<JsonObject>();
+  b["mq2"] = d.mq2; b["mq3"] = d.mq3; b["mq8"] = d.mq8; b["mq135"] = d.mq135;
+  b["mics_co"] = d.mics_co; b["no2"] = d.no2; b["nh3"] = d.nh3;
+  b["tvoc"] = d.tvoc; b["eco2"] = d.eco2; b["pm25"] = d.pm25;
+  b["temp"] = d.temp; b["rh"] = d.rh;
+  doc["detail"] = millis() >= MQ3_PREHEAT_TIME_MS
+    ? "Baseline capture requested from web UI; verify clean-air conditions before use."
+    : "MQ-3 conditioning is incomplete; values must not be used as a baseline.";
+  String payload; serializeJson(doc, payload);
+  WiFiClientSecure client; client.setInsecure();
+  HTTPClient http; http.begin(client, apiEndpoint("/api/calibration/report"));
+  http.addHeader("Content-Type", "application/json"); http.setTimeout(5000);
+  int code = http.POST(payload);
+  Serial.printf("[Calibration] Report #%d -> HTTP %d\n", calibrationId, code);
+  http.end();
+}
+
+void pollDeviceCommand() {
+  if (wifiMulti.run() != WL_CONNECTED) return;
+  WiFiClientSecure client; client.setInsecure();
+  HTTPClient http;
+  http.begin(client, apiEndpoint("/api/device-command?box_id=") + BOX_ID);
+  http.setTimeout(4000);
+  int code = http.GET();
+  if (code == 200) {
+    JsonDocument doc;
+    if (deserializeJson(doc, http.getString()) == DeserializationError::Ok) {
+      JsonObject cmd = doc["command"].as<JsonObject>();
+      const char* action = cmd["action"] | "";
+      if (strcmp(action, "CALIBRATE_BASELINE") == 0) {
+        int calibrationId = cmd["calibration_id"] | 0;
+        if (calibrationId > 0) reportCalibration(calibrationId);
       }
     }
   }
@@ -381,11 +462,11 @@ void setup() {
     Serial.println("[OK] PMS5003 ready on UART2");
   }
 
-  // Connect WiFi (Auto-select robot_club / Urworld)
-  wifiMulti.addAP("robot_club", "REDACTED_PASSWORD");
-  wifiMulti.addAP("Urworld", "REDACTED_PASSWORD");
+  // Credentials are provisioned locally and must never be committed to Git.
+  wifiMulti.addAP(WIFI_SSID_1, WIFI_PASS_1);
+  wifiMulti.addAP(WIFI_SSID_2, WIFI_PASS_2);
 
-  Serial.println("[WiFi] Connecting to WiFi (robot_club / Urworld)...");
+  Serial.println("[WiFi] Connecting using provisioned networks...");
   int wifiRetry = 0;
   while (wifiMulti.run() != WL_CONNECTED && wifiRetry < 30) {
     delay(500);
@@ -477,10 +558,10 @@ SensorData readSensors() {
   }
 
   // Analog MQs (ESP32 ADC)
-  d.mq2    = analogRead(MQ2_PIN);
-  d.mq3    = analogRead(MQ3_PIN);
-  d.mq8    = analogRead(MQ8_PIN);
-  d.mq135  = analogRead(MQ135_PIN);
+  d.mq2    = readMedianAdc(MQ2_PIN);
+  d.mq3    = readMedianAdc(MQ3_PIN);
+  d.mq8    = readMedianAdc(MQ8_PIN);
+  d.mq135  = readMedianAdc(MQ135_PIN);
 
   // MiCS-6814 ผ่าน ADS1115 (16-bit ADC)
   // แปลงค่าเป็น mV และ clamp ค่าไม่ให้ติดลบ
@@ -532,6 +613,9 @@ void sendData(const SensorData& d) {
   JsonDocument doc;
   doc["box_id"]       = BOX_ID;
   doc["firmware_ver"] = FIRMWARE_VER;
+  // Monotonic device runtime lets the backend account actual sensor operating
+  // hours and identify ESP32 reboots without relying on server wall-clock.
+  doc["device_uptime_sec"] = millis() / 1000UL;
   doc["temp"]         = d.temp;
   doc["rh"]           = d.rh;
   doc["pm25"]         = d.pm25;
@@ -541,6 +625,12 @@ void sendData(const SensorData& d) {
   // Note: Backend might need update to save mq2 if needed
   doc["mq2"]      = d.mq2; 
   doc["mq3"]      = d.mq3;
+  // Repeat only MQ-3 sampling to expose stability to the backend.  A spread
+  // above 150 ADC counts means this frame is too noisy for an alcohol alert.
+  int mq3Spread = 0;
+  doc["mq3"] = readMedianAdc(MQ3_PIN, &mq3Spread);
+  doc["mq3_spread"] = mq3Spread;
+  doc["mq3_ready"] = millis() >= MQ3_PREHEAT_TIME_MS;
   doc["mq135"]    = d.mq135;
   doc["mq8"]      = d.mq8;
   doc["mics_co"]  = d.mics_co;
@@ -625,6 +715,10 @@ void loop() {
   if (now - lastSessionPoll >= SESSION_POLL_MS) {
     lastSessionPoll = now;
     fetchActiveSession();
+  }
+  if (now - lastCommandPoll >= COMMAND_POLL_MS) {
+    lastCommandPoll = now;
+    pollDeviceCommand();
   }
 
   // 2. Warmup Check
