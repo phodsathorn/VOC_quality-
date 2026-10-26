@@ -133,3 +133,4 @@
 
 - สร้าง `docs/product/RESEARCH_PROJECT_PRESENTATION_BRIEF_TH.md` เป็นโครงสไลด์ภาษาไทย 18 สไลด์ พร้อมเนื้อหาพูด, สถานะงาน, วิธีประเมินผล, หลักฐานที่ต้องเก็บ และข้อกล่าวอ้างที่ควรหลีกเลี่ยง
 - เน้นการนำเสนออย่างถูกต้อง: ระบบเป็น E-Nose/monitoring prototype; ความแม่นยำเชิงปริมาณและการรับรองการปล่อยตามกฎหมายต้องใช้ calibration/reference/stack measurement เพิ่มเติม
+- Commit `c4269ca` ถูก push ไป GitHub `main` สำเร็จ; GitLab `main` ยังปฏิเสธ force-push เนื่องจาก protected branch
