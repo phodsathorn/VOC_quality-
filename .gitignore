@@ -36,4 +36,9 @@ dist/
 
 # Docker
 postgres_data/
-logs/
+
+# Runtime data (may contain operational or sensitive information)
+data/runtime-logs/
+
+# Local credentials for experimental firmware
+experimental/firmware-tests/**/secrets.h
