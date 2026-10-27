@@ -95,6 +95,27 @@ async def _init_db_tables():
                 );
                 ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_ota_status VARCHAR(50);
                 ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_ota_error TEXT;
+                CREATE TABLE IF NOT EXISTS device_commands (
+                    id BIGSERIAL PRIMARY KEY, box_id VARCHAR(50) NOT NULL,
+                    action VARCHAR(50) NOT NULL, payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    status VARCHAR(20) NOT NULL DEFAULT 'PENDING', created_at TIMESTAMPTZ DEFAULT NOW(),
+                    completed_at TIMESTAMPTZ, result JSONB
+                );
+                CREATE TABLE IF NOT EXISTS sensor_calibrations (
+                    id BIGSERIAL PRIMARY KEY, box_id VARCHAR(50) NOT NULL,
+                    requested_at TIMESTAMPTZ DEFAULT NOW(), completed_at TIMESTAMPTZ,
+                    status VARCHAR(20) NOT NULL DEFAULT 'PENDING', baselines JSONB, detail TEXT
+                );
+                CREATE TABLE IF NOT EXISTS sensor_runtime (
+                    box_id VARCHAR(50) NOT NULL, sensor_id VARCHAR(30) NOT NULL,
+                    online_seconds BIGINT NOT NULL DEFAULT 0, last_seen TIMESTAMPTZ,
+                    last_device_uptime BIGINT, PRIMARY KEY (box_id, sensor_id)
+                );
+                CREATE TABLE IF NOT EXISTS sensor_status_logs (
+                    id BIGSERIAL PRIMARY KEY, box_id VARCHAR(50) NOT NULL,
+                    recorded_at TIMESTAMPTZ DEFAULT NOW(), device_uptime_sec BIGINT,
+                    statuses JSONB NOT NULL
+                );
 
                 INSERT INTO ota_firmwares (version, filename, size_bytes, status, release_notes)
                 VALUES ('1.0.2', 'firmware_1.0.2.bin', 1198560, 'ACTIVE', 'Production baseline firmware with I2C glitch filter and glassmorphism Web OTA')
@@ -511,6 +532,112 @@ async def get_active_session(box_id: str = "BOX-001"):
 # DASHBOARD ENDPOINTS
 # ==================================================================
 
+# Electrical/output bounds from the individual sensor datasheets or from the
+# ADC interface.  They flag impossible frames; they are deliberately *not*
+# exposure limits and must not be interpreted as gas concentrations.
+SENSOR_VALIDATION_RULES = {
+    "temp":    {"label": "DHT22 temperature", "min": -40, "max": 80, "unit": "°C", "source": "DHT22 datasheet"},
+    "rh":      {"label": "DHT22 humidity", "min": 0, "max": 100, "unit": "%RH", "source": "DHT22 datasheet"},
+    "pm25":    {"label": "PMS5003 PM2.5", "min": 0, "max": 1000, "unit": "µg/m³", "source": "Plantower PMS5003 range"},
+    "tvoc":    {"label": "CCS811 TVOC", "min": 0, "max": 1187, "unit": "ppb", "source": "ams CCS811 datasheet"},
+    "eco2":    {"label": "CCS811 eCO₂", "min": 400, "max": 8192, "unit": "ppm", "source": "ams CCS811 datasheet"},
+    "mq2":     {"label": "MQ-2 ADC", "min": 5, "max": 4090, "unit": "ADC", "source": "ESP32 12-bit ADC / rail check"},
+    "mq3":     {"label": "MQ-3 ADC", "min": 5, "max": 4090, "unit": "ADC", "source": "ESP32 12-bit ADC / rail check"},
+    "mq135":   {"label": "MQ-135 ADC", "min": 5, "max": 4090, "unit": "ADC", "source": "ESP32 12-bit ADC / rail check"},
+    "mq8":     {"label": "MQ-8 ADC", "min": 5, "max": 4090, "unit": "ADC", "source": "ESP32 12-bit ADC / rail check"},
+    "mics_co": {"label": "MiCS-6814 CO channel", "min": 0, "max": 3300, "unit": "mV", "source": "ADS1115/3.3V interface"},
+    "no2":     {"label": "MiCS-6814 NO₂ channel", "min": 0, "max": 3300, "unit": "mV", "source": "ADS1115/3.3V interface"},
+    "nh3":     {"label": "MiCS-6814 NH₃ channel", "min": 0, "max": 3300, "unit": "mV", "source": "ADS1115/3.3V interface"},
+}
+
+async def _sensor_health(pool, box_id: str, reading_row=None):
+    columns = list(SENSOR_VALIDATION_RULES)
+    rows = await pool.fetch(
+        f"SELECT {', '.join(columns)}, recorded_at FROM sensor_readings WHERE box_id = $1 ORDER BY recorded_at DESC LIMIT 12", box_id
+    )
+    latest = dict(reading_row) if reading_row else (dict(rows[0]) if rows else {})
+    output, issues = {}, []
+    for field, rule in SENSOR_VALIDATION_RULES.items():
+        value = latest.get(field)
+        samples = [float(r[field]) for r in rows if r[field] is not None]
+        state, reason = "OK", "อยู่ในขอบเขตสเปก/อินเทอร์เฟซ"
+        if value is None:
+            state, reason = "UNKNOWN", "ไม่มีข้อมูลล่าสุด"
+        elif not rule["min"] <= float(value) <= rule["max"]:
+            state, reason = "FAULT", f"{value} นอกช่วง {rule['min']}–{rule['max']} {rule['unit']}"
+        elif len(samples) >= 5:
+            mean = sum(samples) / len(samples)
+            noise = (sum((x - mean) ** 2 for x in samples) / len(samples)) ** 0.5
+            if mean and noise / abs(mean) > 0.25:
+                state, reason = "WARNING", "สัญญาณแกว่งสูงกว่า 25% ใน 12 ตัวอย่างล่าสุด"
+        output[field] = {"state": state, "reason": reason, "value": value, "rule": rule}
+        if state != "OK": issues.append({"sensor": field, "state": state, "reason": reason})
+    stale = bool(rows and (time.time() - rows[0]["recorded_at"].timestamp()) > 30)
+    if stale: issues.append({"sensor": "device", "state": "STALE", "reason": "ไม่มีข้อมูลใหม่เกิน 30 วินาที"})
+    return {"checked_at": time.time(), "stale": stale, "sensors": output, "issues": issues}
+
+@app.get("/api/sensor-health")
+async def get_sensor_health(box_id: str = "BOX-001"):
+    pool = await get_pool()
+    return await _sensor_health(pool, box_id)
+
+@app.get("/api/sensor-runtime")
+async def get_sensor_runtime(box_id: str = "BOX-001", limit: int = 100):
+    """Operating-hour counters plus recent persisted status snapshots for maintenance."""
+    pool = await get_pool()
+    counters = await pool.fetch("SELECT sensor_id, online_seconds, last_seen FROM sensor_runtime WHERE box_id=$1 ORDER BY sensor_id", box_id)
+    logs = await pool.fetch("SELECT recorded_at, device_uptime_sec, statuses FROM sensor_status_logs WHERE box_id=$1 ORDER BY recorded_at DESC LIMIT $2", box_id, min(max(limit, 1), 500))
+    return {"box_id": box_id, "sensors": [dict(x) for x in counters], "logs": [dict(x) for x in logs]}
+
+class CalibrationRequest(BaseModel):
+    box_id: str = "BOX-001"
+
+@app.post("/api/calibration/request")
+async def request_calibration(body: CalibrationRequest):
+    """Queue an explicit clean-air baseline capture; firmware performs the measurement."""
+    pool = await get_pool()
+    calibration_id = await pool.fetchval(
+        "INSERT INTO sensor_calibrations (box_id, status, detail) VALUES ($1, 'PENDING', 'Awaiting ESP32 clean-air capture') RETURNING id", body.box_id
+    )
+    await pool.execute(
+        "INSERT INTO device_commands (box_id, action, payload) VALUES ($1, 'CALIBRATE_BASELINE', $2::jsonb)",
+        body.box_id, json.dumps({"calibration_id": calibration_id})
+    )
+    return {"status": "queued", "calibration_id": calibration_id, "message": "รอ ESP32 รับคำสั่ง (ต้องวางเครื่องในอากาศสะอาด)"}
+
+@app.get("/api/device-command")
+async def get_device_command(box_id: str):
+    pool = await get_pool()
+    # DELIVERED remains eligible until the device posts its report; this makes
+    # calibration reliable across a transient Wi-Fi failure.
+    row = await pool.fetchrow("SELECT id, action, payload FROM device_commands WHERE box_id=$1 AND status IN ('PENDING','DELIVERED') ORDER BY id LIMIT 1", box_id)
+    if not row: return {"command": None}
+    await pool.execute("UPDATE device_commands SET status='DELIVERED' WHERE id=$1", row["id"])
+    return {"command": {"id": row["id"], "action": row["action"], **dict(row["payload"])}}
+
+class CalibrationReport(BaseModel):
+    box_id: str
+    calibration_id: int
+    baselines: dict
+    mq3_ready: bool = False
+    detail: str = ""
+
+@app.post("/api/calibration/report")
+async def calibration_report(body: CalibrationReport):
+    pool = await get_pool()
+    status = "COMPLETE" if body.mq3_ready else "REJECTED"
+    detail = body.detail if body.mq3_ready else "Rejected: MQ-3 has not completed its required 48-hour conditioning period."
+    await pool.execute("UPDATE sensor_calibrations SET status=$1, completed_at=NOW(), baselines=$2::jsonb, detail=$3 WHERE id=$4 AND box_id=$5", status, json.dumps(body.baselines), detail, body.calibration_id, body.box_id)
+    await pool.execute("UPDATE device_commands SET status=$1, completed_at=NOW(), result=$2::jsonb WHERE box_id=$3 AND payload->>'calibration_id'=$4", status, json.dumps(body.baselines), body.box_id, str(body.calibration_id))
+    return {"status": status.lower()}
+
+@app.get("/api/calibration/{calibration_id}")
+async def get_calibration(calibration_id: int):
+    pool = await get_pool()
+    row = await pool.fetchrow("SELECT id, box_id, status, baselines, detail, requested_at, completed_at FROM sensor_calibrations WHERE id=$1", calibration_id)
+    if not row: raise HTTPException(status_code=404, detail="Calibration not found")
+    return dict(row)
+
 @app.get("/api/dashboard/latest")
 async def get_dashboard_latest(box_id: str = "BOX-001"):
     pool = await get_pool()
@@ -551,6 +678,7 @@ async def get_dashboard_latest(box_id: str = "BOX-001"):
             "prediction": prediction_row["prediction"],
             "confidence": float(prediction_row["confidence"]),
         } if prediction_row else None,
+        "sensor_health": await _sensor_health(pool, box_id, reading_row),
     }
 
 
@@ -681,6 +809,7 @@ async def delete_device(box_id: str):
 class IngestPayload(BaseModel):
     box_id: str
     firmware_ver: Optional[str] = None
+    device_uptime_sec: Optional[int] = None
     temp: Optional[float] = None
     rh: Optional[float] = None
     pm25: Optional[float] = None
@@ -688,6 +817,8 @@ class IngestPayload(BaseModel):
     eco2: Optional[float] = None
     mq2: Optional[int] = None
     mq3: Optional[int] = None
+    mq3_spread: Optional[int] = None
+    mq3_ready: Optional[bool] = None
     mq135: Optional[int] = None
     mq8: Optional[int] = None
     mics_co: Optional[int] = None
@@ -698,10 +829,31 @@ class IngestPayload(BaseModel):
 
 # เก็บเวลาล่าสุดที่ยิง alert แต่ละประเภทเพื่อทำ Cooldown
 _last_alert_time: dict = {}
+_alcohol_confirmations: dict = defaultdict(int)
+
+# MQ-3 / ESP32 signal-quality limits.  0..4095 is the ESP32's 12-bit ADC
+# domain; values close to either rail indicate an open/short/saturated input,
+# not a concentration that can be quantified from the MQ-3 datasheet curve.
+MQ_ADC_MIN = 5
+MQ_ADC_MAX = 4090
+MQ3_MAX_SPREAD = 150
+ALCOHOL_LABELS = {"ALCOHOL", "ETHANOL", "IPA", "แอลกอฮอล", "แอลกอฮอล์"}
+
+def _mq3_quality(payload: IngestPayload) -> tuple[bool, str]:
+    if payload.mq3 is None or not MQ_ADC_MIN <= payload.mq3 <= MQ_ADC_MAX:
+        return False, "MQ-3 ADC อยู่ที่ขอบช่วง/อยู่นอกช่วง (ตรวจสายสัญญาณหรือแรงดัน)"
+    if payload.mq3_spread is not None and payload.mq3_spread > MQ3_MAX_SPREAD:
+        return False, "สัญญาณ MQ-3 แกว่งมากเกินไปในรอบอ่านเดียว"
+    if payload.mq3_ready is not True:
+        return False, "MQ-3 ยังไม่ผ่านเวลา preheat 48 ชั่วโมงตาม datasheet"
+    return True, "ok"
 
 async def _auto_alert(pool, box_id: str, reading_id: int, reading: dict, ai_result: dict):
     """สร้าง Alert อัตโนมัติ พร้อมระบบป้องกันการเด้งรัว (Deduplication + Escalation + Hysteresis Auto-Resolve)"""
     now = time.monotonic()
+    if str(ai_result.get("prediction", "")).upper() not in ALCOHOL_LABELS:
+        # Confirmation must be consecutive; an AMBIENT/other-gas frame resets it.
+        _alcohol_confirmations[(box_id, "ALCOHOL")] = 0
 
     # 1) Threshold-based alerts (TVOC, PM2.5, eCO2)
     for field, limits in THRESHOLDS.items():
@@ -763,18 +915,40 @@ async def _auto_alert(pool, box_id: str, reading_id: int, reading: dict, ai_resu
         box_id
     )
 
-    if ai_result.get("is_dangerous"):
+    dangerous_confirmed = ai_result.get("is_dangerous")
+    if dangerous_confirmed:
         pred = ai_result["prediction"]
         conf = ai_result["confidence"]
 
+        # MQ-3 is a cross-sensitive MOS sensor.  Require three consecutive,
+        # high-confidence, quality-checked alcohol classifications before an
+        # alert is emitted; a single raw-ADC spike must never alarm users.
+        is_alcohol = str(pred).upper() in ALCOHOL_LABELS
+        if is_alcohol:
+            quality_ok = ai_result.get("mq3_quality_ok", False)
+            if not quality_ok or conf < 80:
+                _alcohol_confirmations[(box_id, "ALCOHOL")] = 0
+                dangerous_confirmed = False
+            else:
+                alcohol_key = (box_id, "ALCOHOL")
+                _alcohol_confirmations[alcohol_key] += 1
+                dangerous_confirmed = _alcohol_confirmations[alcohol_key] >= 3
+
         # ถ้ามี Active Alert ของ AI เรื่องนี้อยู่แล้ว ไม่สร้างซ้ำ
-        if not active_ai:
+        if dangerous_confirmed and not active_ai:
             if now - _last_alert_time.get(ai_key, 0) >= 60:
                 await pool.execute(
                     "INSERT INTO alerts (box_id, level, message, status) VALUES ($1, 'High', $2, 'Active')",
                     box_id, f"AI ตรวจพบสาร {pred} (confidence {conf}%)",
                 )
                 _last_alert_time[ai_key] = now
+        elif not dangerous_confirmed and active_ai:
+            # A former alcohol alarm must clear if the later frames fail the
+            # signal-quality/confirmation gate.
+            await pool.execute(
+                "UPDATE alerts SET status = 'Resolved' WHERE id = $1",
+                active_ai["id"]
+            )
     else:
         # เมื่อสภาพอากาศกลับเป็นปกติ (ไม่ใช่สารอันตราย) Auto-resolve AI alert เดิม
         if active_ai:
@@ -782,6 +956,41 @@ async def _auto_alert(pool, box_id: str, reading_id: int, reading: dict, ai_resu
                 "UPDATE alerts SET status = 'Resolved' WHERE id = $1",
                 active_ai["id"]
             )
+
+RUNTIME_SENSOR_FIELDS = {
+    "dht22": ("temp", "rh"), "ccs811": ("tvoc", "eco2"), "pms5003": ("pm25",),
+    "mq2": ("mq2",), "mq3": ("mq3",), "mq8": ("mq8",), "mq135": ("mq135",),
+    "mics6814": ("mics_co", "no2", "nh3"),
+}
+
+async def _record_sensor_runtime(pool, box_id: str, payload: IngestPayload):
+    """Persist actual online time using monotonic ESP32 uptime, not server time."""
+    uptime = payload.device_uptime_sec
+    if uptime is None or uptime < 0: return
+    statuses = {}
+    for sensor_id, fields in RUNTIME_SENSOR_FIELDS.items():
+        online = all(getattr(payload, field, None) is not None for field in fields)
+        previous = await pool.fetchrow("SELECT online_seconds, last_device_uptime FROM sensor_runtime WHERE box_id=$1 AND sensor_id=$2", box_id, sensor_id)
+        previous_uptime = previous["last_device_uptime"] if previous else None
+        # Negative difference means an ESP32 reboot. Cap at two minutes so a
+        # long telemetry outage cannot create fictitious operating hours.
+        elapsed = uptime - previous_uptime if previous_uptime is not None and uptime >= previous_uptime else 0
+        elapsed = min(elapsed, 120)
+        increment = elapsed if online else 0
+        await pool.execute("""
+            INSERT INTO sensor_runtime (box_id, sensor_id, online_seconds, last_seen, last_device_uptime)
+            VALUES ($1,$2,$3,CASE WHEN $3 > 0 THEN NOW() ELSE NULL END,$4)
+            ON CONFLICT (box_id, sensor_id) DO UPDATE SET
+              online_seconds=sensor_runtime.online_seconds + EXCLUDED.online_seconds,
+              last_seen=CASE WHEN EXCLUDED.online_seconds > 0 THEN NOW() ELSE sensor_runtime.last_seen END,
+              last_device_uptime=EXCLUDED.last_device_uptime
+        """, box_id, sensor_id, increment, uptime)
+        statuses[sensor_id] = {"online": online, "fields": list(fields), "uptime_seconds": uptime}
+    # One status snapshot per minute is enough for diagnostics without filling
+    # the database with one row per 3-second telemetry frame.
+    last_log = await pool.fetchval("SELECT recorded_at FROM sensor_status_logs WHERE box_id=$1 ORDER BY recorded_at DESC LIMIT 1", box_id)
+    if last_log is None or (time.time() - last_log.timestamp()) >= 60:
+        await pool.execute("INSERT INTO sensor_status_logs (box_id, device_uptime_sec, statuses) VALUES ($1,$2,$3::jsonb)", box_id, uptime, json.dumps(statuses))
 
 
 @app.post("/api/ingest")
@@ -837,6 +1046,12 @@ async def ingest_reading(payload: IngestPayload, request: Request):
         payload.temp = None
     if payload.rh is not None and payload.rh < 0:
         payload.rh = None
+    # ADC has a hard 12-bit domain.  Do not store or train on impossible MQ
+    # frames, because they otherwise bias the classifier toward alcohol.
+    for field in ("mq2", "mq3", "mq135", "mq8"):
+        value = getattr(payload, field)
+        if value is not None and not 0 <= value <= 4095:
+            setattr(payload, field, None)
     if payload.no2 is not None and payload.no2 < 0:
         payload.no2 = 0
     if payload.nh3 is not None and payload.nh3 < 0:
@@ -859,6 +1074,9 @@ async def ingest_reading(payload: IngestPayload, request: Request):
     # 3. AI Predict
     reading_dict = payload.model_dump()
     ai_result = predict(reading_dict)
+    mq3_quality_ok, mq3_quality_reason = _mq3_quality(payload)
+    ai_result["mq3_quality_ok"] = mq3_quality_ok
+    ai_result["mq3_quality_reason"] = mq3_quality_reason
 
     # 4. บันทึกผล AI ลง DB
     await pool.execute(
@@ -869,6 +1087,9 @@ async def ingest_reading(payload: IngestPayload, request: Request):
         payload.box_id, reading_id,
         ai_result["prediction"], ai_result["confidence"],
     )
+
+    # Status history and per-sensor operating hours are independent of AI.
+    await _record_sensor_runtime(pool, payload.box_id, payload)
 
     # 5. Auto Alert
     await _auto_alert(pool, payload.box_id, reading_id, reading_dict, ai_result)
