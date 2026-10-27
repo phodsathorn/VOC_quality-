@@ -183,6 +183,8 @@ Sensor Array → ESP32 Firmware → Wi-Fi/HTTPS → FastAPI Backend → PostgreS
 
 ## 4. แหล่งข้อมูลใน repository
 
+- `docs/product/PROJECT_DEFENSE_QA_TH.md` — ชุดคำถาม-คำตอบสำหรับเตรียมสอบ รวมถึงเหตุผลเลือกโมเดลและข้อจำกัดของผลปัจจุบัน
+
 - `vocs-website/SENSOR_VALIDATION.md` — validation rule, datasource และข้อจำกัด
 - `vocs-website/PROJECT_REVIEW_AND_PLAN.md` — สรุปสถานะและ roadmap
 - `vocs-website/WEB_BACKEND_REVIEW_AND_PLAN.md` — web/backend/security/operation plan
@@ -190,4 +192,3 @@ Sensor Array → ESP32 Firmware → Wi-Fi/HTTPS → FastAPI Backend → PostgreS
 - `docs/product/PRODUCTION_SENSOR_SPEC.md` — แนวทาง sensor รุ่น production (ต้องตรวจ datasheet จริงก่อนจัดซื้อ)
 - `docs/research/reference/` — paper และข้อมูลอ้างอิง
 - `logbook/2026-10-26_sensor-validation-planning-and-secure-deployment.md` — บันทึกการตัดสินใจและงานที่ทำ
-
