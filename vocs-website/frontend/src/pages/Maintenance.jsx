@@ -1080,6 +1080,40 @@ export default function Maintenance() {
         </div>
       </div>
 
+      {/* ── Demo / Simulation Data Warning Banner (W0 Compliance) ── */}
+      <div style={{
+        background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+        border: '1.5px solid #fde68a',
+        borderRadius: 14,
+        padding: '14px 20px',
+        marginBottom: 22,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 14,
+        boxShadow: '0 2px 8px rgba(217,119,6,0.06)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{
+            background: '#d97706',
+            color: '#fff',
+            fontSize: 10,
+            fontWeight: 800,
+            padding: '4px 10px',
+            borderRadius: 6,
+            letterSpacing: '0.6px',
+            whiteSpace: 'nowrap',
+          }}>
+            DEMO / SIMULATION DATA
+          </div>
+          <div style={{ fontSize: 13, color: '#92400e', lineHeight: 1.45 }}>
+            <b>ประกาศความโปร่งใสของข้อมูล (Transparency Notice — W0 Policy):</b>{' '}
+            ค่า Health Index (HI), Baseline Drift, Noise และวันคาดการณ์ RUL ที่แสดงในหน้านี้คำนวณจากแบบจำลองจำลองทางทฤษฎี (Theoretical Sensor Aging Model)
+            ยังไม่ใช่ค่าตรวจวัดการเสื่อมสภาพที่ผ่านการรับรองจากห้องปฏิบัติการจริง โปรดใช้เพื่อการสาธิตหน้าจอและศึกษาอัลกอริทึมเท่านั้น
+          </div>
+        </div>
+      </div>
+
       {/* ── Toast Alert ── */}
       {toastMsg && (
         <div style={{

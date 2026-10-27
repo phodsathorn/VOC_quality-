@@ -1,11 +1,11 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from pydantic import BaseModel
 from typing import Optional
 from pathlib import Path
-import csv, io, time, asyncio, json
+import csv, io, time, asyncio, json, os, secrets
 from collections import defaultdict
 from db import connect_db, disconnect_db, get_pool
 from model_loader import load_model, predict, is_loaded
@@ -42,18 +42,27 @@ def _check_rate_limit(ip: str) -> bool:
 
 
 # ==================================================================
-# DATA PURGE TASK — ลบข้อมูลเก่ากว่า 30 วันอัตโนมัติ
+# DATA RETENTION & PURGE TASK (5-Year Compliance Safe — W0/W3 Policy)
 # ==================================================================
+ENABLE_AUTO_PURGE = os.getenv("ENABLE_AUTO_PURGE", "false").lower() in ("true", "1")
+DATA_RETENTION_DAYS = int(os.getenv("DATA_RETENTION_DAYS", "1825"))  # Default 5 years = 1825 days
+
 async def purge_old_data_task():
-    """Background task ที่รันทุก 24 ชั่วโมง เพื่อลบข้อมูลเก่าเกิน 30 วันใน sensor_readings"""
+    """
+    Background task ควบคุมการลบข้อมูลตามนโยบาย Data Retention 5 ปี
+    โดยปิดการลบอัตโนมัติเป็นค่าเริ่มต้น เพื่อความปลอดภัยตามข้อกำหนด W0/W3 ใน WEB_BACKEND_REVIEW_AND_PLAN.md
+    """
     while True:
         try:
-            pool = await get_pool()
-            if pool:
-                res = await pool.execute(
-                    "DELETE FROM sensor_readings WHERE recorded_at < NOW() - INTERVAL '30 days'"
-                )
-                print(f"[Purge Task] Deleted old records: {res}")
+            if ENABLE_AUTO_PURGE:
+                pool = await get_pool()
+                if pool:
+                    res = await pool.execute(
+                        f"DELETE FROM sensor_readings WHERE recorded_at < NOW() - INTERVAL '{DATA_RETENTION_DAYS} days'"
+                    )
+                    print(f"[Purge Task] Deleted records older than {DATA_RETENTION_DAYS} days: {res}")
+            else:
+                print(f"[Purge Task] Auto-purge disabled. Preserving historical records for 5-year compliance retention.")
         except Exception as e:
             print(f"[Purge Task] Error: {e}")
         
@@ -157,14 +166,72 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="VOC / E-Nose API", lifespan=lifespan)
 
+# ------------------------------------------------------------------
+# CORS CONFIGURATION (Restricted to verified origins — W0 Security)
+# ------------------------------------------------------------------
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+if cors_origins_env.strip():
+    allowed_origins = [orig.strip() for orig in cors_origins_env.split(",") if orig.strip()]
+else:
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "https://voc-quality.web.app",
+        "https://voc-backend-api.onrender.com",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],
 )
+
+# ------------------------------------------------------------------
+# ADMIN AUTHENTICATION GUARD (Phase W0)
+# ------------------------------------------------------------------
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+
+async def verify_admin_key(
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    """
+    ตรวจสอบสิทธิ์ Admin สำหรับ API ที่มีความเสี่ยงสูง (Model / OTA Upload & Rollback)
+    ตามข้อกำหนด W0 ใน WEB_BACKEND_REVIEW_AND_PLAN.md
+    """
+    token = None
+    if x_admin_key:
+        token = x_admin_key.strip()
+    elif authorization:
+        if authorization.lower().startswith("bearer "):
+            token = authorization[7:].strip()
+        else:
+            token = authorization.strip()
+
+    if ADMIN_API_KEY:
+        if not token or not secrets.compare_digest(token, ADMIN_API_KEY):
+            raise HTTPException(
+                status_code=401,
+                detail="Unauthorized: Invalid or missing Admin API Key."
+            )
+        return True
+
+    # หากไม่ได้ตั้งค่า ADMIN_API_KEY ใน Production ให้ล็อก Endpoint ทันที (Fail-closed)
+    if ENVIRONMENT == "production":
+        raise HTTPException(
+            status_code=503,
+            detail="Admin API Key is not configured on production server. Control endpoints are locked."
+        )
+
+    # ใน Local Development: แจ้งเตือนใน log
+    print("[SECURITY WARNING] Admin endpoint accessed without configured ADMIN_API_KEY (Running in development mode).")
+    return True
 
 
 @app.get("/")
@@ -195,7 +262,12 @@ def _save_ota_meta(meta: dict):
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
 @app.post("/api/ota/upload")
-async def upload_ota_firmware(request: Request, version: str = "1.0.2", file: UploadFile = File(...)):
+async def upload_ota_firmware(
+    request: Request,
+    version: str = "1.0.2",
+    file: UploadFile = File(...),
+    _auth: bool = Depends(verify_admin_key),
+):
     """รับไฟล์ .bin, เก็บประวัติเวอร์ชันเพื่อ Rollback และตั้งเป็น latest.bin"""
     if not file.filename.endswith(".bin"):
         raise HTTPException(status_code=400, detail="Only .bin firmware files are supported")
@@ -252,7 +324,11 @@ class RollbackRequest(BaseModel):
     version: str
 
 @app.post("/api/ota/rollback")
-async def rollback_ota(body: RollbackRequest, request: Request):
+async def rollback_ota(
+    body: RollbackRequest,
+    request: Request,
+    _auth: bool = Depends(verify_admin_key),
+):
     """ถอยกลับ (Rollback) สู่เวอร์ชันก่อนหน้าทันทีใน 1-click"""
     target_ver = body.version.strip()
     target_file = OTA_DIR / f"firmware_{target_ver}.bin"
@@ -374,7 +450,7 @@ async def download_ota_firmware():
     )
 
 @app.delete("/api/ota")
-async def clear_ota():
+async def clear_ota(_auth: bool = Depends(verify_admin_key)):
     """ลบเฟิร์มแวร์ออกจาก Cloud"""
     if OTA_BIN_PATH.exists():
         OTA_BIN_PATH.unlink(missing_ok=True)
@@ -469,7 +545,7 @@ async def model_status():
 
 
 @app.post("/api/model/reload")
-async def reload_model():
+async def reload_model(_auth: bool = Depends(verify_admin_key)):
     """โหลด Model ใหม่จากไฟล์ .pkl โดยไม่ต้อง restart backend"""
     load_model()
     return {
@@ -480,7 +556,10 @@ async def reload_model():
 
 
 @app.post("/api/model/upload")
-async def upload_model(file: UploadFile = File(...)):
+async def upload_model(
+    file: UploadFile = File(...),
+    _auth: bool = Depends(verify_admin_key),
+):
     """อัปโหลดไฟล์ AI Model (.pkl) ใหม่ขึ้น Backend และสั่งโหลดใช้งานทันที"""
     from model_loader import MODEL_PATH
     content = await file.read()

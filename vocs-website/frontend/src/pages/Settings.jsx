@@ -44,7 +44,15 @@ export default function Settings() {
   const [calibration, setCalibration] = useState(null);
   const [health, setHealth] = useState(null);
   const [runtime, setRuntime] = useState(null);
+  const [adminKeyInput, setAdminKeyInput] = useState(() => localStorage.getItem('voc_admin_key') || '');
+  const [adminKeySaved, setAdminKeySaved] = useState(false);
   const isMock = false;
+
+  function handleSaveAdminKey() {
+    localStorage.setItem('voc_admin_key', adminKeyInput.trim());
+    setAdminKeySaved(true);
+    setTimeout(() => setAdminKeySaved(false), 3500);
+  }
 
   useEffect(() => {
     const handleToggle = (e) => setSoundOn(e.detail.enabled);
@@ -195,7 +203,14 @@ export default function Settings() {
   async function handleReloadModel() {
     setModelMsg('loading');
     try {
-      const res = await fetch(`${API}/api/model/reload`, { method: 'POST' });
+      const adminKey = localStorage.getItem('voc_admin_key') || import.meta.env.VITE_ADMIN_KEY || '';
+      const headers = adminKey ? { 'X-Admin-Key': adminKey } : {};
+      const res = await fetch(`${API}/api/model/reload`, { method: 'POST', headers });
+      if (res.status === 401) {
+        setModelMsg('unauthorized');
+        setTimeout(() => setModelMsg(null), 5000);
+        return;
+      }
       const d   = await res.json();
       setModelMsg(d.loaded ? 'ok' : 'notfound');
     } catch {
@@ -595,6 +610,11 @@ export default function Settings() {
                 ⚠ ไม่พบไฟล์ voc_model.pkl — วาง model ใน backend/ แล้วลองใหม่
               </span>
             )}
+            {modelMsg === 'unauthorized' && (
+              <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>
+                🔒 สิทธิ์ไม่เพียงพอ: กรุณาระบุ Admin API Key เพื่อสั่ง Reload Model
+              </span>
+            )}
             {modelMsg === 'error' && (
               <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>⚠ เชื่อมต่อ Backend ไม่ได้</span>
             )}
@@ -604,6 +624,40 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      {/* ── Section: Admin Security Key (Phase W0) ─────────── */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+          🔐 กุญแจความปลอดภัยระดับผู้ดูแลระบบ (Admin API Key — Phase W0)
+        </h2>
+        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>
+          ใช้สำหรับยืนยันสิทธิ์ในการดำเนินการที่ส่งผลกระทบสูง (High-Privilege Operations) เช่น อัปเดตเฟิร์มแวร์ OTA, สั่ง Rollback และ Reload AI Model
+        </p>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <input
+            type="password"
+            placeholder="ระบุ Admin API Key ที่นี่..."
+            value={adminKeyInput}
+            onChange={e => setAdminKeyInput(e.target.value)}
+            style={{
+              flex: 1, maxWidth: 420, padding: '0.55rem 0.85rem',
+              borderRadius: '0.5rem', border: '1.5px solid var(--border-color)',
+              fontFamily: 'inherit', fontSize: '0.875rem',
+              background: 'white', outline: 'none',
+            }}
+          />
+          <button
+            onClick={handleSaveAdminKey}
+            style={{
+              padding: '0.55rem 1.25rem', border: 'none', borderRadius: '0.5rem',
+              backgroundColor: '#0f172a', color: 'white', cursor: 'pointer',
+              fontSize: '0.875rem', fontWeight: 600,
+            }}
+          >
+            {adminKeySaved ? '✅ บันทึกแล้ว' : 'บันทึก Key'}
+          </button>
+        </div>
+      </div>
 
       {/* ── Section 4: System Info ──────────────────────────── */}
       <div className="card">

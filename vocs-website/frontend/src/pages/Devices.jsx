@@ -125,11 +125,15 @@ export default function Devices() {
     setOtaUploading(true);
     setOtaMsg(null);
     try {
+      const adminKey = localStorage.getItem('voc_admin_key') || import.meta.env.VITE_ADMIN_KEY || '';
+      const adminHeaders = adminKey ? { 'X-Admin-Key': adminKey } : {};
+
       const fd = new FormData();
       fd.append('file', otaFile);
       const url = `${API}/api/ota/upload?version=${encodeURIComponent(otaVer)}${otaNotes ? `&notes=${encodeURIComponent(otaNotes)}` : ''}`;
       const res = await fetch(url, {
         method: 'POST',
+        headers: adminHeaders,
         body: fd,
       });
       const data = await res.json();
@@ -141,6 +145,11 @@ export default function Devices() {
         setOtaFile(null);
         setOtaNotes('');
         refreshAll();
+      } else if (res.status === 401) {
+        setOtaMsg({
+          type: 'error',
+          text: '🔒 สิทธิ์ไม่เพียงพอ: กรุณาระบุ Admin API Key ในหน้า Settings เพื่ออัปโหลดเฟิร์มแวร์ (W0 Security)'
+        });
       } else {
         setOtaMsg({ type: 'error', text: `❌ ${data.detail || 'อัปโหลดล้มเหลว'}` });
       }
@@ -155,9 +164,12 @@ export default function Devices() {
   async function handleRollback(version) {
     setRollingBack(true);
     try {
+      const adminKey = localStorage.getItem('voc_admin_key') || import.meta.env.VITE_ADMIN_KEY || '';
+      const adminHeaders = adminKey ? { 'X-Admin-Key': adminKey } : {};
+
       const res = await fetch(`${API}/api/ota/rollback`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...adminHeaders },
         body: JSON.stringify({ version }),
       });
       const data = await res.json();
@@ -168,6 +180,11 @@ export default function Devices() {
         });
         setRollbackModal(null);
         refreshAll();
+      } else if (res.status === 401) {
+        setOtaMsg({
+          type: 'error',
+          text: '🔒 สิทธิ์ไม่เพียงพอ: กรุณาระบุ Admin API Key ในหน้า Settings เพื่อสั่ง Rollback (W0 Security)'
+        });
       } else {
         setOtaMsg({ type: 'error', text: `❌ Rollback ล้มเหลว: ${data.detail}` });
       }
