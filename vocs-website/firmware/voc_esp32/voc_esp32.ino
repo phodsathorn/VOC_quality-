@@ -504,12 +504,6 @@ void setup() {
   pinMode(PMS_SET_PIN, OUTPUT);
   digitalWrite(PMS_SET_PIN, HIGH);
 
-  // Fan control
-  pinMode(FAN_INTAKE, OUTPUT);
-  pinMode(FAN_EXHAUST, OUTPUT);
-  digitalWrite(FAN_INTAKE, HIGH);   // เปิดพัดลมตลอดการทำงาน
-  digitalWrite(FAN_EXHAUST, HIGH);
-
   // 0. ADC Configuration for MQ Analog Sensors (ADC1: GPIO 33, 34, 36, 39)
   // กำหนด Resolution 12-bit (0-4095) และ 11dB Attenuation (0 - 3.3V Full Scale)
   analogReadResolution(12);
@@ -518,10 +512,14 @@ void setup() {
   Serial.println("\n[VOC] Starting E-Nose v2 (Dual-Bus Independent Hardware Scanner)...");
 
   // ─────────────────────────────────────────────────────────────
-  // 1. ตรวจจับ I2C Bus #1 (Wire Controller 0) — สำหรับ CCS811 / Shared
+  // 1. ตรวจจับ I2C Bus #1 (Wire Controller 0) — ทดสอบคู่ขา 26-27 และ 12-32 เป็นอันดับแรก
   // ─────────────────────────────────────────────────────────────
-  Serial.println("[I2C] --- Probing Bus #1 (Wire) for CCS811 / Shared ADS1115 ---");
+  Serial.println("[I2C] --- Probing Bus #1 (Wire) ---");
   const I2cPinPair BUS1_PAIRS[] = {
+    { 26, 27, "GPIO 26 (SDA), GPIO 27 (SCL)" }, // ลำดับ 1 ตามที่ผู้ใช้ระบุ
+    { 27, 26, "GPIO 27 (SDA), GPIO 26 (SCL)" }, // สลับสาย
+    { 32, 12, "GPIO 32 (SDA), GPIO 12 (SCL)" }, // ลำดับ 2 ตามที่ผู้ใช้ระบุ
+    { 12, 32, "GPIO 12 (SDA), GPIO 32 (SCL)" }, // สลับสาย
     { 21, 22, "Standard Bus (SDA:21, SCL:22)" },
     { 22, 21, "Swapped Bus (SDA:22, SCL:21)" },
     { 18, 19, "Legacy Alt Bus (SDA:18, SCL:19)" }
@@ -556,30 +554,40 @@ void setup() {
         Serial.println();
       }
     }
-    // ถ้าเจอ CCS811 บน Bus 1 ให้ล็อกขานี้ไว้สำหรับ Wire ถาวร
-    if (isCcsReady) {
-      Serial.printf("[I2C Bus 1] >> Lock-in Wire to SDA:%d, SCL:%d for CCS811 <<\n", ccsFoundSda, ccsFoundScl);
-      Wire.begin(ccsFoundSda, ccsFoundScl);
+    // ถ้าเจอเซนเซอร์ตัวใดตัวหนึ่งบน Bus 1 ให้ล็อกขานี้ไว้สำหรับ Wire ถาวร
+    if (isCcsReady || isAdsReady) {
+      int lockedSda = isCcsReady ? ccsFoundSda : adsFoundSda;
+      int lockedScl = isCcsReady ? ccsFoundScl : adsFoundScl;
+      Serial.printf("[I2C Bus 1] >> Lock-in Wire to SDA:%d, SCL:%d <<\n", lockedSda, lockedScl);
+      Wire.begin(lockedSda, lockedScl);
       break;
     }
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 2. ถ้ายังไม่พบ ADS1115 บน Bus 1 ให้สแกน Bus #2 (I2C2 Controller 1)
-  //    รวมถึงขา GPIO 32 และ GPIO 12 ตามที่ระบุ
+  // 2. ถ้าเซนเซอร์ตัวใดตัวหนึ่งยังไม่พบ ให้สแกน Bus #2 (I2C2 Controller 1)
+  //    (เช่น ถ้า CCS811 อยู่ 26/27 แต่ ADS1115 อยู่ 12/32 หรือกลับกัน)
   // ─────────────────────────────────────────────────────────────
-  if (!isAdsReady) {
-    Serial.println("\n[I2C] --- Probing Bus #2 (I2C2 Controller 1) for ADS1115 ---");
+  if (!isAdsReady || !isCcsReady) {
+    Serial.println("\n[I2C] --- Probing Bus #2 (I2C2 Controller 1) for remaining sensor ---");
     const I2cPinPair BUS2_PAIRS[] = {
-      { 32, 12, "GPIO 32 (SDA), GPIO 12 (SCL)" }, // ลำดับ 1: ขาที่ผู้ใช้ระบุ
-      { 12, 32, "GPIO 12 (SDA), GPIO 32 (SCL)" }, // ลำดับ 2: สลับขา
+      { 32, 12, "GPIO 32 (SDA), GPIO 12 (SCL)" }, // ขาที่ผู้ใช้ระบุ
+      { 12, 32, "GPIO 12 (SDA), GPIO 32 (SCL)" }, // สลับสาย
+      { 26, 27, "GPIO 26 (SDA), GPIO 27 (SCL)" }, // ขาที่ผู้ใช้ระบุ
+      { 27, 26, "GPIO 27 (SDA), GPIO 26 (SCL)" }, // สลับสาย
+      { 21, 22, "Standard Bus (SDA:21, SCL:22)" },
       { 32, 13, "Circuit v2 (SDA:32, SCL:13)" },
-      { 13, 32, "Circuit v2 Swapped (SDA:13, SCL:32)" },
-      { 25, 26, "Alt Header (SDA:25, SCL:26)" },
       { 4,  15, "Dev Header (SDA:4, SCL:15)" }
     };
 
     for (const auto& pair : BUS2_PAIRS) {
+      if (isAdsReady && isCcsReady) break;
+      // ข้ามคู่ขาที่ Bus 1 ล็อกไว้แล้ว
+      if (pair.sda == adsFoundSda || pair.scl == adsFoundScl ||
+          pair.sda == ccsFoundSda || pair.scl == ccsFoundScl) {
+        continue;
+      }
+
       Serial.printf("[I2C Bus 2] Testing %s ...\n", pair.name);
       I2C2.begin(pair.sda, pair.scl);
       I2C2.setClock(100000);
@@ -589,19 +597,28 @@ void setup() {
         I2C2.beginTransmission(addr);
         if (I2C2.endTransmission() == 0) {
           Serial.printf("   -> พบอุปกรณ์บน Bus 2 ที่แอดเดรส: 0x%02X (SDA:%d, SCL:%d)", addr, pair.sda, pair.scl);
-          if (addr == 0x48) {
+          if (addr == 0x48 && !isAdsReady) {
             Serial.print(" → ADS1115");
             if (ads.begin(0x48, &I2C2)) {
               isAdsReady = true;
               adsFoundSda = pair.sda; adsFoundScl = pair.scl;
               Serial.print(" [INIT OK on I2C2]");
             }
+          } else if ((addr == 0x5A || addr == 0x5B) && !isCcsReady) {
+            Serial.print(" → CCS811");
+            if (ccs.begin(addr, &I2C2)) {
+              isCcsReady = true;
+              ccsFoundSda = pair.sda; ccsFoundScl = pair.scl; ccsActiveAddr = addr;
+              Serial.print(" [INIT OK on I2C2]");
+            }
           }
           Serial.println();
         }
       }
-      if (isAdsReady) {
-        Serial.printf("[I2C Bus 2] >> Lock-in I2C2 to SDA:%d, SCL:%d for ADS1115 <<\n", adsFoundSda, adsFoundScl);
+      if (isAdsReady && isCcsReady) {
+        int locked2Sda = isAdsReady ? adsFoundSda : ccsFoundSda;
+        int locked2Scl = isAdsReady ? adsFoundScl : ccsFoundScl;
+        Serial.printf("[I2C Bus 2] >> Lock-in I2C2 to SDA:%d, SCL:%d <<\n", locked2Sda, locked2Scl);
         break;
       }
     }
@@ -622,8 +639,25 @@ void setup() {
   }
   Serial.println("══════════════════════════════════════════════════════════\n");
 
-  // 2. Init DHT22 & PMS5003
+  // Fan control (ตรวจสอบไม่ให้ชนกับขา I2C ที่ถูกใช้งาน)
+  pinMode(FAN_INTAKE, OUTPUT);
+  digitalWrite(FAN_INTAKE, HIGH);
+  if (adsFoundSda != 26 && adsFoundScl != 26 && ccsFoundSda != 26 && ccsFoundScl != 26) {
+    pinMode(FAN_EXHAUST, OUTPUT);
+    digitalWrite(FAN_EXHAUST, HIGH);
+  } else {
+    Serial.println("[Fan] GPIO 26 ถูกจัดสรรให้ I2C (ไม่เปิดพินซ้ำเพื่อป้องกันบัสค้าง)");
+  }
+
+  // 2. Init DHT22 & PMS5003 (ปรับขา DHT22 อัตโนมัติหาก 27 เป็น I2C)
+  int activeDhtPin = 27;
+  if (adsFoundSda == 27 || adsFoundScl == 27 || ccsFoundSda == 27 || ccsFoundScl == 27) {
+    activeDhtPin = 4; // ใช้ GPIO 4 ตามสเปกบอร์ดเดิม
+    Serial.println("[DHT22] GPIO 27 ถูกจัดสรรให้ I2C; สลับไปใช้ GPIO 4 สำหรับ DHT22");
+  }
+  dht = DHT(activeDhtPin, DHT_TYPE);
   dht.begin();
+  Serial.printf("[OK] DHT22 initialized on GPIO %d\n", activeDhtPin);
   if (!aqi.begin_UART(&Serial2)) {
     Serial.println("[ERR] PMS5003 not found on UART2.");
   } else {
