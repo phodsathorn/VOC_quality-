@@ -515,65 +515,112 @@ void setup() {
   analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
 
-  Serial.println("\n[VOC] Starting E-Nose v2 (Exhaustive Pin Search & Auto-Detect)...");
+  Serial.println("\n[VOC] Starting E-Nose v2 (Dual-Bus Independent Hardware Scanner)...");
 
-  // 1. สแกนหา I2C ทุกคู่ขา (Exhaustive Multi-Pin Bus Scanner) จนกว่าจะพบเซนเซอร์
-  Serial.println("[I2C] Scanning all candidate pin pairs for ADS1115 and CCS811...");
-  
-  for (uint8_t c = 0; c < NUM_I2C_CANDIDATES; ++c) {
-    uint8_t sda = I2C_CANDIDATES[c].sda;
-    uint8_t scl = I2C_CANDIDATES[c].scl;
-    Serial.printf("\n[I2C] Probing Pair #%d: %s ...\n", c + 1, I2C_CANDIDATES[c].name);
-    
-    Wire.begin(sda, scl);
+  // ─────────────────────────────────────────────────────────────
+  // 1. ตรวจจับ I2C Bus #1 (Wire Controller 0) — สำหรับ CCS811 / Shared
+  // ─────────────────────────────────────────────────────────────
+  Serial.println("[I2C] --- Probing Bus #1 (Wire) for CCS811 / Shared ADS1115 ---");
+  const I2cPinPair BUS1_PAIRS[] = {
+    { 21, 22, "Standard Bus (SDA:21, SCL:22)" },
+    { 22, 21, "Swapped Bus (SDA:22, SCL:21)" },
+    { 18, 19, "Legacy Alt Bus (SDA:18, SCL:19)" }
+  };
+
+  for (const auto& pair : BUS1_PAIRS) {
+    if (isCcsReady && isAdsReady) break;
+    Serial.printf("[I2C Bus 1] Testing %s ...\n", pair.name);
+    Wire.begin(pair.sda, pair.scl);
     Wire.setClock(100000);
     delay(40);
 
     for (uint8_t addr = 0x08; addr < 0x78; addr++) {
       Wire.beginTransmission(addr);
       if (Wire.endTransmission() == 0) {
-        Serial.printf("   -> พบอุปกรณ์ I2C ที่แอดเดรส: 0x%02X (SDA:%d, SCL:%d)", addr, sda, scl);
-        
-        // ตรวจพบ ADS1115 (ปกติ 0x48)
+        Serial.printf("   -> พบอุปกรณ์บน Bus 1 ที่แอดเดรส: 0x%02X (SDA:%d, SCL:%d)", addr, pair.sda, pair.scl);
         if (addr == 0x48 && !isAdsReady) {
           Serial.print(" → ADS1115");
           if (ads.begin(0x48, &Wire)) {
             isAdsReady = true;
-            adsFoundSda = sda;
-            adsFoundScl = scl;
-            Serial.print(" [INIT OK]");
+            adsFoundSda = pair.sda; adsFoundScl = pair.scl;
+            Serial.print(" [INIT OK on Wire]");
           }
-        }
-        // ตรวจพบ CCS811 (ปกติ 0x5A หรือ 0x5B)
-        else if ((addr == 0x5A || addr == 0x5B) && !isCcsReady) {
+        } else if ((addr == 0x5A || addr == 0x5B) && !isCcsReady) {
           Serial.print(" → CCS811");
           if (ccs.begin(addr, &Wire)) {
             isCcsReady = true;
-            ccsFoundSda = sda;
-            ccsFoundScl = scl;
-            ccsActiveAddr = addr;
-            Serial.print(" [INIT OK]");
+            ccsFoundSda = pair.sda; ccsFoundScl = pair.scl; ccsActiveAddr = addr;
+            Serial.print(" [INIT OK on Wire]");
           }
         }
         Serial.println();
       }
     }
+    // ถ้าเจอ CCS811 บน Bus 1 ให้ล็อกขานี้ไว้สำหรับ Wire ถาวร
+    if (isCcsReady) {
+      Serial.printf("[I2C Bus 1] >> Lock-in Wire to SDA:%d, SCL:%d for CCS811 <<\n", ccsFoundSda, ccsFoundScl);
+      Wire.begin(ccsFoundSda, ccsFoundScl);
+      break;
+    }
   }
 
-  // สรุปผลการตรวจจับ I2C
-  Serial.println("\n──────────────────────────────────────────────────────────");
+  // ─────────────────────────────────────────────────────────────
+  // 2. ถ้ายังไม่พบ ADS1115 บน Bus 1 ให้สแกน Bus #2 (I2C2 Controller 1)
+  //    รวมถึงขา GPIO 32 และ GPIO 12 ตามที่ระบุ
+  // ─────────────────────────────────────────────────────────────
+  if (!isAdsReady) {
+    Serial.println("\n[I2C] --- Probing Bus #2 (I2C2 Controller 1) for ADS1115 ---");
+    const I2cPinPair BUS2_PAIRS[] = {
+      { 32, 12, "GPIO 32 (SDA), GPIO 12 (SCL)" }, // ลำดับ 1: ขาที่ผู้ใช้ระบุ
+      { 12, 32, "GPIO 12 (SDA), GPIO 32 (SCL)" }, // ลำดับ 2: สลับขา
+      { 32, 13, "Circuit v2 (SDA:32, SCL:13)" },
+      { 13, 32, "Circuit v2 Swapped (SDA:13, SCL:32)" },
+      { 25, 26, "Alt Header (SDA:25, SCL:26)" },
+      { 4,  15, "Dev Header (SDA:4, SCL:15)" }
+    };
+
+    for (const auto& pair : BUS2_PAIRS) {
+      Serial.printf("[I2C Bus 2] Testing %s ...\n", pair.name);
+      I2C2.begin(pair.sda, pair.scl);
+      I2C2.setClock(100000);
+      delay(40);
+
+      for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+        I2C2.beginTransmission(addr);
+        if (I2C2.endTransmission() == 0) {
+          Serial.printf("   -> พบอุปกรณ์บน Bus 2 ที่แอดเดรส: 0x%02X (SDA:%d, SCL:%d)", addr, pair.sda, pair.scl);
+          if (addr == 0x48) {
+            Serial.print(" → ADS1115");
+            if (ads.begin(0x48, &I2C2)) {
+              isAdsReady = true;
+              adsFoundSda = pair.sda; adsFoundScl = pair.scl;
+              Serial.print(" [INIT OK on I2C2]");
+            }
+          }
+          Serial.println();
+        }
+      }
+      if (isAdsReady) {
+        Serial.printf("[I2C Bus 2] >> Lock-in I2C2 to SDA:%d, SCL:%d for ADS1115 <<\n", adsFoundSda, adsFoundScl);
+        break;
+      }
+    }
+  }
+
+  // สรุปสถานะฮาร์ดแวร์ I2C
+  Serial.println("\n══════════════════════════════════════════════════════════");
   if (isAdsReady) {
-    Serial.printf("[OK] ADS1115 lock-in: SDA=%d, SCL=%d (Addr: 0x48)\n", adsFoundSda, adsFoundScl);
+    Serial.printf("  ✅ ADS1115: สำเร็จบน SDA=%d, SCL=%d (Addr: 0x48)\n", adsFoundSda, adsFoundScl);
   } else {
-    Serial.println("[ERR] ADS1115 not detected on any tested I2C pin pair!");
+    Serial.println("  ❌ ADS1115: ไม่พบบนคู่ขาใดเลย (ตรวจเช็คไฟเลี้ยง 5V/3.3V และ GND)");
   }
 
   if (isCcsReady) {
-    Serial.printf("[OK] CCS811 lock-in: SDA=%d, SCL=%d (Addr: 0x%02X)\n", ccsFoundSda, ccsFoundScl, ccsActiveAddr);
+    Serial.printf("  ✅ CCS811:  สำเร็จบน SDA=%d, SCL=%d (Addr: 0x%02X)\n", ccsFoundSda, ccsFoundScl, ccsActiveAddr);
   } else {
-    Serial.println("[ERR] CCS811 not detected on any tested I2C pin pair! Please verify WAKE pin is connected to GND.");
+    Serial.println("  ❌ CCS811:  ไม่พบบนบัส (อย่าลืมต่อขา WAKE ลง GND เสมอ)");
   }
-  Serial.println("──────────────────────────────────────────────────────────");
+  Serial.println("══════════════════════════════════════════════════════════\n");
 
   // 2. Init DHT22 & PMS5003
   dht.begin();
