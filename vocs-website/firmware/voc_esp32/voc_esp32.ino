@@ -499,36 +499,72 @@ void setup() {
   analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
 
-  Serial.println("\n[VOC] Starting E-Nose v2 (Circuit Design v2)...");
+  Serial.println("\n[VOC] Starting E-Nose v2 (Universal Hardware Auto-Detect)...");
 
-  // 1. Init Bus #2 (ADS1115) ก่อนเสมอ เนื่องจาก CCS811 มักดึง SDA ค้างช่วง Power-up
-  I2C2.begin(I2C2_SDA, I2C2_SCL);
-  I2C2.setClock(100000);
-  delay(50);
-  if (!ads.begin(ADS1115_ADDR, &I2C2)) {
-    Serial.println("[ERR] ADS1115 not found on Bus #2 (GPIO 32/13)!");
-  } else {
-    Serial.println("[OK] ADS1115 ready on Bus #2 (GPIO 32/13)");
-  }
-
-  // 2. Init Bus #1 (CCS811)
+  // 1. ตรวจจับและสแกน I2C Bus #1 (GPIO 21 SDA / GPIO 22 SCL) ก่อน
+  // เพื่อรองรับทั้งบอร์ดต้นแบบดั้งเดิม (Shared Bus 21/22) และบอร์ด Circuit v2
   Wire.begin(I2C1_SDA, I2C1_SCL);
   Wire.setClock(100000);
   delay(100);
 
-  uint8_t ccs_addr = CCS811_ADDR;
-  Wire.beginTransmission(ccs_addr);
-  if (Wire.endTransmission() != 0) {
-    Wire.beginTransmission(0x5A);
-    if (Wire.endTransmission() == 0) ccs_addr = 0x5A;
-  }
-  if (!ccs.begin(ccs_addr, &Wire)) {
-    Serial.println("[ERR] CCS811 not found on Bus #1 (GPIO 21/22)! Check wiring & WAKE pin (connect to GND).");
-  } else {
-    Serial.printf("[OK] CCS811 ready on Bus #1 (0x%02X)\n", ccs_addr);
+  Serial.println("[I2C] Scanning Bus #1: GPIO 21 (SDA), GPIO 22 (SCL)...");
+  bool adsOnBus1 = false;
+  uint8_t ccsAddr = 0;
+
+  for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+    Wire.beginTransmission(addr);
+    if (Wire.endTransmission() == 0) {
+      Serial.printf("  -> พบอุปกรณ์ I2C บน Bus #1 ที่แอดเดรส: 0x%02X", addr);
+      if (addr == 0x48) { 
+        Serial.print(" → ADS1115"); 
+        adsOnBus1 = true; 
+      } else if (addr == 0x5A || addr == 0x5B) { 
+        Serial.print(" → CCS811"); 
+        ccsAddr = addr; 
+      }
+      Serial.println();
+    }
   }
 
-  // 3. Init DHT22 & PMS5003
+  // ผูก ADS1115 ตามตำแหน่งจริงที่ตรวจพบ
+  if (adsOnBus1) {
+    if (ads.begin(0x48, &Wire)) {
+      Serial.println("[OK] ADS1115 ready on Bus #1 (Shared GPIO 21/22)");
+    } else {
+      Serial.println("[ERR] ADS1115 detected on Bus #1 at 0x48 but begin() failed!");
+    }
+  } else {
+    // หากไม่พบบน Bus #1 ลองตรวจสอบบน Bus #2 (GPIO 32 SDA / 13 SCL)
+    Serial.println("[I2C] ADS1115 not on Bus #1, scanning Bus #2: GPIO 32 (SDA), GPIO 13 (SCL)...");
+    I2C2.begin(I2C2_SDA, I2C2_SCL);
+    I2C2.setClock(100000);
+    delay(50);
+    if (ads.begin(ADS1115_ADDR, &I2C2)) {
+      Serial.println("[OK] ADS1115 ready on Bus #2 (GPIO 32/13)");
+    } else {
+      Serial.println("[ERR] ADS1115 not found on Bus #1 (21/22) nor Bus #2 (32/13)!");
+    }
+  }
+
+  // ผูก CCS811 ตามแอดเดรสที่ตรวจพบจริง
+  if (ccsAddr != 0) {
+    if (ccs.begin(ccsAddr, &Wire)) {
+      Serial.printf("[OK] CCS811 ready on Bus #1 (0x%02X)\n", ccsAddr);
+    } else {
+      Serial.printf("[ERR] CCS811 detected at 0x%02X but begin() failed! Check WAKE pin.\n", ccsAddr);
+    }
+  } else {
+    // ลองทดสอบแอดเดรสทั้ง 0x5A และ 0x5B ซ้ำอีกครั้ง
+    if (ccs.begin(0x5A, &Wire)) {
+      Serial.println("[OK] CCS811 ready on Bus #1 (0x5A)");
+    } else if (ccs.begin(0x5B, &Wire)) {
+      Serial.println("[OK] CCS811 ready on Bus #1 (0x5B)");
+    } else {
+      Serial.println("[ERR] CCS811 not found on Bus #1 (GPIO 21/22)! Check wiring & WAKE pin (connect to GND).");
+    }
+  }
+
+  // 2. Init DHT22 & PMS5003
   dht.begin();
   if (!aqi.begin_UART(&Serial2)) {
     Serial.println("[ERR] PMS5003 not found on UART2.");
@@ -536,18 +572,53 @@ void setup() {
     Serial.println("[OK] PMS5003 ready on UART2");
   }
 
-  // Credentials are provisioned locally and must never be committed to Git.
-  wifiMulti.addAP(WIFI_SSID_1, WIFI_PASS_1);
-  wifiMulti.addAP(WIFI_SSID_2, WIFI_PASS_2);
-  // เพิ่มชื่อ SSID ที่พบบ่อยของมหาวิทยาลัยนเรศวรแบบ Open
-  wifiMulti.addAP("@NU-WiFi", "");
-  wifiMulti.addAP("NU-WiFi", "");
-  wifiMulti.addAP("@NU-Web", "");
-  wifiMulti.addAP("NU_NET", "");
+  // 3. Wi-Fi Scanner & Connection (รองรับทั้ง Open Wi-Fi มหาวิทยาลัย และ Hotspot)
+  WiFi.mode(WIFI_STA);
+  Serial.println("\n[WiFi] Scanning nearby 2.4GHz networks...");
+  int n = WiFi.scanNetworks();
+  Serial.printf("[WiFi] Found %d networks nearby:\n", n);
+  String targetSSID = "";
+  String targetPass = "";
+  bool targetFound = false;
 
-  Serial.println("[WiFi] Connecting using provisioned networks...");
+  for (int i = 0; i < n && i < 12; ++i) {
+    String foundSsid = WiFi.SSID(i);
+    int32_t rssi = WiFi.RSSI(i);
+    bool isOpen = (WiFi.encryptionType(i) == WIFI_AUTH_OPEN);
+    Serial.printf("   %2d) %-20s (%d dBm)%s\n", i + 1, foundSsid.c_str(), rssi, isOpen ? " [OPEN]" : "");
+
+    // ตรวจจับชื่อ SSID ที่ตรงกับการตั้งค่า
+    if (!targetFound) {
+      if (foundSsid == WIFI_SSID_1 || foundSsid == "@NU-WiFi" || foundSsid == "NU-WiFi" || foundSsid == "@NU-Web") {
+        targetSSID = foundSsid;
+        targetPass = WIFI_PASS_1;
+        targetFound = true;
+      } else if (strlen(WIFI_SSID_2) > 0 && foundSsid == WIFI_SSID_2) {
+        targetSSID = foundSsid;
+        targetPass = WIFI_PASS_2;
+        targetFound = true;
+      }
+    }
+  }
+
+  if (targetFound) {
+    Serial.printf("[WiFi] Connecting to detected network: %s ...\n", targetSSID.c_str());
+    if (targetPass.length() == 0) {
+      WiFi.begin(targetSSID.c_str()); // Open Wi-Fi ไม่มีรหัสผ่าน
+    } else {
+      WiFi.begin(targetSSID.c_str(), targetPass.c_str());
+    }
+  } else {
+    Serial.println("[WiFi] Target SSID not found in scan; attempting WiFiMulti list...");
+    wifiMulti.addAP(WIFI_SSID_1, WIFI_PASS_1);
+    if (strlen(WIFI_SSID_2) > 0) wifiMulti.addAP(WIFI_SSID_2, WIFI_PASS_2);
+    wifiMulti.addAP("@NU-WiFi", "");
+    wifiMulti.addAP("NU-WiFi", "");
+    wifiMulti.run();
+  }
+
   int wifiRetry = 0;
-  while (wifiMulti.run() != WL_CONNECTED && wifiRetry < 30) {
+  while (WiFi.status() != WL_CONNECTED && wifiRetry < 30) {
     delay(500);
     Serial.print(".");
     wifiRetry++;
