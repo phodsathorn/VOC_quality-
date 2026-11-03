@@ -296,6 +296,35 @@
 ### สถานะ (Status)
 - **เสร็จสมบูรณ์ระดับ Source Code (Implemented & Hardened)**
 
+---
+
+## รายการบันทึกต่อเนื่อง: เวลา 15:40 น. ICT — Frontend Auth Cleansing, Plan Status Reconciliation & Credential Hygiene
+
+### สรุป (Summary)
+ดำเนินการกวาดล้าง Mock Credentials ฝั่ง Frontend ทั้งหมด: ตัดการ Auto-login ด้วยรหัสผ่านจำลอง, ตัดการเขียน `voc_admin_key` ลง `localStorage`, เปลี่ยนการยิง API ในหน้า Devices และ Settings ให้ส่ง JWT Bearer Token ผ่าน `authHeaders()` ตามมาตรฐาน และปรับสถานะในเอกสารแผนงาน `HARDWARE_FIRMWARE_REVIEW_AND_PLAN.md` ให้ตรงตามความเป็นจริงตามข้อเสนอแนะในการตรวจประเมินความปลอดภัย
+
+### สิ่งที่เปลี่ยนแปลง (Changes)
+1. **Frontend Mock Credential Removal (`vocs-website/frontend/src/context/AuthContext.jsx`, `Layout.jsx`)**:
+   - ลบโค้ด Auto-set `voc_admin_key` ออกจาก `AuthContext.jsx` และเพิ่มการล้างคีย์ตกค้างเมื่อผู้ใช้กด Logout
+   - ลบ `useEffect` ที่สั่ง Auto-login แอดมินด้วยรหัสผ่านจำลองออกจาก `Layout.jsx` เพื่อไม่ให้ระบบเข้าสู่ระบบเองโดยที่ผู้ใช้ไม่ได้ระบุตัวตน
+2. **Standard JWT Bearer Headers (`vocs-website/frontend/src/pages/Devices.jsx`, `Settings.jsx`)**:
+   - ปรับปรุงหน้า `Devices.jsx` ให้เรียกใช้ `useAuth()` และส่ง `authHeaders()` (Bearer Token) ในการสั่ง OTA Upload, Rollback, Edit Device, และ Delete Device แทนการพึ่งพา `X-Admin-Key`
+   - ปรับปรุงฟังก์ชัน `handleReloadModel()` ในหน้า `Settings.jsx` ให้ส่ง `authHeaders()`
+3. **Hardware & Firmware Plan Status Reconciliation (`vocs-website/HARDWARE_FIRMWARE_REVIEW_AND_PLAN.md`)**:
+   - ปรับเปลี่ยนสถานะใน Implementation Status Matrix จากเดิมที่ระบุ `Done` ให้เป็น:
+     - `Implemented in source — pending integration/production validation` สำหรับส่วนที่มีโค้ดในระบบแล้ว แต่ยังต้องรอการทดสอบร่วมกับอุปกรณ์จริง
+     - `Blocked by required configuration, hardware test, or external approval` สำหรับรายการที่ต้องอาศัยการวัดค่าด้วยมัลติมิเตอร์ หรือการทดสอบความร้อนสะสม/ไฟตก 72 ชั่วโมง
+   - ปรับปรุง Checklist ก่อน Factory Pilot โดยเอาเครื่องหมายติ๊กสำเร็จออกจากรายการที่ยังไม่มีผลการวัดจริง (ADC safety range, Cloud OTA field test)
+
+### การตรวจสอบและทดสอบ (Verification)
+1. **Frontend Production Build**:
+   - รัน `npm --prefix vocs-website/frontend run build` ผ่าน 100% ไม่มีข้อผิดพลาด (Vite built in 409ms)
+2. **Source Integrity Check**:
+   - ตรวจสอบ `git status` ยืนยันว่าไม่มี Mock Admin Key ตกค้างใน Local Storage handler
+
+### สถานะ (Status)
+- **เสร็จสมบูรณ์ (Completed & Reconciled)**
+
 
 
 

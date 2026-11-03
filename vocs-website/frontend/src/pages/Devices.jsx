@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 
 import { API } from '../config';
+import { useAuth } from '../context/AuthContext';
 
 // ─── Shared button styles ────────────────────────────────────
 const btnIcon = (color) => ({
@@ -44,6 +45,7 @@ function Modal({ title, onClose, children }) {
 }
 
 export default function Devices() {
+  const { user, hasRole, authHeaders } = useAuth();
   const [devices,     setDevices]     = useState([]);
   const [editTarget,  setEditTarget]  = useState(null); // {id, firmware, model_ver, status}
   const [delTarget,   setDelTarget]   = useState(null); // box_id string
@@ -133,15 +135,12 @@ export default function Devices() {
     setOtaUploading(true);
     setOtaMsg(null);
     try {
-      const adminKey = localStorage.getItem('voc_admin_key') || import.meta.env.VITE_ADMIN_KEY || '';
-      const adminHeaders = adminKey ? { 'X-Admin-Key': adminKey } : {};
-
       const fd = new FormData();
       fd.append('file', otaFile);
       const url = `${API}/api/ota/upload?version=${encodeURIComponent(otaVer)}${otaNotes ? `&notes=${encodeURIComponent(otaNotes)}` : ''}`;
       const res = await fetch(url, {
         method: 'POST',
-        headers: adminHeaders,
+        headers: authHeaders(),
         body: fd,
       });
       const data = await res.json();
@@ -156,7 +155,7 @@ export default function Devices() {
       } else if (res.status === 401) {
         setOtaMsg({
           type: 'error',
-          text: '🔒 สิทธิ์ไม่เพียงพอ: กรุณาระบุ Admin API Key ในหน้า Settings เพื่ออัปโหลดเฟิร์มแวร์ (W0 Security)'
+          text: '🔒 สิทธิ์ไม่เพียงพอ: กรุณาเข้าสู่ระบบด้วยบัญชี Admin เพื่ออัปโหลดเฟิร์มแวร์ (W0/W1 Security)'
         });
       } else {
         setOtaMsg({ type: 'error', text: `❌ ${data.detail || 'อัปโหลดล้มเหลว'}` });
@@ -172,12 +171,9 @@ export default function Devices() {
   async function handleRollback(version) {
     setRollingBack(true);
     try {
-      const adminKey = localStorage.getItem('voc_admin_key') || import.meta.env.VITE_ADMIN_KEY || '';
-      const adminHeaders = adminKey ? { 'X-Admin-Key': adminKey } : {};
-
       const res = await fetch(`${API}/api/ota/rollback`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...adminHeaders },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ version }),
       });
       const data = await res.json();
@@ -191,7 +187,7 @@ export default function Devices() {
       } else if (res.status === 401) {
         setOtaMsg({
           type: 'error',
-          text: '🔒 สิทธิ์ไม่เพียงพอ: กรุณาระบุ Admin API Key ในหน้า Settings เพื่อสั่ง Rollback (W0 Security)'
+          text: '🔒 สิทธิ์ไม่เพียงพอ: กรุณาเข้าสู่ระบบด้วยบัญชี Admin เพื่อสั่ง Rollback (W0/W1 Security)'
         });
       } else {
         setOtaMsg({ type: 'error', text: `❌ Rollback ล้มเหลว: ${data.detail}` });
@@ -208,7 +204,7 @@ export default function Devices() {
     setSaving(true);
     await fetch(`${API}/api/devices/${editTarget.id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         firmware:  editTarget.firmware,
         model_ver: editTarget.model_ver,
@@ -222,7 +218,10 @@ export default function Devices() {
 
   // ─── Confirm delete ─────────────────────────────────────────
   async function confirmDelete() {
-    await fetch(`${API}/api/devices/${delTarget}`, { method: 'DELETE' });
+    await fetch(`${API}/api/devices/${delTarget}`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
     setDelTarget(null);
     fetchDevices();
   }

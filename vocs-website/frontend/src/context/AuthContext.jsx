@@ -29,10 +29,6 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (user) {
       localStorage.setItem('voc_user_info', JSON.stringify(user));
-      // Auto-set admin key if admin
-      if (user.role === 'admin' && !localStorage.getItem('voc_admin_key')) {
-        localStorage.setItem('voc_admin_key', 'Admin@Voc2026!');
-      }
     } else {
       localStorage.removeItem('voc_user_info');
     }
@@ -79,6 +75,7 @@ export function AuthProvider({ children }) {
       setToken('');
       setUser(null);
       setError(null);
+      localStorage.removeItem('voc_admin_key');
     }
   }
 

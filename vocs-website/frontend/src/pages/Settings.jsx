@@ -338,8 +338,7 @@ export default function Settings() {
   async function handleReloadModel() {
     setModelMsg('loading');
     try {
-      const adminKey = localStorage.getItem('voc_admin_key') || import.meta.env.VITE_ADMIN_KEY || '';
-      const headers = adminKey ? { 'X-Admin-Key': adminKey } : {};
+      const headers = authHeaders();
       const res = await fetch(`${API}/api/model/reload`, { method: 'POST', headers });
       if (res.status === 401) {
         setModelMsg('unauthorized');

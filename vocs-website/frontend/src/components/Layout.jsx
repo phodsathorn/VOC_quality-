@@ -28,13 +28,6 @@ export default function Layout({ children }) {
   const seenAlertIds = useRef(new Set());
   const isFirstRun = useRef(true);
 
-  // Auto-login to Admin as default for development demo if not logged in
-  useEffect(() => {
-    if (!user && !localStorage.getItem('voc_user_info')) {
-      login('admin', 'Admin@Voc2026!');
-    }
-  }, []);
-
   async function handleLoginSubmit(e) {
     if (e) e.preventDefault();
     setLoginLoading(true);

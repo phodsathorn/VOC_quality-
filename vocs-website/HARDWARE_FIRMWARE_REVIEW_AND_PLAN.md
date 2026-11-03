@@ -11,21 +11,24 @@
 
 ### ตารางสถานะงาน (Implementation Status Matrix)
 
+> [!NOTE]
+> สถานะงานอ้างอิงตามเกณฑ์การตรวจสอบ [2026-11-03_plan-implementation-review-th.md](../docs/reviews/2026-11-03_plan-implementation-review-th.md) โดยแยกแยะระหว่างสิ่งที่เขียนลงใน Source Code กับสิ่งที่ต้องได้รับการทดสอบและยืนยันด้วยฮาร์ดแวร์/สภาพแวดล้อมจริง
+
 | หมวดงาน | หัวข้อย่อย | สถานะ | รายละเอียดที่ทำแล้ว |
 | :--- | :--- | :---: | :--- |
-| **H0: Security & Electrical** | การแยก Credential ออกจากโค้ด | ✅ **Done** | แยก Wi-Fi & OTA secrets ไว้ใน `secrets.h` พร้อม template `secrets.example.h` ไม่หลุดขึ้น Git |
-| | Web OTA Access Control | ✅ **Done** | ป้องกันหน้า Web OTA `/update` ด้วย Basic Authentication ป้องกันการแอบแฟลชใน LAN |
-| | Cloud Pull OTA & Digital Signature | ✅ **Done** | ตรวจสอบ SHA-256 Checksum, HMAC Signature และระบบ 1-Click Rollback |
-| | การป้องกันไฟเกิน ADC ESP32 | ⚠️ **Review** | ต้องใช้ Voltage Divider สำหรับสัญญาณ Analog จากเซนเซอร์ MQ เพื่อไม่ให้เกิน 3.3V |
-| **H1: Sensor Protocol** | MQ-3 Conditioning & Pre-heat | ✅ **Done** | ระบบ 48-Hour Pre-heat Gate (`mq3_ready`) และ Median Spread Filter (< 150 ADC count) |
-| | CCS811 Environmental Compensation | ✅ **Done** | ชดเชย T/RH ทุก 60 วินาที พร้อมฟิลเตอร์กรอง I2C Glitch Error Frames (64319, 39064) |
-| | MiCS-6814 Dual-Bus Isolation | ✅ **Done** | แยก ADS1115 (16-bit ADC) ไปอยู่บน I2C Bus #2 ป้องกันบัสชนกับ CCS811 |
-| | Clean Air Baseline Capture | ✅ **Done** | รองรับคำสั่ง Capture Baseline จาก Web UI แบบ Non-blocking ผ่าน API |
-| **H2: Reliability & Telemetry**| Monotonic Uptime Tracking | ✅ **Done** | ส่ง `device_uptime_sec` คำนวณชั่วโมงทำงานเซนเซอร์จริง ป้องกันการรีเซ็ตหลอก |
-| | Packet Sequence & Diagnostics | ✅ **Done** | ส่ง `seq_no`, `wifi_rssi`, `free_heap_kb`, และ `reset_reason` ในทุก Frame |
-| | ADC 12-bit & Attenuation Lock | ✅ **Done** | ล็อก `analogReadResolution(12)` และ `analogSetAttenuation(ADC_11db)` ในเฟิร์มแวร์ |
-| | Dual WiFi Network Failover | ✅ **Done** | ใช้ `WiFiMulti` สลับระหว่างเน็ตโรงงานและฮอตสปอตอัตโนมัติ |
-| **H3: Statutory Boundary** | ขอบเขตการตรวจปล่อยมลพิษ | ✅ **Done** | กำหนดขอบเขต E-Nose เป็น Indoor Safety และแยกรายงานมลพิษปล่อง (Stack CEMS/Lab) ออกชัดเจน |
+| **H0: Security & Electrical** | การแยก Credential ออกจากโค้ด | 🔄 **Implemented in source** | แยก Wi-Fi & OTA secrets ไว้ใน `secrets.h` พร้อม template `secrets.example.h` ไม่หลุดขึ้น Git (รอทดสอบตั้งค่าจริงบนเครื่อง) |
+| | Web OTA Access Control | 🔄 **Implemented in source** | ป้องกันหน้า Web OTA `/update` ด้วย Basic Authentication และรหัสผ่านป้องกันใน ArduinoOTA |
+| | Cloud Pull OTA & Digital Signature | 🔄 **Implemented in source** | มีโค้ดตรวจ SHA-256 Checksum, HMAC Signature และ Rollback (รอทดสอบแฟลชจริงบนอุปกรณ์) |
+| | การป้องกันไฟเกิน ADC ESP32 | ⏳ **Blocked by hardware test** | ต้องใช้ Voltage Divider สำหรับสัญญาณ Analog จากเซนเซอร์ MQ เพื่อไม่ให้เกิน 3.3V (ต้องวัดด้วย Multimeter จริง) |
+| **H1: Sensor Protocol** | MQ-3 Conditioning & Pre-heat | 🔄 **Implemented in source** | ระบบ 48-Hour Pre-heat Gate (`mq3_ready`) และ Median Spread Filter (< 150 ADC count) (รอทดสอบในโรงงานจริง) |
+| | CCS811 Environmental Compensation | 🔄 **Implemented in source** | ชดเชย T/RH ทุก 60 วินาที พร้อมฟิลเตอร์กรอง I2C Glitch Error Frames (64319, 39064) |
+| | MiCS-6814 Dual-Bus Isolation | 🔄 **Implemented in source** | แยก ADS1115 (16-bit ADC) ไปอยู่บน I2C Bus #2 ป้องกันบัสชนกับ CCS811 |
+| | Clean Air Baseline Capture | 🔄 **Implemented in source** | รองรับคำสั่ง Capture Baseline จาก Web UI แบบ Non-blocking ผ่าน API (รอทดสอบขั้นตอนในสภาพอากาศสะอาดจริง) |
+| **H2: Reliability & Telemetry**| Monotonic Uptime Tracking | 🔄 **Implemented in source** | ส่ง `device_uptime_sec` คำนวณชั่วโมงทำงานเซนเซอร์จริง ป้องกันการรีเซ็ตหลอก |
+| | Packet Sequence & Diagnostics | 🔄 **Implemented in source** | ส่ง `seq_no`, `wifi_rssi`, `free_heap_kb`, และ `reset_reason` พร้อมบันทึกลง Database |
+| | ADC 12-bit & Attenuation Lock | 🔄 **Implemented in source** | ล็อก `analogReadResolution(12)` และ `analogSetAttenuation(ADC_11db)` ในเฟิร์มแวร์ |
+| | Dual WiFi Network Failover | 🔄 **Implemented in source** | ใช้ `WiFiMulti` สลับระหว่างเน็ตโรงงานและฮอตสปอตอัตโนมัติ (รอทดสอบเครือข่ายหลุดจำลอง) |
+| **H3: Statutory Boundary** | ขอบเขตการตรวจปล่อยมลพิษ | 🔄 **Implemented in source** | กำหนดขอบเขต E-Nose เป็น Indoor Safety และแยกรายงานมลพิษปล่อง (Stack CEMS/Lab) ออกชัดเจน |
 
 ---
 
@@ -132,10 +135,10 @@
 
 ก่อนนำกล่องเซนเซอร์ไปติดตั้งจริงในโรงงานพ่นสี ให้ตรวจสอบตามรายการต่อไปนี้:
 
-- [x] **Firmware Secrets**: ไม่มี Wi-Fi password และ OTA credentials อยู่ใน Git repository
-- [x] **Web OTA Authentication**: ทดสอบเข้าหน้า `http://airmon.local/update` แล้วระบบถาม Username/Password ถูกต้อง
-- [x] **Cloud OTA & Rollback**: ทดสอบสั่งอัปเดตและสั่ง Rollback เฟิร์มแวร์ผ่าน Cloud Backend สำเร็จ
-- [x] **ADC Safety Range**: ตรวจสอบด้วยมัลติมิเตอร์ว่าแรงดัน Analog เข้าขา GPIO 33, 34, 36, 39 ไม่เกิน 3.3V ในทุกสภาวะ
+- [x] **Firmware Secrets Template**: แยก Wi-Fi password และ OTA credentials ออกจาก Git repository โดยใช้ `secrets.h`
+- [x] **Web OTA Authentication in Code**: เพิ่มระบบ Basic Authentication ในหน้า `/update` และรหัสผ่านใน ArduinoOTA
+- [ ] **Cloud OTA & Rollback Field Test**: ต้องทดสอบสั่งอัปเดตและสั่ง Rollback เฟิร์มแวร์ผ่าน Cloud Backend จริงกับกล่อง ESP32
+- [ ] **ADC Safety Range Measurement**: ต้องตรวจสอบด้วยมัลติมิเตอร์จริงว่าแรงดัน Analog เข้าขา GPIO 33, 34, 36, 39 ไม่เกิน 3.3V ในทุกสภาวะ
 - [ ] **Power Rail Soak Test**: เสียบปลั๊กเปิดเครื่องทิ้งไว้ 72 ชั่วโมง ตรวจสอบว่าไม่มีอาการ Brownout Reset หรือความร้อนสะสมใน Enclosure เกิน $55^\circ\text{C}$
 - [ ] **MQ-3 Pre-heat Burn-in**: บันทึก Log ติดต่อกัน 48 ชั่วโมง และยืนยันว่าสถานะ `mq3_ready` เปลี่ยนเป็น `true`
 - [ ] **Airflow Ingress & Filter**: ติดตั้งตาข่ายกันฝุ่น/ฟิลเตอร์กรองฝุ่นหยาบที่ทางลมเข้า เพื่อป้องกันละอองสีอุดตันผิวหน้าเซนเซอร์ MOS
