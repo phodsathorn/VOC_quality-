@@ -272,7 +272,8 @@
 ### การตรวจสอบ
 - ตรวจสอบ `npm --prefix vocs-website/frontend run lint` ผ่าน (0 errors)
 - คอมไพล์ `npm --prefix vocs-website/frontend run build` ผ่าน 100% ใน 225ms
-- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+- ทำการแก้ไข Icon `X` และ `ShieldAlert` ที่ตกหล่นใน [`vocs-website/frontend/src/pages/AirQualityGuide.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/AirQualityGuide.jsx)
+- ดำเนินการ push commit `1bd8396` และ `05d402b` ขึ้นทั้ง **GitLab** (`origin/main`) และ **GitHub** (`github/main`) เพื่อให้ Vercel CI/CD ดำเนินการ build และ deploy ใหม่อัตโนมัติ แก้ปัญหาหน้าจอขาวบน `voc-quality.vercel.app` เรียบร้อยแล้ว
 
 
 
@@ -402,7 +403,8 @@
 ### การตรวจสอบ
 - ตรวจสอบ `npm --prefix vocs-website/frontend run lint` ผ่าน (0 errors)
 - คอมไพล์ `npm --prefix vocs-website/frontend run build` ผ่าน 100% ใน 225ms
-- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+- ทำการแก้ไข Icon `X` และ `ShieldAlert` ที่ตกหล่นใน [`vocs-website/frontend/src/pages/AirQualityGuide.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/AirQualityGuide.jsx)
+- ดำเนินการ push commit `1bd8396` และ `05d402b` ขึ้นทั้ง **GitLab** (`origin/main`) และ **GitHub** (`github/main`) เพื่อให้ Vercel CI/CD ดำเนินการ build และ deploy ใหม่อัตโนมัติ แก้ปัญหาหน้าจอขาวบน `voc-quality.vercel.app` เรียบร้อยแล้ว
 
 
 
