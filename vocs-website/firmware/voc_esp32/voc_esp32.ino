@@ -327,6 +327,9 @@ Adafruit_ADS1115 ads;         // 16-bit ADC สำหรับ MiCS-6814
 Adafruit_PM25AQI aqi = Adafruit_PM25AQI();
 
 unsigned long lastSend = 0;
+unsigned long lastNuReauth = 0;
+// ออโต้รีเฟรชการยืนยันตัวตน Captive Portal ทุก 3 ชั่วโมง (ป้องกันการตัด session 10 ชม. ของมหาวิทยาลัย)
+const unsigned long NU_REAUTH_INTERVAL_MS = 3UL * 3600UL * 1000UL;
 bool isWarmup = true;
 unsigned long lastCommandPoll = 0;
 const unsigned long COMMAND_POLL_MS = 10000;
@@ -755,8 +758,10 @@ void sendData(const SensorData& d) {
   #endif
   http.setTimeout(4000);
 
+  static int consecutiveFailures = 0;
   int code = http.POST(payload);
   if (code == 200) {
+    consecutiveFailures = 0;
     String resp = http.getString();
     Serial.printf("[OK] T:%.1f RH:%.0f | TVOC:%.0f PM25:%.0f | CO:%d\n", d.temp, d.rh, d.tvoc, d.pm25, d.mics_co);
     
@@ -780,7 +785,25 @@ void sendData(const SensorData& d) {
       }
     }
   } else {
-    Serial.printf("[ERR] HTTP %d\n", code);
+    consecutiveFailures++;
+    Serial.printf("[ERR] HTTP %d (Failures: %d)\n", code, consecutiveFailures);
+
+    // หากพบ Redirect (301, 302) หรือล้มเหลว 2 ครั้งติด แปลว่า session ของ Captive Portal (10 ชม.) หลุด
+    if (code == 301 || code == 302 || consecutiveFailures == 2) {
+      Serial.println("[NU Net] Captive session expired! Re-authenticating automatically...");
+#if defined(NU_USERNAME) && defined(NU_PASSWORD)
+      performNuWebLogin();
+#endif
+    } else if (consecutiveFailures >= 6) {
+      Serial.println("[WiFi] Multiple transmission failures. Reconnecting Wi-Fi stack...");
+      WiFi.disconnect();
+      delay(1000);
+      wifiMulti.run();
+#if defined(NU_USERNAME) && defined(NU_PASSWORD)
+      performNuWebLogin();
+#endif
+      consecutiveFailures = 0;
+    }
   }
   http.end();
 }
@@ -841,4 +864,13 @@ void loop() {
     }
     sendData(d);
   }
+
+#if defined(NU_USERNAME) && defined(NU_PASSWORD)
+  // 4. Proactive NU Net Session Refresh ทุก 3 ชม. (รีเซ็ตเวลาก่อนโดนตัดรอบ 10 ชม.)
+  if (now - lastNuReauth >= NU_REAUTH_INTERVAL_MS) {
+    lastNuReauth = now;
+    Serial.println("\n[NU Net] Proactive session keep-alive (3h timer)...");
+    performNuWebLogin();
+  }
+#endif
 }
