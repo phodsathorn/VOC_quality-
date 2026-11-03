@@ -134,25 +134,22 @@ export default function Dashboard() {
     return () => clearInterval(timer);
   }, [fetchAll]);
 
-  if (!data) {
-    return <DashboardSkeleton isColdStarting={isColdStarting} onRetry={() => fetchAll()} />;
-  }
-
-  // Extract core metrics
-  const pm25Value = data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0;
+  // Extract core metrics (Safe optional chaining before any early return)
+  const reading = data?.latest_reading || {};
+  const pm25Value = data?.environment?.pm25 ?? reading.pm25 ?? 12.0;
   const currentAqi = calculatePm25Aqi(pm25Value) || 38;
   const aqiCategory = getAqiCategory(currentAqi);
 
-  const tvocValue = Math.round(data.environment?.tvoc ?? data.latest_reading?.tvoc ?? 64.0);
-  const fanState = data.latest_reading?.fan_state || 'ON';
-  const fanSpeed = data.latest_reading?.fan_speed || 100;
+  const tvocValue = Math.round(data?.environment?.tvoc ?? reading.tvoc ?? 64.0);
+  const fanState = reading.fan_state || 'ON';
+  const fanSpeed = reading.fan_speed || 100;
 
-  const solventName = data.ai_detection?.prediction && data.ai_detection.prediction !== 'AMBIENT'
+  const solventName = data?.ai_detection?.prediction && data.ai_detection.prediction !== 'AMBIENT'
     ? data.ai_detection.prediction
     : 'Toluene';
-  const solventMatch = Math.round(data.ai_detection?.confidence ?? 87);
+  const solventMatch = Math.round(data?.ai_detection?.confidence ?? 87);
 
-  // 24H History data formatted for smooth curve
+  // 24H History data formatted for smooth curve (Hook called unconditionally)
   const chartPoints = useMemo(() => {
     if (history && history.length >= 5) {
       return history.map((pt, i) => ({
@@ -176,6 +173,10 @@ export default function Dashboard() {
 
   // Pip position for the Air Quality slider (0 to 100+ scale)
   const aqiPipPercent = Math.min(100, Math.max(0, (currentAqi / 100) * 100));
+
+  if (!data) {
+    return <DashboardSkeleton isColdStarting={isColdStarting} onRetry={() => fetchAll()} />;
+  }
 
   // Recent alerts formatted
   const displayAlerts = alerts && alerts.length > 0

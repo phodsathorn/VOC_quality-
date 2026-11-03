@@ -259,6 +259,22 @@
 - คอมไพล์ผ่าน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ใน 243ms โดยไม่มีข้อผิดพลาด
 - Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
 
+## อัปเดตเวลา 00:09 ICT (แก้ไขหน้า Dashboard จอขาว ReferenceError และ React Hook useMemo)
+### ปัญหาที่พบ
+1. ในหน้า `Dashboard.jsx` มีการเรียกใช้ตัวแปร `reading` ในส่วน Live Telemetry Drawer โดยที่ยังไม่ได้ประกาศ `const reading = data?.latest_reading || {};` ส่งผลให้ JavaScript โยน `ReferenceError: reading is not defined`
+2. การประกาศ Hook `useMemo` อยู่หลังเงื่อนไข `if (!data) return <DashboardSkeleton ... />;` ซึ่งผิดกฎ Rules of Hooks ของ React ทำให้เมื่อข้อมูลถูกโหลด React render แตกต่างไปและ Hook เรียกไม่คงที่จนเกิดจอขาว (White screen)
+
+### สิ่งที่แก้ไขใน `vocs-website/frontend/src/pages/Dashboard.jsx`
+- ประกาศ `const reading = data?.latest_reading || {};`
+- ย้ายการคำนวณและ Hook `useMemo` ทุกตัวขึ้นมาไว้ด้านบนก่อนเงื่อนไข Early return ของ Skeleton
+- รัน `oxlint` ตรวจสอบ Syntax และ React Rules of Hooks ผ่าน 100% ไม่มี Error (0 errors)
+
+### การตรวจสอบ
+- ตรวจสอบ `npm --prefix vocs-website/frontend run lint` ผ่าน (0 errors)
+- คอมไพล์ `npm --prefix vocs-website/frontend run build` ผ่าน 100% ใน 225ms
+- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+
+
 
 
 
@@ -372,6 +388,22 @@
 ### การตรวจสอบ
 - คอมไพล์ผ่าน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ใน 243ms โดยไม่มีข้อผิดพลาด
 - Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+
+## อัปเดตเวลา 00:09 ICT (แก้ไขหน้า Dashboard จอขาว ReferenceError และ React Hook useMemo)
+### ปัญหาที่พบ
+1. ในหน้า `Dashboard.jsx` มีการเรียกใช้ตัวแปร `reading` ในส่วน Live Telemetry Drawer โดยที่ยังไม่ได้ประกาศ `const reading = data?.latest_reading || {};` ส่งผลให้ JavaScript โยน `ReferenceError: reading is not defined`
+2. การประกาศ Hook `useMemo` อยู่หลังเงื่อนไข `if (!data) return <DashboardSkeleton ... />;` ซึ่งผิดกฎ Rules of Hooks ของ React ทำให้เมื่อข้อมูลถูกโหลด React render แตกต่างไปและ Hook เรียกไม่คงที่จนเกิดจอขาว (White screen)
+
+### สิ่งที่แก้ไขใน `vocs-website/frontend/src/pages/Dashboard.jsx`
+- ประกาศ `const reading = data?.latest_reading || {};`
+- ย้ายการคำนวณและ Hook `useMemo` ทุกตัวขึ้นมาไว้ด้านบนก่อนเงื่อนไข Early return ของ Skeleton
+- รัน `oxlint` ตรวจสอบ Syntax และ React Rules of Hooks ผ่าน 100% ไม่มี Error (0 errors)
+
+### การตรวจสอบ
+- ตรวจสอบ `npm --prefix vocs-website/frontend run lint` ผ่าน (0 errors)
+- คอมไพล์ `npm --prefix vocs-website/frontend run build` ผ่าน 100% ใน 225ms
+- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+
 
 
 
