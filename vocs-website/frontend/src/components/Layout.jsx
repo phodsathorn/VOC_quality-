@@ -14,7 +14,7 @@ import { API } from '../config';
 
 export default function Layout({ children }) {
   const location = useLocation();
-  const { user, logout, login } = useAuth();
+  const { user, logout } = useAuth();
   const [soundActive, setSoundActive] = useState(() => isSoundEnabled());
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
   const [toastAlert, setToastAlert] = useState(null);
@@ -37,19 +37,6 @@ export default function Layout({ children }) {
     window.addEventListener('voc_sound_toggle', handleSoundToggle);
     return () => window.removeEventListener('voc_sound_toggle', handleSoundToggle);
   }, []);
-
-  // Quick switch role สำหรับทดสอบในแถบโปรไฟล์
-  function handleQuickLogin(role) {
-    const passwords = {
-      admin: 'Admin@Voc2026!',
-      engineer: 'Engineer@Voc2026!',
-      operator: 'Operator@Voc2026!',
-      viewer: 'Viewer@Voc2026!'
-    };
-    login(role, passwords[role]).then(() => {
-      setShowUserMenu(false);
-    });
-  }
 
   // Background Poller ตรวจสอบ Alert ใหม่และเล่นเสียงแจ้งเตือน
   useEffect(() => {
@@ -328,59 +315,17 @@ export default function Layout({ children }) {
                     boxShadow: '0 10px 25px rgba(0,0,0,0.15)', border: '1px solid var(--border-color)',
                     padding: '0.75rem', zIndex: 1000,
                   }}>
-                    <div style={{ paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', marginBottom: '0.5rem' }}>
+                    <div style={{ paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', marginBottom: '0.65rem' }}>
                       <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{user.full_name}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>@{user.username} • {user.site}</div>
-                    </div>
-
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
-                      สลับบทบาททดสอบ (Quick Switch Role):
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem', marginBottom: '0.75rem' }}>
-                      <button
-                        onClick={() => handleQuickLogin('admin')}
-                        style={{
-                          padding: '0.3rem', fontSize: '0.72rem', borderRadius: '4px',
-                          border: user.role === 'admin' ? '1.5px solid #7c3aed' : '1px solid #e2e8f0',
-                          backgroundColor: user.role === 'admin' ? '#f5f3ff' : '#fafafa',
-                          fontWeight: 600, color: '#7c3aed', cursor: 'pointer',
-                        }}
-                      >
-                        Admin
-                      </button>
-                      <button
-                        onClick={() => handleQuickLogin('engineer')}
-                        style={{
-                          padding: '0.3rem', fontSize: '0.72rem', borderRadius: '4px',
-                          border: user.role === 'engineer' ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
-                          backgroundColor: user.role === 'engineer' ? '#eff6ff' : '#fafafa',
-                          fontWeight: 600, color: '#2563eb', cursor: 'pointer',
-                        }}
-                      >
-                        Engineer
-                      </button>
-                      <button
-                        onClick={() => handleQuickLogin('operator')}
-                        style={{
-                          padding: '0.3rem', fontSize: '0.72rem', borderRadius: '4px',
-                          border: user.role === 'operator' ? '1.5px solid #059669' : '1px solid #e2e8f0',
-                          backgroundColor: user.role === 'operator' ? '#ecfdf5' : '#fafafa',
-                          fontWeight: 600, color: '#059669', cursor: 'pointer',
-                        }}
-                      >
-                        Operator
-                      </button>
-                      <button
-                        onClick={() => handleQuickLogin('viewer')}
-                        style={{
-                          padding: '0.3rem', fontSize: '0.72rem', borderRadius: '4px',
-                          border: user.role === 'viewer' ? '1.5px solid #475569' : '1px solid #e2e8f0',
-                          backgroundColor: user.role === 'viewer' ? '#f8fafc' : '#fafafa',
-                          fontWeight: 600, color: '#475569', cursor: 'pointer',
-                        }}
-                      >
-                        Viewer
-                      </button>
+                      <span style={{
+                        display: 'inline-block', marginTop: '0.3rem',
+                        fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase',
+                        padding: '0.15rem 0.45rem', borderRadius: '4px',
+                        backgroundColor: activeRoleBadge.bg, color: activeRoleBadge.color,
+                      }}>
+                        {user.role}
+                      </span>
                     </div>
 
                     <button
