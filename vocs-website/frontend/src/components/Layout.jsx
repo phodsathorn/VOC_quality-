@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Activity, Bell, Settings, LayoutDashboard, Box, Database, Wind, BookOpen, CalendarDays,
   X, AlertCircle, Volume2, VolumeX, ShieldAlert, AlertTriangle, Info, Wrench,
-  User, LogOut, Key, ShieldCheck, CheckCircle, Monitor, Factory
+  User, LogOut, Key, ShieldCheck, CheckCircle, Monitor, Factory, Menu
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../utils/soundAlert';
 
 import { API } from '../config';
+import LoginModal from './LoginModal';
 
 export default function Layout({ children }) {
   const location = useLocation();
@@ -20,13 +21,17 @@ export default function Layout({ children }) {
   const [toastAlert, setToastAlert] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [loginUsername, setLoginUsername] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
 
   const seenAlertIds = useRef(new Set());
   const isFirstRun = useRef(true);
+
+  // Close mobile drawer when route changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   async function handleLoginSubmit(e) {
     if (e) e.preventDefault();
@@ -127,10 +132,29 @@ export default function Layout({ children }) {
 
   return (
     <div className="app-container">
-      <aside className="sidebar">
-        <div className="sidebar-logo">
-          <Activity size={24} />
-          VOC / E-Nose
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
+        <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Activity size={24} />
+            VOC / E-Nose
+          </div>
+          {mobileMenuOpen && (
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }}
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
         <nav className="nav-links">
           {navItems.map(item => (
@@ -148,6 +172,16 @@ export default function Layout({ children }) {
 
       <main className="main-content">
         <header className="topbar">
+          {/* Mobile Menu Hamburger Button */}
+          <button
+            className="mobile-menu-btn"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            title="เปิดเมนูนำทาง"
+            aria-label="Toggle Navigation Menu"
+          >
+            <Menu size={22} />
+          </button>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', marginLeft: 'auto' }}>
             {/* ปุ่มเปิด/ปิดเสียงแจ้งเตือน */}
             <button
@@ -167,7 +201,7 @@ export default function Layout({ children }) {
               }}
             >
               {soundActive ? <Volume2 size={16} /> : <VolumeX size={16} />}
-              <span>{soundActive ? 'เสียงเปิด' : 'เสียงปิด'}</span>
+              <span className="sound-toggle-text">{soundActive ? 'เสียงเปิด' : 'เสียงปิด'}</span>
             </button>
 
             {/* ปุ่มไอคอนกระดิ่ง Alerts พร้อม Badge */}
@@ -328,117 +362,28 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        {/* ── Login Modal Dialog (Phase W1) ── */}
-        {showLoginModal && (
-          <div style={{
-            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 999999, backdropFilter: 'blur(3px)',
-          }}>
-            <div style={{
-              backgroundColor: 'white', borderRadius: '0.75rem', width: '100%', maxWidth: '380px',
-              padding: '1.5rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>🔐 เข้าสู่ระบบ (Phase W1 Auth)</h3>
-                <button
-                  onClick={() => setShowLoginModal(false)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {loginError && (
-                <div style={{
-                  padding: '0.5rem 0.75rem', borderRadius: '0.4rem', backgroundColor: '#fee2e2',
-                  color: '#dc2626', fontSize: '0.8rem', marginBottom: '1rem',
-                }}>
-                  ⚠ {loginError}
-                </div>
-              )}
-
-              <form onSubmit={handleLoginSubmit}>
-                <div style={{ marginBottom: '0.85rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem' }}>
-                    Username
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={loginUsername}
-                    onChange={e => setLoginUsername(e.target.value)}
-                    placeholder="เช่น admin, engineer, operator, viewer"
-                    style={{
-                      width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.4rem',
-                      border: '1px solid #cbd5e1', fontSize: '0.875rem', boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
-                <div style={{ marginBottom: '1.25rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem' }}>
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={loginPassword}
-                    onChange={e => setLoginPassword(e.target.value)}
-                    placeholder="รหัสผ่าน"
-                    style={{
-                      width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.4rem',
-                      border: '1px solid #cbd5e1', fontSize: '0.875rem', boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loginLoading}
-                  style={{
-                    width: '100%', padding: '0.6rem', borderRadius: '0.4rem',
-                    backgroundColor: '#0f172a', color: 'white', border: 'none',
-                    fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', marginBottom: '1rem',
-                  }}
-                >
-                  {loginLoading ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ'}
-                </button>
-              </form>
-
-              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.85rem' }}>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.5rem', textAlign: 'center' }}>
-                  หรือเลือกบทบาททดสอบ (Quick Login):
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                  <button
-                    onClick={() => handleQuickLogin('admin')}
-                    style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, color: '#7c3aed', background: '#f5f3ff' }}
-                  >
-                    Admin
-                  </button>
-                  <button
-                    onClick={() => handleQuickLogin('engineer')}
-                    style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, color: '#2563eb', background: '#eff6ff' }}
-                  >
-                    Engineer
-                  </button>
-                  <button
-                    onClick={() => handleQuickLogin('operator')}
-                    style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, color: '#059669', background: '#ecfdf5' }}
-                  >
-                    Operator
-                  </button>
-                  <button
-                    onClick={() => handleQuickLogin('viewer')}
-                    style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, color: '#64748b', background: '#f1f5f9' }}
-                  >
-                    Viewer
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* ── High-Security Professional Login Modal (Phase W1) ── */}
+        <LoginModal
+          isOpen={showLoginModal}
+          onClose={() => {
+            setShowLoginModal(false);
+            setLoginError('');
+          }}
+          onLogin={async (uname, pword) => {
+            setLoginLoading(true);
+            setLoginError('');
+            const res = await login(uname, pword);
+            setLoginLoading(false);
+            if (res.success) {
+              setShowLoginModal(false);
+            } else {
+              setLoginError(res.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+            }
+          }}
+          loading={loginLoading}
+          error={loginError}
+          clearError={() => setLoginError('')}
+        />
 
 
         {/* ── Floating Toast Alert Notification ── */}

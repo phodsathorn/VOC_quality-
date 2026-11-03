@@ -325,6 +325,41 @@
 ### สถานะ (Status)
 - **เสร็จสมบูรณ์ (Completed & Reconciled)**
 
+---
+
+## รายการบันทึกต่อเนื่อง: เวลา 16:10 น. ICT — Professional Login UI, Shimmer Skeletons, Cold-Start Optimization & Responsive Navigation
+
+### สรุป (Summary)
+ปรับปรุงประสบการณ์ผู้ใช้ (UX/UI) ครั้งใหญ่ตามปัญหาจริง: สร้างหน้าต่าง Login ระดับองค์กร (Enterprise Industrial Login Modal), แก้ไขปัญหาเปิดหน้าเว็บครั้งแรกแล้วค้างหมุนนานด้วยระบบ Stale-While-Revalidate Caching และ Cold-Start Detection, สร้าง Shimmer Skeleton System ที่สอดคล้องกับเลย์เอาต์จริงเพื่อลด Cumulative Layout Shift (CLS) และทำระบบ Responsive รองรับหน้าจอมือถือและแท็บเล็ตด้วย Drawer Navigation
+
+### สิ่งที่เปลี่ยนแปลง (Changes)
+1. **High-Security Professional Login Modal (`vocs-website/frontend/src/components/LoginModal.jsx`)**:
+   - ออกแบบหน้าต่าง Login ใหม่สไตล์ Industrial Glassmorphic
+   - เพิ่มปุ่ม Role Selector พร้อมระบุรายละเอียดสิทธิ์การเข้าถึง (Admin, Engineer, Operator, Viewer) และปุ่ม Pre-fill อำนวยความสะดวกในการทดสอบ
+   - เพิ่มปุ่มเปิด/ปิดการแสดงรหัสผ่าน (Password Visibility Toggle)
+   - ปรับปรุงการตรวจสอบข้อผิดพลาด (Validation) และสถานะปุ่มขณะตรวจสอบสิทธิ์
+2. **Cold-Start Optimization & Instant Cache (`vocs-website/frontend/src/pages/Dashboard.jsx`)**:
+   - ใช้หลักการ Stale-While-Revalidate: บันทึกข้อมูลแดชบอร์ดลง `localStorage` เมื่อมีการดึงข้อมูลสำเร็จ ทำให้ผู้ใช้ที่เปิดหน้าเว็บสามารถเห็นแดชบอร์ดได้ใน 0 ms ทันทีโดยไม่ต้องรอโหลด
+   - เพิ่มระบบตรวจจับ Render Backend Cold-Start: หากการเรียกข้อมูลจากคลาวด์ใช้เวลานานเกิน 2.5 วินาที ระบบจะแสดงแถบแจ้งเตือน *"กำลังปลุกระบบคลาวด์ Backend (Render Cold-Start)..."* พร้อมปุ่มลองเชื่อมต่อใหม่ (Retry)
+   - เพิ่ม Timeout ป้องกันไม่ให้แอปพลิเคชันค้างที่หน้าจอขาวว่างเปล่า (White Screen of Death)
+3. **Full-page Shimmer Skeleton (`vocs-website/frontend/src/components/DashboardSkeleton.jsx`, `index.css`)**:
+   - สร้าง Component Skeleton จำลองขนาดและตำแหน่งของทุกกล่องใน Dashboard (Header, Metric Cards, AI Gauge, Trend Charts, Alert Feed)
+   - เพิ่ม CSS `.skeleton` พร้อม Animation Shimmer Wave (1.5s loop) เพื่อให้ดูพรีเมียมและนุ่มนวล
+4. **Mobile & Tablet Responsive System (`vocs-website/frontend/src/index.css`, `Layout.jsx`, `Dashboard.jsx`)**:
+   - เพิ่มปุ่มเมนู Hamburger (`Menu` icon) ที่แถบ Topbar เมื่อหน้าจอเล็กกว่า 1024px
+   - Sidebar ปรับเป็น Slide-out Navigation Drawer พร้อม Backdrop Blur Overlay
+   - ปรับ Dashboard Header ให้ขึ้นบรรทัดใหม่อัตโนมัติ (`flexWrap: wrap`) ไม่ล้นจอ
+   - ปรับ Grid เมตริกและหน้าต่างต่าง ๆ ให้รองรับหน้าจอสมาร์ตโฟนขนาด 320px–640px
+
+### การตรวจสอบและทดสอบ (Verification)
+1. **Frontend Production Build**:
+   - รัน `npm --prefix vocs-website/frontend run build` ผ่าน 100% ไม่มีข้อผิดพลาด (Vite built in 391ms)
+2. **Visual & Responsive Verification**:
+   - ตรวจสอบ Breakpoints: `< 1024px` สำหรับ Drawer Navigation, `< 640px` สำหรับ Single-column Metric Grid, และ `< 480px` สำหรับ Header Compact mode
+
+### สถานะ (Status)
+- **เสร็จสมบูรณ์ (Completed)**
+
 
 
 

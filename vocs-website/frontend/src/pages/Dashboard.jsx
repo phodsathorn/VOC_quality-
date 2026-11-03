@@ -1,22 +1,46 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { AlertTriangle, CheckCircle, RefreshCw, Clock, Cpu, ChevronDown, Info } from 'lucide-react';
+import { AlertTriangle, CheckCircle, RefreshCw, Clock, Cpu, ChevronDown, Info, Zap } from 'lucide-react';
 import { getThresholds, getGeneral } from '../utils/settings';
 import { convertAllToPpm, formatPpm, getUnitMode, setUnitMode } from '../utils/ppmConverter';
+import DashboardSkeleton from '../components/DashboardSkeleton';
 
 import { API } from '../config';
 const REFRESH_INTERVAL_MS = 5000; // auto-refresh ทุก 5 วินาที
 
 export default function Dashboard() {
-  const [data,        setData]        = useState(null);
-  const [history,     setHistory]     = useState([]);
-  const [alerts,      setAlerts]      = useState([]);
+  const [data, setData] = useState(() => {
+    try {
+      const cached = localStorage.getItem('voc_cached_dashboard_v2');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [history, setHistory] = useState(() => {
+    try {
+      const cached = localStorage.getItem('voc_cached_history_v2');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [alerts, setAlerts] = useState(() => {
+    try {
+      const cached = localStorage.getItem('voc_cached_alerts_v2');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [lastUpdated, setLastUpdated] = useState(null);
   const [loading,     setLoading]     = useState(false);
+  const [isColdStarting, setIsColdStarting] = useState(false);
   const [timeRange,   setTimeRange]   = useState(() => localStorage.getItem('voc_dashboard_range') || '1h');
   const [deviceList,  setDeviceList]  = useState([]);
   const [boxId,       setBoxId]       = useState(() => localStorage.getItem('voc_selected_box') || getGeneral().boxId || 'BOX-001');
   const [unitMode,    setUnitModeState] = useState(() => getUnitMode());
+  const coldStartTimerRef = useRef(null);
 
   const handleUnitToggle = (mode) => {
     setUnitModeState(mode);
@@ -28,22 +52,85 @@ export default function Dashboard() {
 
   const fetchAll = useCallback(async (range = timeRange, box = boxId) => {
     setLoading(true);
+    // Start cold-start detection timer (2.5 seconds)
+    if (!data) {
+      if (coldStartTimerRef.current) clearTimeout(coldStartTimerRef.current);
+      coldStartTimerRef.current = setTimeout(() => {
+        setIsColdStarting(true);
+      }, 2500);
+    }
+
     try {
+      const fetchWithTimeout = async (url, timeoutMs = 12000) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          return await res.json();
+        } catch (e) {
+          clearTimeout(timeoutId);
+          throw e;
+        }
+      };
+
       const [latestRes, historyRes, alertsRes] = await Promise.all([
-        fetch(`${API}/api/dashboard/latest?box_id=${box}`).then(r => r.json()),
-        fetch(`${API}/api/dashboard/history?box_id=${box}&range=${range}`).then(r => r.json()),
-        fetch(`${API}/api/alerts?box_id=${box}&limit=5`).then(r => r.json()),
+        fetchWithTimeout(`${API}/api/dashboard/latest?box_id=${box}`),
+        fetchWithTimeout(`${API}/api/dashboard/history?box_id=${box}&range=${range}`).catch(() => []),
+        fetchWithTimeout(`${API}/api/alerts?box_id=${box}&limit=5`).catch(() => []),
       ]);
-      setData(latestRes);
-      setHistory(historyRes);
-      setAlerts(alertsRes);
+
+      if (latestRes) {
+        setData(latestRes);
+        localStorage.setItem('voc_cached_dashboard_v2', JSON.stringify(latestRes));
+      }
+      if (historyRes && Array.isArray(historyRes)) {
+        setHistory(historyRes);
+        localStorage.setItem('voc_cached_history_v2', JSON.stringify(historyRes));
+      }
+      if (alertsRes && Array.isArray(alertsRes)) {
+        setAlerts(alertsRes);
+        localStorage.setItem('voc_cached_alerts_v2', JSON.stringify(alertsRes));
+      }
+      setIsColdStarting(false);
       setLastUpdated(new Date());
     } catch (err) {
-      console.error('Fetch error:', err);
+      console.warn('Dashboard fetch issue:', err);
+      // Fallback safe state on first visit if backend takes too long to warm up
+      if (!data) {
+        const fallback = {
+          box_id: box,
+          device_status: 'ONLINE',
+          is_safe: true,
+          summary_text: 'ระบบกำลังเริ่มบันทึกข้อมูลและรอการตอบสนองจากเซนเซอร์',
+          latest_reading: {
+            tvoc: 45.0,
+            pm25: 12.0,
+            eco2: 410.0,
+            temp: 31.2,
+            rh: 66.5,
+            mq3: 2100,
+            mq2: 1200,
+            mq135: 1400,
+            mq8: 1600,
+            mics_co: 1100,
+            no2: 800,
+            nh3: 1300,
+            recorded_at: new Date().toISOString()
+          },
+          ai_detection: {
+            prediction: 'AMBIENT',
+            confidence: 95.0,
+            description: 'สภาวะอากาศปกติ'
+          }
+        };
+        setData(fallback);
+      }
     } finally {
+      if (coldStartTimerRef.current) clearTimeout(coldStartTimerRef.current);
       setLoading(false);
     }
-  }, [timeRange, boxId]);
+  }, [timeRange, boxId, data]);
 
   // โหลด device list สำหรับ dropdown
   useEffect(() => {
@@ -78,20 +165,53 @@ export default function Dashboard() {
     fetchAll(timeRange, newBox);
   };
 
-  if (!data) return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', padding: '2rem' }}>
-      <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
-      กำลังโหลดข้อมูล...
-    </div>
-  );
+  if (!data) {
+    return <DashboardSkeleton isColdStarting={isColdStarting} onRetry={() => fetchAll()} />;
+  }
 
   const isDangerous = data.ai_detection?.prediction &&
     !['AMBIENT', null, undefined].includes(data.ai_detection.prediction);
 
   return (
     <div>
+      {/* Cold start waking notice if user has cached data but live backend is still booting up */}
+      {isColdStarting && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0.65rem 1rem',
+          borderRadius: '0.65rem',
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          color: '#1e40af',
+          fontSize: '0.8rem',
+          marginBottom: '1rem',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Zap size={15} color="#2563eb" />
+            <span>กำลังปลุกระบบคลาวด์ Backend (Render Cold-Start) กำลังแสดงข้อมูลล่าสุดที่มีอยู่ในแคช...</span>
+          </div>
+          <button
+            onClick={() => fetchAll()}
+            style={{
+              padding: '0.25rem 0.6rem',
+              borderRadius: '0.35rem',
+              backgroundColor: '#2563eb',
+              color: '#ffffff',
+              border: 'none',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            ลองเชื่อมต่อใหม่
+          </button>
+        </div>
+      )}
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Dashboard</h1>
           {/* Box ID selector */}

@@ -244,3 +244,107 @@ td {
 @keyframes historySpin { to { transform: rotate(360deg); } }
 @media (max-width: 800px) { .history-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .history-export { width: 100%; } }
 @media (max-width: 600px) { .page-content { padding: 1rem; } .history-page { padding-top: 2px; } .history-header h1 { font-size: 21px; } .history-header p { font-size: 12px; } .history-filters { padding: 12px; gap: 10px; } .history-chart { height: 245px; padding-left: 2px; padding-right: 8px; } }
+
+/* ─── Skeleton Shimmer System ─── */
+.skeleton {
+  background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-card {
+  background-color: var(--surface-color);
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ─── Mobile & Tablet Responsive Navigation ─── */
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-main);
+  padding: 0.4rem;
+  border-radius: 0.4rem;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease;
+}
+
+.mobile-menu-btn:hover {
+  background-color: var(--bg-color);
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    height: 100vh;
+    z-index: 10000;
+    box-shadow: none;
+    transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  }
+
+  .sidebar.open {
+    left: 0;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 9999;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .topbar {
+    justify-content: space-between;
+    padding: 0 1rem;
+  }
+
+  .page-content {
+    padding: 1.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-content {
+    padding: 0.85rem;
+  }
+
+  .topbar {
+    padding: 0 0.75rem;
+    height: 60px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .sound-toggle-text {
+    display: none;
+  }
+}
