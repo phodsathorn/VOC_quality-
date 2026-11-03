@@ -97,3 +97,4 @@ export default function AqiScaleBar({ currentAqi = null, showLabels = true, comp
     </div>
   );
 }
+

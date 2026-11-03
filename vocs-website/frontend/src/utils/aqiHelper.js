@@ -123,3 +123,4 @@ export function getAqiCategory(aqiValue) {
   if (val <= 200) return AQI_LEVELS[3];
   return AQI_LEVELS[4];
 }
+

@@ -35,3 +35,4 @@ export default function AqiBadge({ aqi, pm25 = null, showRange = false, style = 
     </span>
   );
 }
+

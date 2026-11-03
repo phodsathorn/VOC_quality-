@@ -87,8 +87,9 @@ export default function Layout({ children }) {
   const userRole = user?.role || 'operator';
 
   const allNavItems = [
-    { name: 'Dashboard',       path: '/',                icon: <LayoutDashboard size={20} />, roles: ['admin', 'engineer', 'operator', 'viewer'] },
-    { name: 'Kiosk หน้างาน',    path: '/kiosk',           icon: <Monitor size={20} />,         roles: ['admin', 'engineer', 'operator'] },
+    { name: 'Dashboard',             path: '/',                icon: <LayoutDashboard size={20} />, roles: ['admin', 'engineer', 'operator', 'viewer'] },
+    { name: 'เกี่ยวกับคุณภาพอากาศ',   path: '/aqi-info',        icon: <ShieldAlert size={20} />,     roles: ['admin', 'engineer', 'operator', 'viewer'] },
+    { name: 'Kiosk หน้างาน',          path: '/kiosk',           icon: <Monitor size={20} />,         roles: ['admin', 'engineer', 'operator'] },
     { name: 'Alerts',          path: '/alerts',          icon: <Bell size={20} />,            roles: ['admin', 'engineer', 'operator'] },
     { name: 'Airflow Diagram', path: '/airflow',         icon: <Wind size={20} />,            roles: ['admin', 'engineer', 'operator', 'viewer'] },
     { name: 'ประวัติอากาศ',    path: '/history',         icon: <CalendarDays size={20} />,    roles: ['admin', 'engineer', 'operator', 'viewer'] },
