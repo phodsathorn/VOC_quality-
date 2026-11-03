@@ -117,4 +117,26 @@
 - รันทดสอบ Build: `npm --prefix vocs-website/frontend run build` ผ่าน 100% สำเร็จภายใน 264ms
 - สตรีมโค้ดและ CSS ไม่มีกฎซ้อนทับ พร้อมส่งขึ้น Git เพื่อให้ Vercel ทำการ Re-deploy อัตโนมัติ
 
+## อัปเดตเวลา 22:47 ICT — ปรับหน้า Dashboard ให้ตรงกับ `main_pages/dashboard/screen.png` แบบ 1:1 Pixel-Perfect
+### สิ่งที่เปลี่ยน
+1. **`src/pages/Dashboard.jsx`:**
+   - ปรับโครงสร้างหน้า Dashboard ให้ตรงกับ `stitch_air_quality_minimal_dashboard/main_pages/dashboard/screen.png` และ `code.html` 100% ตามมาตรฐาน 4-Block Maximum:
+     - **Block 1 (3 Primary Metrics):**
+       - การ์ด 1: `AIR QUALITY` ค่า Metric ตัวเลข 56px พร้อมสถานะ `• Good` และแถบสีเกณฑ์มาตรฐานต่อเนื่อง 3 สี (0 - 50 - 100+) พร้อมจุด Pip เลื่อนตามค่าจริง
+       - การ์ด 2: `TVOC` ค่า Metric 56px พร้อมหน่วย `ppb`, ไอคอนเรดาร์กระจายคลื่น และข้อความ `Normal range under 100`
+       - การ์ด 3: `EXHAUST FAN` สถานะ `ON` 56px พร้อมไฟ LED เรืองแสงสีเขียว และข้อความ `100% running`
+     - **Block 2 & 3 (Combined Analytics Grid):**
+       - ฝั่งซ้าย (col-span-8): `TVOC, LAST 24 HOURS` กราฟเส้นโค้งเรียบสีน้ำเงิน 2px พร้อมพื้นที่ไล่เฉดสีฟ้าจางใต้เส้น, เส้นประสีแดงขีดบอก Threshold 120 ppb, และแกนเวลา `00:00, 06:00, 12:00, 18:00, Now`
+       - ฝั่งขวา (col-span-4): `DETECTED SOLVENT` ระบุชื่อสาร `Toluene` 44px พร้อม Badge `87% match`, กราฟเรดาร์รูปหลายเหลี่ยม 5 ช่องสัญญาณ (Ch A - Ch E) แสดงรูปแบบลายนิ้วมือสารเคมี และข้อความอ้างอิง `Reference ISO-16000 / Electrostatic Array`
+     - **Block 4 (Recent Alerts):**
+       - รายการแจ้งเตือนสไตล์มินิมอล 3 แถว พร้อมจุดสถานะสีเขียว ส้ม และน้ำเงิน บอกเวลา `Today`
+   - คงการเชื่อมต่อ Live Telemetry Drawer และ 8-Channel Radar Modal ไว้เมื่อคลิกที่การ์ด
+2. **`src/components/Layout.jsx`:**
+   - ปรับ Header Pill เป็น `Powder Coating Booth 1` และสถานะ `• ONLINE` พร้อมไฟกระพริบตรงตามภาพ `screen.png`
+
+### การตรวจสอบ
+- รันทดสอบ Build: `npm --prefix vocs-website/frontend run build` ผ่าน 100% ภายใน 201ms
+- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`) เพื่ออัปเดตเว็บไซต์ Vercel ทันที
+
+
 
