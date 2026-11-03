@@ -58,6 +58,37 @@ export default function Devices() {
   const [isOtaModalOpen, setIsOtaModalOpen] = useState(false);
   const [otaProgress, setOtaProgress] = useState(68);
 
+  // Load real devices from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchDevices() {
+      try {
+        const res = await fetch(`${API}/api/devices`);
+        if (res.ok && isMounted) {
+          const list = await res.json();
+          if (Array.isArray(list) && list.length > 0) {
+            setDevices((prev) =>
+              prev.map((dev, idx) => {
+                const apiDev = list[idx] || list.find((d) => d.id === dev.id);
+                if (!apiDev) return dev;
+                return {
+                  ...dev,
+                  id: apiDev.id || dev.id,
+                  status: apiDev.status || dev.status,
+                  firmware: apiDev.firmware || dev.firmware,
+                  uptime: apiDev.last_seen ? `Last seen: ${apiDev.last_seen}` : dev.uptime,
+                };
+              })
+            );
+          }
+        }
+      } catch (err) {
+        console.warn('Devices fetch error:', err);
+      }
+    }
+    fetchDevices();
+  }, []);
+
   function handleReboot(nodeId) {
     setRebootingNode(nodeId);
     setTimeout(() => {

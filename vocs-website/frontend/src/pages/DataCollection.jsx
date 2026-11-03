@@ -1,26 +1,75 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Play, Square, ChevronDown, CheckCircle2, RotateCcw,
   Sparkles, Sliders, ArrowRight, Tag
 } from 'lucide-react';
+import { API } from '../config';
+import { useAuth } from '../context/AuthContext';
 
 export default function DataCollection() {
+  const { user } = useAuth();
   const [compound, setCompound] = useState('Toluene (C7H8)');
   const [concentration, setConcentration] = useState('50');
   const [sampleId, setSampleId] = useState('SMP-2026-0842');
   const [isSampling, setIsSampling] = useState(false);
   const [activeTab, setActiveTab] = useState('live'); // 'live' | 'past'
 
-  const pastSessions = [
+  const [pastSessions, setPastSessions] = useState([
     { id: 'SMP-2025-0841', chemical: 'Toluene', ppm: '50 ppm', date: 'Oct 24, 14:15' },
     { id: 'SMP-2025-0840', chemical: 'Acetone', ppm: '120 ppm', date: 'Oct 24, 11:30' },
     { id: 'SMP-2025-0839', chemical: 'IPA', ppm: '75 ppm', date: 'Oct 23, 16:45' },
     { id: 'SMP-2025-0838', chemical: 'Solvent 100', ppm: '40 ppm', date: 'Oct 23, 09:20' },
     { id: 'SMP-2025-0837', chemical: 'Toluene', ppm: '100 ppm', date: 'Oct 22, 15:10' },
-  ];
+  ]);
 
-  function toggleSampling() {
-    setIsSampling(!isSampling);
+  // Load real past sessions from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function loadSessions() {
+      try {
+        const res = await fetch(`${API}/api/training/sessions`);
+        if (res.ok && isMounted) {
+          const list = await res.json();
+          if (Array.isArray(list) && list.length > 0) {
+            const mapped = list.map((s) => ({
+              id: `SMP-${s.id}`,
+              chemical: s.label || 'Toluene',
+              ppm: s.target_ppm ? `${s.target_ppm} ppm` : '50 ppm',
+              date: s.started_at ? new Date(s.started_at).toLocaleDateString() : 'Today',
+            }));
+            setPastSessions(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn('Training sessions load notice:', err);
+      }
+    }
+    loadSessions();
+  }, []);
+
+  async function toggleSampling() {
+    const nextState = !isSampling;
+    setIsSampling(nextState);
+
+    if (nextState) {
+      try {
+        await fetch(`${API}/api/training/sessions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+          },
+          body: JSON.stringify({
+            box_id: 'BOX-001',
+            label: compound.split(' ')[0],
+            target_ppm: parseFloat(concentration) || 50,
+            note: sampleId,
+          }),
+        });
+      } catch (err) {
+        console.warn('Start session API notice:', err);
+      }
+    }
   }
 
   return (

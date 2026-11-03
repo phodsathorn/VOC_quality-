@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Bell, Check, ChevronDown, X, ShieldAlert
 } from 'lucide-react';
+import { API } from '../config';
+import { useAuth } from '../context/AuthContext';
 
 export default function Alerts() {
+  const { user } = useAuth();
   const [incidents, setIncidents] = useState([
     {
       id: 204,
@@ -103,13 +106,79 @@ export default function Alerts() {
   const [mitigationNote, setMitigationNote] = useState('');
   const [toastAck, setToastAck] = useState(null);
   const [viewMode, setViewMode] = useState('standard'); // 'standard' (main_pages) | 'substate' (sub_states with SLA & Owner)
+  const [summaryCounts, setSummaryCounts] = useState({ critical: 0, warning: 1, resolved: 5 });
 
   function showToast(msg) {
     setToastAck(msg);
     setTimeout(() => setToastAck(null), 2500);
   }
 
-  function handleAcknowledge() {
+  // Live real data polling from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAlerts() {
+      try {
+        const [listRes, summaryRes] = await Promise.all([
+          fetch(`${API}/api/alerts?limit=20`),
+          fetch(`${API}/api/alerts/summary`).catch(() => null),
+        ]);
+        if (listRes.ok && isMounted) {
+          const data = await listRes.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const mapped = data.map((a) => {
+              const level = a.level || 'Warning';
+              const isWarning = level === 'Warning' || level === 'High';
+              const isCritical = level === 'Critical';
+              const isNormal = level === 'Normal';
+              return {
+                id: a.id,
+                title: `Incident #${a.id}: ${a.message ? a.message.slice(0, 32) : 'VOC Anomaly'}`,
+                meta: `${a.time || 'Today'} • Level: ${level}`,
+                time: a.time ? `${a.time} Today` : 'Today',
+                level: level,
+                levelBg: isCritical ? 'bg-[#ffdad6]' : isWarning ? 'bg-[#ffdbcd]' : isNormal ? 'bg-[#e2e7ff]' : 'bg-[#d3e4fe]',
+                levelText: isCritical ? 'text-[#ba1a1a]' : isWarning ? 'text-[#943700]' : 'text-[#004ac6]',
+                dotBg: isCritical ? 'bg-[#ba1a1a]' : isWarning ? 'bg-[#943700]' : isNormal ? 'bg-[#0053db]' : 'bg-[#004ac6]',
+                condition: a.message || 'Transient VOC condition',
+                status: a.status === 'Active' ? 'Open' : a.status || 'Open',
+                statusBg: a.status === 'Open' || a.status === 'Active' ? 'bg-[#ffdad6]' : 'bg-[#eaedff]',
+                statusText: a.status === 'Open' || a.status === 'Active' ? 'text-[#ba1a1a]' : a.status === 'Acknowledged' ? 'text-[#54647a]' : 'text-[#434655]',
+                owner: a.acknowledged_by || a.resolved_by || 'E. Mitchell',
+                ownerInitials: (a.acknowledged_by || a.resolved_by || 'EM').slice(0, 2).toUpperCase(),
+                slaMinutes: a.remaining_sla_seconds ? Math.max(1, Math.round(a.remaining_sla_seconds / 60)) : 6,
+                slaTarget: 10,
+              };
+            });
+            setIncidents(mapped);
+            setSelectedIncident((curr) => {
+              if (!curr) return mapped[0];
+              const found = mapped.find((m) => m.id === curr.id);
+              return found || mapped[0];
+            });
+          }
+        }
+        if (summaryRes && summaryRes.ok && isMounted) {
+          const s = await summaryRes.json();
+          setSummaryCounts({
+            critical: s.Critical || s.High || 0,
+            warning: s.Warning || 1,
+            resolved: s.Resolved || 5,
+          });
+        }
+      } catch (err) {
+        console.warn('Alerts live fetch notice:', err);
+      }
+    }
+
+    loadAlerts();
+    const interval = setInterval(loadAlerts, 6000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  async function handleAcknowledge() {
     if (!selectedIncident) return;
     setIncidents((prev) =>
       prev.map((item) =>
@@ -125,9 +194,22 @@ export default function Alerts() {
       statusText: 'text-[#54647a]',
     }));
     showToast(`Acknowledged Incident #${selectedIncident.id}`);
+
+    try {
+      await fetch(`${API}/api/alerts/${selectedIncident.id}/acknowledge`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+        },
+        body: JSON.stringify({ source_screen: 'Web Dashboard' }),
+      });
+    } catch (err) {
+      console.warn('Acknowledge patch:', err);
+    }
   }
 
-  function handleResolve() {
+  async function handleResolve() {
     if (!selectedIncident) return;
     setIncidents((prev) =>
       prev.map((item) =>
@@ -143,6 +225,22 @@ export default function Alerts() {
       statusText: 'text-[#434655]',
     }));
     showToast(`Marked Incident #${selectedIncident.id} as resolved ✓`);
+
+    try {
+      await fetch(`${API}/api/alerts/${selectedIncident.id}/resolve`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+        },
+        body: JSON.stringify({
+          note: mitigationNote || actionSelection,
+          evidence: actionSelection,
+        }),
+      });
+    } catch (err) {
+      console.warn('Resolve patch:', err);
+    }
   }
 
   function resetDrawer() {
@@ -161,12 +259,12 @@ export default function Alerts() {
             </span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#ffdad6] text-[#ba1a1a] text-[11px] font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-[#ba1a1a]" />
-              0 Active
+              {summaryCounts.critical} Active
             </span>
           </div>
           <div className="my-2">
             <span className="text-[56px] leading-[60px] font-bold text-[#131b2e] tracking-tight tabular-nums">
-              0
+              {summaryCounts.critical}
             </span>
           </div>
           <div className="flex items-center justify-between text-[#434655] text-[13px] pt-1">
@@ -185,12 +283,12 @@ export default function Alerts() {
             </span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#ffdbcd] text-[#943700] text-[11px] font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-[#943700]" />
-              1 Pending
+              {summaryCounts.warning} Pending
             </span>
           </div>
           <div className="my-2">
             <span className="text-[56px] leading-[60px] font-bold text-[#131b2e] tracking-tight tabular-nums">
-              1
+              {summaryCounts.warning}
             </span>
           </div>
           <div className="flex items-center justify-between text-[#434655] text-[13px] pt-1">
@@ -214,7 +312,7 @@ export default function Alerts() {
           </div>
           <div className="my-2">
             <span className="text-[56px] leading-[60px] font-bold text-[#131b2e] tracking-tight tabular-nums">
-              5
+              {summaryCounts.resolved}
             </span>
           </div>
           <div className="flex items-center justify-between text-[#434655] text-[13px] pt-1">

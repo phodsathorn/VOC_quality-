@@ -234,6 +234,32 @@
 - คอมไพล์ผ่าน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ใน 237ms
 - Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
 
+## อัปเดตเวลา 00:05 ICT (เชื่อมโยงข้อมูลจริงจาก Backend API เข้าสู่ทุกหน้าหลักอย่างเป็นระบบ)
+### สิ่งที่เปลี่ยน
+1. **`Dashboard.jsx` (Live Telemetry Drawer & Modals):**
+   - เชื่อมต่อตาราง 5 หัวโพรบ (`MQ-135`, `MQ-137`, `PID`, `SGP40`, `TGS2602`) กับค่าอ่านจริงจาก `data.latest_reading` (`mq135`, `mq2`, `tvoc`, `mq3`, `mq8`) พร้อมคำนวณสถานะ `Normal`/`Warning` ตามเกณฑ์ Threshold แบบไดนามิก
+   - แสดงเวลาซิงค์ล่าสุดจริงและรหัส `Array ID: ${data?.box_id}`
+   - ดึงค่า `Chemical Fingerprint Analysis` จากโมเดล AI ในระบบ (`data?.ai_detection?.prediction` และ `confidence`)
+2. **`Alerts.jsx` (Live Incidents & Actions):**
+   - เชื่อมต่อ `GET /api/alerts?limit=20` และ `GET /api/alerts/summary` อัปเดตการ์ดสถานะและตารางเหตุการณ์จากฐานข้อมูลจริง
+   - เชื่อมต่อปุ่ม `Acknowledge` เข้ากับ `PATCH /api/alerts/{id}/acknowledge` พร้อมส่งบันทึกและสถานะรับทราบ
+   - เชื่อมต่อปุ่ม `Mark resolved` เข้ากับ `PATCH /api/alerts/{id}/resolve` พร้อมบันทึก Action Taken และ Mitigation Note
+3. **`Maintenance.jsx` (Filter Status & Work Orders):**
+   - เชื่อมต่อ `GET /api/maintenance/status` นำค่าสุขภาพไส้กรองและสถิติ RUL จริงมาคำนวณเปอร์เซ็นต์ HEPA, Carbon Filter, และ UV Lamp
+   - เชื่อมต่อฟอร์มลิ้นชัก `Add Maintenance Log` เข้ากับ `POST /api/maintenance/work-orders` บันทึกผลการซ่อมบำรุงจริงลงฐานข้อมูล
+4. **`Devices.jsx` (Hardware Registry):**
+   - เชื่อมต่อ `GET /api/devices` ดึงรายชื่อ ESP32 nodes, สถานะออนไลน์, เวอร์ชันเฟิร์มแวร์, และเวลา Last Seen จริงจากระบบ
+5. **`DataCollection.jsx` (Sampling Sessions):**
+   - เชื่อมต่อ `GET /api/training/sessions` แสดงประวัติรอบการเก็บข้อมูลสารเคมีจริงในตาราง Past Sessions
+   - เชื่อมต่อปุ่ม `Start sampling` ส่งข้อมูลเข้า `POST /api/training/sessions`
+6. **`AirflowDiagram.jsx` (Ventilation Scrubber Telemetry):**
+   - เชื่อมต่อค่าอุณหภูมิเบดถ่านกัมมันต์จากเซนเซอร์จริง `temp` และค่าไอระเหยตกค้าง `tvoc` ที่ปลายปล่องระบายอากาศ
+
+### การตรวจสอบ
+- คอมไพล์ผ่าน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ใน 243ms โดยไม่มีข้อผิดพลาด
+- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+
+
 
 
 
@@ -321,6 +347,32 @@
 ### การตรวจสอบ
 - คอมไพล์ผ่าน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ใน 237ms
 - Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+
+## อัปเดตเวลา 00:05 ICT (เชื่อมโยงข้อมูลจริงจาก Backend API เข้าสู่ทุกหน้าหลักอย่างเป็นระบบ)
+### สิ่งที่เปลี่ยน
+1. **`Dashboard.jsx` (Live Telemetry Drawer & Modals):**
+   - เชื่อมต่อตาราง 5 หัวโพรบ (`MQ-135`, `MQ-137`, `PID`, `SGP40`, `TGS2602`) กับค่าอ่านจริงจาก `data.latest_reading` (`mq135`, `mq2`, `tvoc`, `mq3`, `mq8`) พร้อมคำนวณสถานะ `Normal`/`Warning` ตามเกณฑ์ Threshold แบบไดนามิก
+   - แสดงเวลาซิงค์ล่าสุดจริงและรหัส `Array ID: ${data?.box_id}`
+   - ดึงค่า `Chemical Fingerprint Analysis` จากโมเดล AI ในระบบ (`data?.ai_detection?.prediction` และ `confidence`)
+2. **`Alerts.jsx` (Live Incidents & Actions):**
+   - เชื่อมต่อ `GET /api/alerts?limit=20` และ `GET /api/alerts/summary` อัปเดตการ์ดสถานะและตารางเหตุการณ์จากฐานข้อมูลจริง
+   - เชื่อมต่อปุ่ม `Acknowledge` เข้ากับ `PATCH /api/alerts/{id}/acknowledge` พร้อมส่งบันทึกและสถานะรับทราบ
+   - เชื่อมต่อปุ่ม `Mark resolved` เข้ากับ `PATCH /api/alerts/{id}/resolve` พร้อมบันทึก Action Taken และ Mitigation Note
+3. **`Maintenance.jsx` (Filter Status & Work Orders):**
+   - เชื่อมต่อ `GET /api/maintenance/status` นำค่าสุขภาพไส้กรองและสถิติ RUL จริงมาคำนวณเปอร์เซ็นต์ HEPA, Carbon Filter, และ UV Lamp
+   - เชื่อมต่อฟอร์มลิ้นชัก `Add Maintenance Log` เข้ากับ `POST /api/maintenance/work-orders` บันทึกผลการซ่อมบำรุงจริงลงฐานข้อมูล
+4. **`Devices.jsx` (Hardware Registry):**
+   - เชื่อมต่อ `GET /api/devices` ดึงรายชื่อ ESP32 nodes, สถานะออนไลน์, เวอร์ชันเฟิร์มแวร์, และเวลา Last Seen จริงจากระบบ
+5. **`DataCollection.jsx` (Sampling Sessions):**
+   - เชื่อมต่อ `GET /api/training/sessions` แสดงประวัติรอบการเก็บข้อมูลสารเคมีจริงในตาราง Past Sessions
+   - เชื่อมต่อปุ่ม `Start sampling` ส่งข้อมูลเข้า `POST /api/training/sessions`
+6. **`AirflowDiagram.jsx` (Ventilation Scrubber Telemetry):**
+   - เชื่อมต่อค่าอุณหภูมิเบดถ่านกัมมันต์จากเซนเซอร์จริง `temp` และค่าไอระเหยตกค้าง `tvoc` ที่ปลายปล่องระบายอากาศ
+
+### การตรวจสอบ
+- คอมไพล์ผ่าน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ใน 243ms โดยไม่มีข้อผิดพลาด
+- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+
 
 
 

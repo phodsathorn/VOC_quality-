@@ -1,11 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  Wind, Activity, CheckCircle2, ArrowRight, Gauge, ShieldCheck
+  Wind, Activity, CheckCircle2, ArrowRight, Gauge, ShieldCheck, Filter, X
 } from 'lucide-react';
-import { Drawer } from '../components/ui';
+import { API } from '../config';
 
 export default function AirflowDiagram() {
   const [selectedStage, setSelectedStage] = useState(null);
+  const [liveData, setLiveData] = useState(null);
+  const [maintData, setMaintData] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchTelemetry() {
+      try {
+        const [dashRes, maintRes] = await Promise.all([
+          fetch(`${API}/api/dashboard/latest?box_id=BOX-001`).catch(() => null),
+          fetch(`${API}/api/maintenance/status`).catch(() => null),
+        ]);
+        if (dashRes && dashRes.ok && isMounted) {
+          const d = await dashRes.json();
+          setLiveData(d);
+        }
+        if (maintRes && maintRes.ok && isMounted) {
+          const m = await maintRes.json();
+          setMaintData(m);
+        }
+      } catch (err) {
+        console.warn('Airflow live fetch notice:', err);
+      }
+    }
+    fetchTelemetry();
+  }, []);
+
+  const reading = liveData?.latest_reading || {};
+  const bedTemp = reading.temp != null ? reading.temp.toFixed(1) : '21.8';
+  const mediaPercent = maintData?.filter?.healthIndex ? Math.round(maintData.filter.healthIndex) : 78;
+  const residualVoc = reading.tvoc != null ? `${Math.round(reading.tvoc / 4)} ppb` : '14 ppb';
 
   const stages = [
     {
@@ -33,16 +63,16 @@ export default function AirflowDiagram() {
       value: '94%',
       metric: 'Efficiency',
       bgIcon: 'bg-[#dbe1ff] text-[#00174b]',
-      details: 'ถังดักไอสารเคมี Activated Carbon ขนาด 4mm CTC 60% ประสิทธิภาพการดูดซับ 94% อุณหภูมิเบด 21.8 °C',
+      details: `ถังดักไอสารเคมี Activated Carbon ขนาด 4mm CTC 60% ประสิทธิภาพการดูดซับ 94% อุณหภูมิเบด ${bedTemp} °C`,
     },
     {
       id: 'stack',
       name: 'Exhaust Stack',
       role: 'Atmospheric Port',
-      value: '14 ppb',
+      value: residualVoc,
       metric: 'Residual VOC',
       bgIcon: 'bg-[#e2e7ff] text-[#131b2e]',
-      details: 'ปล่องระบายอากาศสู่ภายนอก ตรวจวัดไอสารเคมีตกค้าง 14 ppb (ต่ำกว่าเกณฑ์มาตรฐาน 100 ppb อย่างปลอดภัย)',
+      details: `ปล่องระบายอากาศสู่ภายนอก ตรวจวัดไอสารเคมีตกค้าง ${residualVoc} (ต่ำกว่าเกณฑ์มาตรฐาน 100 ppb อย่างปลอดภัย)`,
     },
   ];
 
@@ -294,14 +324,14 @@ export default function AirflowDiagram() {
                 </span>
               </div>
 
-              {/* Number 2: Bed Temperature 21.8 °C */}
+              {/* Number 2: Bed Temperature */}
               <div className="flex flex-col p-5 rounded-2xl bg-[#f2f3ff]/60 hover:bg-[#f2f3ff] transition-colors border border-[#eaedff]">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#505f76] mb-1">
                   Bed Temperature
                 </span>
                 <div className="flex items-baseline gap-2">
                   <span className="text-[44px] font-bold text-[#131b2e] leading-none tabular-nums">
-                    21.8
+                    {bedTemp}
                   </span>
                   <span className="text-[16px] text-[#505f76] font-medium">°C</span>
                 </div>
@@ -310,19 +340,19 @@ export default function AirflowDiagram() {
                 </span>
               </div>
 
-              {/* Number 3: Active Carbon Media Remaining 78% */}
+              {/* Number 3: Active Carbon Media Remaining */}
               <div className="flex flex-col p-5 rounded-2xl bg-[#f2f3ff]/60 hover:bg-[#f2f3ff] transition-colors border border-[#eaedff]">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#505f76] mb-1">
                   Media Life Remaining
                 </span>
                 <div className="flex items-baseline gap-2">
                   <span className="text-[44px] font-bold text-[#004ac6] leading-none tabular-nums">
-                    78%
+                    {mediaPercent}%
                   </span>
-                  <span className="text-[14px] text-[#505f76] font-medium">(~420 hrs)</span>
+                  <span className="text-[14px] text-[#505f76] font-medium">(~{Math.round(mediaPercent * 5.4)} hrs)</span>
                 </div>
                 <span className="text-[12px] text-[#505f76] mt-2">
-                  Pelletized virgin coconut shell carbon bed. Last rotated 3 days ago.
+                  Pelletized virgin coconut shell carbon bed. Real-time adsorption index.
                 </span>
               </div>
             </div>

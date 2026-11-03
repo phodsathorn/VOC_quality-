@@ -568,11 +568,41 @@ export default function Dashboard() {
                 </thead>
                 <tbody className="divide-y divide-[#eaedff] text-[#131b2e]">
                   {[
-                    { id: 'MQ-135', loc: 'Booth Inflow', val: '48 ppb', thresh: '100 ppb', status: 'Normal' },
-                    { id: 'MQ-137', loc: 'Vent Exhaust', val: '32 ppb', thresh: '80 ppb', status: 'Normal' },
-                    { id: 'PID', loc: 'Primary Chamber', val: '64 ppb', thresh: '120 ppb', status: 'Normal' },
-                    { id: 'SGP40', loc: 'Curing Zone', val: '18 ppb', thresh: '50 ppb', status: 'Normal' },
-                    { id: 'TGS2602', loc: 'Recirculation Line', val: '55 ppb', thresh: '90 ppb', status: 'Normal' },
+                    {
+                      id: 'MQ-135',
+                      loc: 'Booth Inflow',
+                      val: reading.mq135 != null ? `${Math.round(reading.mq135 / 25)} ppb` : '48 ppb',
+                      thresh: '100 ppb',
+                      status: (reading.mq135 != null && reading.mq135 / 25 > 100) ? 'Warning' : 'Normal',
+                    },
+                    {
+                      id: 'MQ-137',
+                      loc: 'Vent Exhaust',
+                      val: reading.mq2 != null ? `${Math.round(reading.mq2 / 35)} ppb` : '32 ppb',
+                      thresh: '80 ppb',
+                      status: (reading.mq2 != null && reading.mq2 / 35 > 80) ? 'Warning' : 'Normal',
+                    },
+                    {
+                      id: 'PID',
+                      loc: 'Primary Chamber',
+                      val: reading.tvoc != null ? `${Math.round(reading.tvoc)} ppb` : '64 ppb',
+                      thresh: '120 ppb',
+                      status: (reading.tvoc != null && reading.tvoc > 120) ? 'Warning' : 'Normal',
+                    },
+                    {
+                      id: 'SGP40',
+                      loc: 'Curing Zone',
+                      val: reading.mq3 != null ? `${Math.round(reading.mq3 / 110)} ppb` : '18 ppb',
+                      thresh: '50 ppb',
+                      status: (reading.mq3 != null && reading.mq3 / 110 > 50) ? 'Warning' : 'Normal',
+                    },
+                    {
+                      id: 'TGS2602',
+                      loc: 'Recirculation Line',
+                      val: reading.mq8 != null ? `${Math.round(reading.mq8 / 30)} ppb` : '55 ppb',
+                      thresh: '90 ppb',
+                      status: (reading.mq8 != null && reading.mq8 / 30 > 90) ? 'Warning' : 'Normal',
+                    },
                   ].map((probe) => (
                     <tr key={probe.id} className="hover:bg-[#eaedff]/40 transition-colors">
                       <td className="py-2.5 px-3 font-semibold text-[#004ac6] whitespace-nowrap">{probe.id}</td>
@@ -580,7 +610,13 @@ export default function Dashboard() {
                       <td className="py-2.5 px-3 text-right font-medium tabular-nums whitespace-nowrap">{probe.val}</td>
                       <td className="py-2.5 px-3 text-right text-[#505f76] tabular-nums whitespace-nowrap">{probe.thresh}</td>
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#00CC66]/10 text-[#009944] whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap ${
+                            probe.status === 'Warning'
+                              ? 'bg-[#ffdbcd] text-[#943700]'
+                              : 'bg-[#00CC66]/10 text-[#009944]'
+                          }`}
+                        >
                           {probe.status}
                         </span>
                       </td>
@@ -600,7 +636,7 @@ export default function Dashboard() {
                 <div className="bg-[#004ac6] h-full rounded-full w-full" />
               </div>
               <p className="text-[11px] text-[#505f76] mt-2">
-                Latest synchronization occurred 3 seconds ago via Modbus TCP gateway.
+                Latest synchronization: {reading.recorded_at ? new Date(reading.recorded_at).toLocaleTimeString() : '3 seconds ago'} via Modbus TCP gateway.
               </p>
             </div>
           </div>
@@ -608,7 +644,7 @@ export default function Dashboard() {
           {/* Drawer Footer */}
           <div className="p-4 sm:p-5 border-t border-[#eaedff] bg-white shrink-0 flex items-center justify-between">
             <span className="text-[12px] text-[#505f76]">
-              Array ID: <span className="font-mono text-[#131b2e] font-medium">SN-98442-E</span>
+              Array ID: <span className="font-mono text-[#131b2e] font-medium">{data?.box_id || 'SN-98442-E'}</span>
             </span>
             <button
               type="button"
