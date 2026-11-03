@@ -55,14 +55,14 @@ function AppContent() {
           </RoleProtectedRoute>
         } />
 
-        {/* หน้าสำหรับ Viewer, Engineer, Admin */}
+        {/* หน้าสำหรับ Viewer, Operator, Engineer, Admin */}
         <Route path="/history" element={
-          <RoleProtectedRoute allowedRoles={['admin', 'engineer', 'viewer']}>
+          <RoleProtectedRoute allowedRoles={['admin', 'engineer', 'operator', 'viewer']}>
             <History />
           </RoleProtectedRoute>
         } />
         <Route path="/emissions" element={
-          <RoleProtectedRoute allowedRoles={['admin', 'engineer', 'viewer']}>
+          <RoleProtectedRoute allowedRoles={['admin', 'engineer', 'operator', 'viewer']}>
             <EmissionsReport />
           </RoleProtectedRoute>
         } />

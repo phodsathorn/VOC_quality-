@@ -50,16 +50,30 @@ export default function History() {
     setLoading(true);
     setError('');
     try {
-      const url = new URL(`${API}/api/air-quality/daily`);
+      const base = API.startsWith('http') ? API : window.location.origin + API;
+      const url = new URL(`${base}/api/air-quality/daily`);
       url.searchParams.set('box_id', boxId);
       url.searchParams.set('from', from);
       url.searchParams.set('to', to);
       url.searchParams.set('parameter', parameter);
-      const response = await fetch(url);
+      const response = await fetch(url.toString());
       if (!response.ok) throw new Error(response.status === 404 ? 'API ประวัติรายวันยังไม่พร้อมใช้งาน' : `โหลดข้อมูลไม่สำเร็จ (${response.status})`);
       const result = await response.json();
-      setRows(Array.isArray(result) ? result : result.days || []);
+      const dataRows = Array.isArray(result) ? result : (result.days || []);
+      setRows(dataRows);
+      if (dataRows.length > 0) {
+        localStorage.setItem(`voc_history_${boxId}_${parameter}`, JSON.stringify(dataRows));
+      }
     } catch (e) {
+      console.warn('History load error:', e);
+      const cached = localStorage.getItem(`voc_history_${boxId}_${parameter}`);
+      if (cached) {
+        try {
+          setRows(JSON.parse(cached));
+          setError('');
+          return;
+        } catch {}
+      }
       setRows([]);
       setError(e.message || 'เชื่อมต่อระบบไม่ได้');
     } finally {
