@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { RefreshCw, AlertTriangle, CheckCircle, Wind, Cpu, Filter, Box, Compass, BookOpen } from 'lucide-react';
 import { getThresholds } from '../utils/settings';
 import { convertAllToPpm, formatPpm, getUnitMode, setUnitMode, convertTvocToPpm } from '../utils/ppmConverter';
 
@@ -560,21 +560,31 @@ export default function AirflowDiagram() {
 
       {/* Flow speed legend */}
       <div className="card" style={{ marginTop: '1.5rem', background: '#f8fafc' }}>
-        <h3 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem' }}>📘 คำอธิบายระบบ</h3>
+        <h3 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          <BookOpen size={16} color="#2563eb" />
+          <span>คำอธิบายระบบและการไหลเวียนอากาศ (Airflow Architecture)</span>
+        </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
           {[
-            { icon: '🌿', title: 'ภายนอก (Outdoor)', desc: 'อากาศจากสภาพแวดล้อมจริง มีอุณหภูมิและความชื้น' },
-            { icon: '🔵', title: 'Intake Port', desc: 'ช่องรับอากาศเข้าสู่กล่อง E-Nose ด้วยพัดลมขนาดเล็ก' },
-            { icon: '🟡', title: 'Pre-Filter', desc: 'กรองฝุ่น PM2.5 ก่อนเข้าสู่ห้องเซนเซอร์' },
-            { icon: '🔷', title: 'Sensor Chamber', desc: 'ห้องเซนเซอร์หลัก มีเซนเซอร์ก๊าซ 6 ตัว + TVOC + eCO₂' },
-            { icon: '🤖', title: 'AI Detection', desc: 'โมเดล ML วิเคราะห์ pattern ของเซนเซอร์ระบุชนิดสาร' },
-            { icon: '⬛', title: 'Exhaust', desc: 'ระบายอากาศออกหลังวิเคราะห์เสร็จ' },
+            { icon: <Compass size={18} color="#059669" />, title: 'ภายนอก (Outdoor Ambient)', desc: 'อากาศจากสภาพแวดล้อมจริง มีอุณหภูมิและความชื้นตามธรรมชาติ' },
+            { icon: <Wind size={18} color="#2563eb" />, title: 'ช่องรับอากาศ (Intake Port)', desc: 'ช่องรับอากาศเข้าสู่กล่อง E-Nose ด้วยพัดลมแรงดันต่ำ' },
+            { icon: <Filter size={18} color="#d97706" />, title: 'แผ่นกรองฝุ่น (Pre-Filter)', desc: 'กรองฝุ่นอนุภาคขนาดใหญ่และ PM2.5 ก่อนเข้าห้องวัด' },
+            { icon: <Box size={18} color="#7c3aed" />, title: 'ห้องวัดก๊าซ (Sensor Chamber)', desc: 'ห้องเซนเซอร์หลัก มีก๊าซเซนเซอร์ 6 ชนิด พร้อม TVOC และ eCO₂' },
+            { icon: <Cpu size={18} color="#0284c7" />, title: 'ระบบ AI (Pattern Classifier)', desc: 'ประมวลผลสัญญาณ Signature สารระเหยเพื่อจำแนกชนิดก๊าซ' },
+            { icon: <Wind size={18} color="#475569" />, title: 'ท่อไอเสีย (Exhaust Port)', desc: 'ระบายอากาศออกหลังการตรวจวัดเพื่อลดการสะสมตกค้าง' },
           ].map(item => (
             <div key={item.title} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>{item.icon}</span>
+              <div style={{
+                width: 32, height: 32, borderRadius: '6px',
+                backgroundColor: '#ffffff', border: '1px solid #e2e8f0',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                {item.icon}
+              </div>
               <div>
-                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#334155' }}>{item.title}</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.5 }}>{item.desc}</div>
+                <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#1e293b' }}>{item.title}</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.45 }}>{item.desc}</div>
               </div>
             </div>
           ))}

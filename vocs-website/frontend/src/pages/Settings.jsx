@@ -602,7 +602,10 @@ export default function Settings() {
       {/* ── Section 2: Thresholds ───────────────────────────── */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600 }}>🚨 เกณฑ์การแจ้งเตือน (Alert Thresholds)</h2>
+          <h2 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+            <ShieldAlert size={18} color="#dc2626" />
+            <span>เกณฑ์การแจ้งเตือน (Alert Thresholds)</span>
+          </h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 0.875rem', borderRadius: '0.5rem', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', marginBottom: '1.25rem' }}>
           <Info size={15} style={{ color: '#2563eb', flexShrink: 0 }} />

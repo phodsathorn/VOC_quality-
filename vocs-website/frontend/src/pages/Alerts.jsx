@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { AlertTriangle, CheckCircle, RefreshCw, Bell, ShieldAlert, Info, Volume2, VolumeX, Volume1 } from 'lucide-react';
+import { AlertTriangle, CheckCircle, RefreshCw, Bell, ShieldAlert, Info, Volume2, VolumeX, Volume1, Clock, AlertOctagon } from 'lucide-react';
 import { isSoundEnabled, toggleSoundEnabled, triggerAlertSound } from '../utils/soundAlert';
 import { useAuth } from '../context/AuthContext';
 import { API } from '../config';
@@ -266,12 +266,14 @@ export default function Alerts() {
                     <td>
                       {a.status === 'Active' ? (
                         <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
                           padding: '0.2rem 0.55rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700,
                           backgroundColor: isOverdue ? '#fee2e2' : '#fef3c7',
                           color: isOverdue ? '#dc2626' : '#b45309',
                           fontFamily: 'monospace'
                         }}>
-                          {isOverdue ? '🚨 ผิดนัด SLA' : `⏳ ${formattedRem}`}
+                          {isOverdue ? <AlertOctagon size={13} /> : <Clock size={13} />}
+                          <span>{isOverdue ? 'เกินกำหนด SLA' : formattedRem}</span>
                         </span>
                       ) : (
                         <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
