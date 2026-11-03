@@ -114,132 +114,140 @@ export default function Layout({ children }) {
   const activeRoleBadge = roleBadges[userRole] || roleBadges.operator;
   const RoleIcon = activeRoleBadge.icon;
 
-  return (
-    <div className="min-h-screen bg-[#faf8ff] text-[#131b2e] flex">
-      {/* Mobile Backdrop */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-[#131b2e]/40 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* ── Fixed Left Sidebar (240px wide) ── */}
-      <aside
-        className={`fixed top-0 bottom-0 left-0 w-[240px] bg-white border-r border-[#e2e8f0] z-50 flex flex-col justify-between transition-transform duration-300 ease-in-out shadow-[0_1px_8px_rgba(0,0,0,0.04)] ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
-      >
-        <div className="flex flex-col h-full overflow-hidden">
-          {/* Brand Header */}
-          <div className="h-16 px-4 flex items-center justify-between border-b border-[#f1f5f9] shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#2563eb] flex items-center justify-center text-white shadow-sm">
-                <Activity size={18} />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[15px] font-bold tracking-tight text-[#131b2e] leading-tight">
-                  VOC / E-Nose
-                </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-[#64748b]">
-                  Telemetry System
-                </span>
-              </div>
-            </div>
-
-            {/* Mobile Close Button */}
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(false)}
-              className="lg:hidden p-1 rounded-md text-[#64748b] hover:bg-[#f1f5f9]"
-              aria-label="Close menu"
-            >
-              <X size={18} />
-            </button>
+  const renderSidebarContent = (onClose) => (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Brand Header */}
+      <div className="h-16 px-4 flex items-center justify-between border-b border-[#f1f5f9] shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#2563eb] flex items-center justify-center text-white shadow-sm">
+            <Activity size={18} />
           </div>
-
-          {/* Role Pill under Brand */}
-          <div className="px-4 pt-3 pb-1">
-            <span
-              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide uppercase"
-              style={{
-                backgroundColor: activeRoleBadge.bg,
-                color: activeRoleBadge.color,
-                border: `1px solid ${activeRoleBadge.border}`,
-              }}
-            >
-              <RoleIcon size={12} />
-              {activeRoleBadge.label}
+          <div className="flex flex-col">
+            <span className="text-[15px] font-bold tracking-tight text-[#131b2e] leading-tight">
+              VOC / E-Nose
+            </span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[#64748b]">
+              Telemetry System
             </span>
           </div>
+        </div>
 
-          {/* Navigation Items (Scrollable) */}
-          <nav className="flex-1 overflow-y-auto px-2.5 py-2 space-y-0.5">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-[13px] font-medium transition-all ${
-                    isActive
-                      ? 'bg-[#e2e7ff] text-[#004ac6] font-semibold shadow-xs'
-                      : 'text-[#434655] hover:bg-[#eaedff]/60 hover:text-[#131b2e]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon size={18} className={isActive ? 'text-[#004ac6]' : 'text-[#64748b]'} />
-                    <span className="truncate">{item.name}</span>
-                  </div>
+        {/* Mobile Close Button */}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="lg:hidden p-1 rounded-md text-[#64748b] hover:bg-[#f1f5f9]"
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
+        )}
+      </div>
 
-                  {item.badge > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-[#ba1a1a] text-white text-[10px] font-bold shrink-0">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
+      {/* Role Pill under Brand */}
+      <div className="px-4 pt-3 pb-1">
+        <span
+          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide uppercase"
+          style={{
+            backgroundColor: activeRoleBadge.bg,
+            color: activeRoleBadge.color,
+            border: `1px solid ${activeRoleBadge.border}`,
+          }}
+        >
+          <RoleIcon size={12} />
+          {activeRoleBadge.label}
+        </span>
+      </div>
 
-          {/* Bottom User Profile Card */}
-          {user && (
-            <div className="p-3 border-t border-[#e2e8f0] bg-[#faf8ff] shrink-0">
-              <div className="p-2 rounded-xl bg-white border border-[#e2e8f0] flex items-center justify-between shadow-xs">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-[#004ac6] text-white flex items-center justify-center text-[12px] font-bold shrink-0">
-                    {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[12px] font-semibold text-[#131b2e] truncate leading-tight">
-                      {user.full_name || user.username}
-                    </span>
-                    <span className="text-[10px] text-[#64748b] truncate leading-tight">
-                      {user.site || 'Main Plant'} • {user.role}
-                    </span>
-                  </div>
-                </div>
+      {/* Navigation Items (Scrollable) */}
+      <nav className="flex-1 overflow-y-auto px-2.5 py-2 space-y-0.5">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = location.pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={onClose ? onClose : undefined}
+              className={`flex items-center justify-between px-3 py-2 rounded-xl text-[13px] font-medium transition-all ${
+                isActive
+                  ? 'bg-[#e2e7ff] text-[#004ac6] font-semibold shadow-xs'
+                  : 'text-[#434655] hover:bg-[#eaedff]/60 hover:text-[#131b2e]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Icon size={18} className={isActive ? 'text-[#004ac6]' : 'text-[#64748b]'} />
+                <span className="truncate">{item.name}</span>
+              </div>
 
-                <button
-                  type="button"
-                  onClick={() => logout()}
-                  title="ออกจากระบบ"
-                  className="p-1.5 rounded-lg text-[#64748b] hover:text-[#ba1a1a] hover:bg-[#ffdad6]/40 transition-colors"
-                >
-                  <LogOut size={16} />
-                </button>
+              {item.badge > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-[#ba1a1a] text-white text-[10px] font-bold shrink-0">
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Bottom User Profile Card */}
+      {user && (
+        <div className="p-3 border-t border-[#e2e8f0] bg-[#faf8ff] shrink-0">
+          <div className="p-2 rounded-xl bg-white border border-[#e2e8f0] flex items-center justify-between shadow-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-[#004ac6] text-white flex items-center justify-center text-[12px] font-bold shrink-0">
+                {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[12px] font-semibold text-[#131b2e] truncate leading-tight">
+                  {user.full_name || user.username}
+                </span>
+                <span className="text-[10px] text-[#64748b] truncate leading-tight">
+                  {user.site || 'Main Plant'} • {user.role}
+                </span>
               </div>
             </div>
-          )}
+
+            <button
+              type="button"
+              onClick={() => logout()}
+              title="ออกจากระบบ"
+              className="p-1.5 rounded-lg text-[#64748b] hover:text-[#ba1a1a] hover:bg-[#ffdad6]/40 transition-colors"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#faf8ff] text-[#131b2e] flex">
+      {/* Mobile Drawer (Backdrop + Off-canvas panel) */}
+      {mobileMenuOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-[#131b2e]/40 backdrop-blur-sm z-50 lg:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <aside className="fixed inset-y-0 left-0 w-[240px] bg-white border-r border-[#e2e8f0] z-50 flex flex-col justify-between shadow-2xl lg:hidden animate-fadeIn">
+            {renderSidebarContent(() => setMobileMenuOpen(false))}
+          </aside>
+        </>
+      )}
+
+      {/* Desktop Sidebar (In-flow flex child, Sticky, Always takes 240px, NEVER overlaps!) */}
+      <aside className="hidden lg:flex flex-col w-[240px] shrink-0 h-screen sticky top-0 bg-white border-r border-[#e2e8f0] z-20 shadow-[0_1px_8px_rgba(0,0,0,0.04)] justify-between">
+        {renderSidebarContent(null)}
       </aside>
 
-      {/* ── Main Canvas Viewport (Offset by 240px on lg screens) ── */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-[240px]">
-        {/* Fixed Header Bar (64px) */}
-        <header className="sticky top-0 z-30 h-16 bg-white/90 backdrop-blur-md border-b border-[#e2e8f0] px-4 md:px-8 flex items-center justify-between shadow-xs">
+      {/* Main Canvas Viewport (Takes remaining space smoothly) */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Sticky Header Bar (64px) */}
+        <header className="sticky top-0 z-10 h-16 bg-white/90 backdrop-blur-md border-b border-[#e2e8f0] px-4 md:px-8 flex items-center justify-between shadow-xs">
           {/* Left: Mobile Toggle + Location & Gateway Status */}
           <div className="flex items-center gap-3">
             <button

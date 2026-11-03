@@ -99,3 +99,22 @@
 ## สถานะ
 - สำเร็จเรียบร้อย 100% พร้อม Commit และ Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
 
+## อัปเดตเวลา 22:42 ICT — แก้ไขปัญหา Sidebar ซ้อนทับเนื้อหา (Sidebar Layout Overlap Fix)
+### สาเหตุของปัญหา
+จากการตรวจสอบภาพหน้าจอที่ผู้ใช้ส่งมา พบว่าแถบเมนูด้านซ้าย (Sidebar) ลอยไปบังเนื้อหาหัวข้อ ("คุณภาพอากาศ (AQI)") และส่วนหัวของหน้า (Header):
+1. **Unlayered CSS Reset:** ใน `src/index.css` มีการใส่กฎ `* { margin: 0; padding: 0; }` นอก `@layer` ส่งผลให้ลำดับความสำคัญของ Cascade Layers ถือว่ากฎนี้อยู่เหนือ Tailwind v4 utilities (`@layer utilities`) ทั้งหมด ทำให้ Utility Class `lg:pl-[240px]` ถูกลบล้าง
+2. **Fixed Sidebar vs Out-of-flow Main:** การใช้ `position: fixed` บน Sidebar ทำให้ Sidebar หลุดออกจาก Flow การจัดวาง Flexbox ปกติ หากการเยื้องทางซ้ายล้มเหลว เนื้อหาจะถูก Sidebar บดบัง 240px ทันที
+
+### สิ่งที่แก้ไข
+1. **`src/components/Layout.jsx`:**
+   - ปรับเปลี่ยน Desktop Sidebar ให้เป็น In-flow Flex Child (`hidden lg:flex flex-col w-[240px] shrink-0 h-screen sticky top-0 bg-white border-r border-[#e2e8f0] z-20`) ซึ่งจองพื้นที่ความกว้าง 240px ใน Flow อย่างถาวร และทำให้เนื้อหาในฝั่งขวา (`flex-1 min-w-0`) ไม่มีวันถูกซ้อนทับในทุกขนาดหน้าจอและทุกเบราว์เซอร์
+   - แยก Mobile Drawer เป็น Off-canvas Panel พร้อม Backdrop Blur (`fixed inset-y-0 left-0 z-50 lg:hidden`) ที่เปิดเมื่อกดปุ่ม Hamburger บนหน้าจอขนาดเล็ก
+   - แยกฟังก์ชัน `renderSidebarContent` เพื่อนำโครงสร้างเมนูและโปรไฟล์ผู้ใช้มาใช้งานร่วมกันอย่างสะอาดเรียบร้อย
+2. **`src/index.css`:**
+   - นำกฎ `* { margin: 0; padding: 0; }` ที่อยู่นอก Layer ออก และย้ายการตั้งค่าฟอนต์และสีพื้นฐานเข้าไปอยู่ใน `@layer base` ตามมาตรฐาน Tailwind CSS v4
+
+### การตรวจสอบ
+- รันทดสอบ Build: `npm --prefix vocs-website/frontend run build` ผ่าน 100% สำเร็จภายใน 264ms
+- สตรีมโค้ดและ CSS ไม่มีกฎซ้อนทับ พร้อมส่งขึ้น Git เพื่อให้ Vercel ทำการ Re-deploy อัตโนมัติ
+
+

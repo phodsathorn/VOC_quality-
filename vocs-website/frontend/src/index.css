@@ -78,17 +78,13 @@
   --header-height: 64px;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  font-family: 'Inter', 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: var(--color-surface);
-  color: var(--color-on-surface);
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  body {
+    font-family: 'Inter', 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
 /* Tabular numbers for telemetry metrics */
