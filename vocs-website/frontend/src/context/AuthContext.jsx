@@ -118,6 +118,14 @@ export function AuthProvider({ children }) {
     return allowedRoles.includes(user.role);
   }
 
+  function hasPermission(permission, minRole = 'operator') {
+    if (!user) return false;
+    const roleRank = { viewer: 1, operator: 2, engineer: 3, admin: 4 };
+    const userRank = roleRank[user.role] || 0;
+    const requiredRank = roleRank[minRole] || 0;
+    return userRank >= requiredRank;
+  }
+
   // Wrapper for authenticated API requests
   function authHeaders(customHeaders = {}) {
     const headers = { ...customHeaders };
@@ -137,6 +145,7 @@ export function AuthProvider({ children }) {
         login,
         logout,
         hasRole,
+        hasPermission,
         authHeaders,
         isAuthenticated: !!user
       }}
