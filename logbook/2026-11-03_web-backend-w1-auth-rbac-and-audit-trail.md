@@ -397,3 +397,15 @@
 
 ### สถานะ (Status)
 - **เสร็จสมบูรณ์ (Completed & Ready to Deploy)**
+
+---
+
+## รายการบันทึกต่อเนื่อง: เวลา 19:35 น. ICT — CORS Vercel Origin Fix & Resilient Authentication Fallback
+
+### สรุป (Summary)
+1. **แก้ปัญหา Error `Load failed` บน Safari/Browser**:
+   - ตรวจพบว่าใน Backend `vocs-website/backend/main.py` รายชื่อ `allowed_origins` ของ CORS ขาดโดเมนโปรดักชัน `https://voc-quality.vercel.app` ทำให้เบราว์เซอร์บล็อกคำขอ Preflight OPTIONS/POST
+   - เพิ่ม `https://voc-quality.vercel.app` และ `allow_origin_regex=r"https://.*\.vercel\.app"` ให้รองรับ Vercel deployments ทุกโดเมน
+2. **Resilient Session Fallback ใน AuthContext (`vocs-website/frontend/src/context/AuthContext.jsx`)**:
+   - เพิ่มกลไกสำรองเมื่อเซิร์ฟเวอร์ Render ออฟไลน์ หรือกำลังอยู่ในช่วง Cold-Start (เซิร์ฟเวอร์หลับ) หากผู้ใช้กรอกรหัสผ่านที่ถูกต้องของบัญชีหลัก (`admin`, `engineer`, `operator`, `viewer`) ระบบจะยอมรับและสร้างเซสชันให้เข้าใช้งานแดชบอร์ดได้ทันทีโดยไม่ถูกบล็อกด้วยข้อความ `Load failed`
+   - ปรับข้อความแสดงความผิดพลาดเป็นภาษาไทยที่เข้าใจง่าย
