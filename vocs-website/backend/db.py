@@ -16,6 +16,9 @@ async def connect_db():
     """สร้าง connection pool เมื่อ app เริ่มต้น"""
     global _pool
     if not DATABASE_URL:
+        if os.getenv("ENVIRONMENT", "development").lower() == "development":
+            print("[DB] Notice: DATABASE_URL not set in development mode. Database queries will return empty/fallback state.")
+            return
         raise RuntimeError("DATABASE_URL is not configured. Set it in the deployment environment.")
     _pool = await asyncpg.create_pool(
         dsn=DATABASE_URL,

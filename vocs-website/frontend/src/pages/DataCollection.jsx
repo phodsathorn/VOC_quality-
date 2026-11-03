@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Pencil, Trash2, X, Save, Square, Play, Calculator, FlaskConical } from 'lucide-react';
-
+import { useAuth } from '../context/AuthContext';
 import { API } from '../config';
 
 const SUBSTANCE_DATA = {
@@ -19,6 +19,7 @@ const LABEL_OPTIONS = [
 ];
 
 export default function DataCollection() {
+  const { authHeaders, user } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [newLabel, setNewLabel] = useState('ALCOHOL');
@@ -170,19 +171,28 @@ export default function DataCollection() {
     }
   }
 
-  async function downloadCSV(sessionId) {
+  async function downloadExport(format = 'csv', sessionId = null) {
+    if (user && user.role === 'operator') {
+      setMessage({ type: 'error', text: '🔒 สิทธิ์ไม่เพียงพอ: บทบาท Operator ไม่ได้รับอนุญาตให้ Export รายงานตามนโยบาย W1 (ต้องเป็น Engineer, Admin หรือ Viewer)' });
+      return;
+    }
     try {
-      const url = sessionId
-        ? `${API}/api/export/csv?session_id=${sessionId}`
-        : `${API}/api/export/csv`;
-      const res = await fetch(url);
+      const q = sessionId ? `?session_id=${sessionId}` : '';
+      const url = `${API}/api/export/${format}${q}`;
+      const res = await fetch(url, { headers: authHeaders() });
+      if (res.status === 403) {
+        throw new Error('สิทธิ์ไม่เพียงพอในการ Export ข้อมูล (Role Forbidden)');
+      }
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
+      const sha256 = res.headers.get('X-Export-SHA256');
+      const exportId = res.headers.get('X-Export-ID');
       const blob = await res.blob();
+      const ext = format === 'pdf' ? 'html' : format;
       const filename = sessionId
-        ? `voc_session_${sessionId}_data.csv`
-        : 'voc_training_data_all.csv';
+        ? `voc_session_${sessionId}_${format}.${ext}`
+        : `voc_export_all_${format}.${ext}`;
 
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -192,10 +202,21 @@ export default function DataCollection() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
+
+      if (sha256) {
+        setMessage({
+          type: 'success',
+          text: `✅ ส่งออก ${format.toUpperCase()} สำเร็จ (${exportId || 'Exported'}) | SHA-256: ${sha256.substring(0, 16)}...`
+        });
+      }
     } catch (err) {
-      console.error('Failed to download CSV:', err);
-      alert('ไม่สามารถดาวน์โหลดไฟล์ CSV ได้ โปรดตรวจสอบสถานะ Backend');
+      console.error(`Failed to download ${format}:`, err);
+      setMessage({ type: 'error', text: `ไม่สามารถดาวน์โหลดไฟล์ ${format.toUpperCase()} ได้: ${err.message}` });
     }
+  }
+
+  function downloadCSV(sessionId) {
+    return downloadExport('csv', sessionId);
   }
 
   async function saveEdit() {
@@ -515,22 +536,56 @@ export default function DataCollection() {
             ข้อมูลที่มี Label และค่า PPM พร้อมส่งออกเป็น CSV สำหรับเทรนโมเดล AI
           </span>
         </div>
-        <button
-          onClick={() => downloadCSV(null)}
-          style={{
-            padding: '0.55rem 1.2rem',
-            backgroundColor: 'var(--success-color)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '0.5rem',
-            fontWeight: 700,
-            fontSize: '0.875rem',
-            cursor: 'pointer',
-            boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
-          }}
-        >
-          Export CSV ทั้งหมด
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => downloadExport('csv', null)}
+            style={{
+              padding: '0.5rem 0.9rem',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontWeight: 700,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '4px'
+            }}
+          >
+            Export CSV
+          </button>
+          <button
+            onClick={() => downloadExport('xlsx', null)}
+            style={{
+              padding: '0.5rem 0.9rem',
+              backgroundColor: '#059669',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontWeight: 700,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '4px'
+            }}
+          >
+            Export XLSX
+          </button>
+          <button
+            onClick={() => downloadExport('pdf', null)}
+            style={{
+              padding: '0.5rem 0.9rem',
+              backgroundColor: '#2563eb',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              fontWeight: 700,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '4px'
+            }}
+          >
+            Printable Report (PDF)
+          </button>
+        </div>
       </div>
 
       {/* ── Sessions Table ── */}
@@ -612,12 +667,29 @@ export default function DataCollection() {
                           <Square size={12} fill="white" /> หยุดบันทึก
                         </button>
                       )}
-                      <button
-                        onClick={() => downloadCSV(s.id)}
-                        style={{ padding: '0.3rem 0.65rem', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
-                      >
-                        CSV
-                      </button>
+                      <div style={{ display: 'inline-flex', gap: '3px' }}>
+                        <button
+                          onClick={() => downloadExport('csv', s.id)}
+                          title="Export CSV"
+                          style={{ padding: '0.3rem 0.5rem', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                        >
+                          CSV
+                        </button>
+                        <button
+                          onClick={() => downloadExport('xlsx', s.id)}
+                          title="Export XLSX (Excel)"
+                          style={{ padding: '0.3rem 0.5rem', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                        >
+                          XLSX
+                        </button>
+                        <button
+                          onClick={() => downloadExport('pdf', s.id)}
+                          title="Printable ISO 17025 Report"
+                          style={{ padding: '0.3rem 0.5rem', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                        >
+                          PDF
+                        </button>
+                      </div>
                       <button
                         onClick={() => openEdit(s)}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.3rem 0.65rem', border: 'none', borderRadius: '0.375rem', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', backgroundColor: '#2563eb18', color: '#2563eb' }}

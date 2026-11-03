@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { AlertTriangle, CheckCircle, RefreshCw, Bell, ShieldAlert, Info, Volume2, VolumeX, Volume1 } from 'lucide-react';
 import { isSoundEnabled, toggleSoundEnabled, triggerAlertSound } from '../utils/soundAlert';
-
+import { useAuth } from '../context/AuthContext';
 import { API } from '../config';
 const REFRESH_INTERVAL_MS = 10000;
 
@@ -12,12 +12,14 @@ const LEVEL_CONFIG = {
 };
 
 export default function Alerts() {
+  const { user, authHeaders } = useAuth();
   const [alerts, setAlerts] = useState([]);
   const [summary, setSummary] = useState({});
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [filter, setFilter] = useState('All');
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
+  const [errorMsg, setErrorMsg] = useState(null);
 
   useEffect(() => {
     const handleToggle = (e) => setSoundOn(e.detail.enabled);
@@ -48,9 +50,31 @@ export default function Alerts() {
     return () => clearInterval(t);
   }, [fetchAlerts]);
 
-  async function resolveAlert(id) {
-    await fetch(`${API}/api/alerts/${id}/resolve`, { method: 'PATCH' });
-    fetchAlerts();
+  async function handleWorkflow(id, step) {
+    if (user && user.role === 'viewer') {
+      setErrorMsg('🔒 สิทธิ์ไม่เพียงพอ: บทบาท Viewer ดูข้อมูลได้อย่างเดียว');
+      setTimeout(() => setErrorMsg(null), 5000);
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/api/alerts/${id}/${step}`, {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ note: `Updated by ${user?.username || 'operator'}` })
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.detail || 'Failed');
+      }
+      fetchAlerts();
+    } catch (err) {
+      setErrorMsg(err.message);
+      setTimeout(() => setErrorMsg(null), 5000);
+    }
+  }
+
+  async function resolveAlert(id, level) {
+    handleWorkflow(id, 'resolve');
   }
 
   const filtered = filter === 'All' ? alerts : alerts.filter(a => a.status === filter);
@@ -82,6 +106,16 @@ export default function Alerts() {
           </button>
         </div>
       </div>
+
+      {errorMsg && (
+        <div style={{
+          padding: '0.75rem 1rem', borderRadius: '0.5rem', backgroundColor: '#fee2e2',
+          border: '1px solid #fca5a5', color: '#dc2626', fontSize: '0.85rem', fontWeight: 600,
+          marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'
+        }}>
+          <ShieldAlert size={18} /> {errorMsg}
+        </div>
+      )}
 
       {/* Sound Settings & Test Bar */}
       <div className="card" style={{
@@ -195,53 +229,127 @@ export default function Alerts() {
               <th>เวลา</th>
               <th>ระดับ</th>
               <th>ข้อความแจ้งเตือน</th>
-              <th>สถานะ</th>
+              <th>กำหนดเวลา SLA</th>
+              <th>สถานะขั้นตอน (5-Step)</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2.5rem' }}>
+                <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2.5rem' }}>
                   ไม่มีการแจ้งเตือนในขณะนี้
                 </td>
               </tr>
             ) : (
               filtered.map(a => {
                 const cfg = LEVEL_CONFIG[a.level] || LEVEL_CONFIG['Warning'];
+                const isOverdue = (a.remaining_sla_seconds <= 0 || a.is_sla_breached) && a.status === 'Active';
+                const remMin = Math.floor(Math.max(0, a.remaining_sla_seconds || 0) / 60);
+                const remSec = Math.max(0, a.remaining_sla_seconds || 0) % 60;
+                const formattedRem = `${String(remMin).padStart(2, '0')}:${String(remSec).padStart(2, '0')}`;
+
                 return (
                   <tr key={a.id}>
                     <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>#{a.id}</td>
-                    <td style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>{a.time}</td>
+                    <td style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{a.time}</td>
                     <td>
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
-                        padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.75rem',
+                        padding: '0.2rem 0.65rem', borderRadius: '999px', fontSize: '0.72rem',
                         fontWeight: 700, backgroundColor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
                       }}>
                         {cfg.icon} {a.level}
                       </span>
                     </td>
-                    <td>{a.message}</td>
+                    <td style={{ fontSize: '0.85rem' }}>{a.message}</td>
+                    <td>
+                      {a.status === 'Active' ? (
+                        <span style={{
+                          padding: '0.2rem 0.55rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700,
+                          backgroundColor: isOverdue ? '#fee2e2' : '#fef3c7',
+                          color: isOverdue ? '#dc2626' : '#b45309',
+                          fontFamily: 'monospace'
+                        }}>
+                          {isOverdue ? '🚨 ผิดนัด SLA' : `⏳ ${formattedRem}`}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                          รับทราบแล้ว
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <span style={{
-                        padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600,
-                        backgroundColor: a.status === 'Active' ? '#fee2e2' : '#d1fae5',
-                        color: a.status === 'Active' ? '#991b1b' : '#065f46',
+                        padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700,
+                        backgroundColor: a.status === 'Active' ? '#fee2e2' :
+                                         a.status === 'Acknowledged' ? '#fef3c7' :
+                                         a.status === 'In progress' ? '#eff6ff' :
+                                         a.status === 'Resolved' ? '#ccfbf1' : '#dcfce7',
+                        color: a.status === 'Active' ? '#dc2626' :
+                               a.status === 'Acknowledged' ? '#b45309' :
+                               a.status === 'In progress' ? '#2563eb' :
+                               a.status === 'Resolved' ? '#0f766e' : '#15803d',
                       }}>
-                        {a.status === 'Active' ? 'Active' : 'Resolved'}
+                        {a.status}
                       </span>
                     </td>
                     <td>
-                      {a.status === 'Active' && (
-                        <button onClick={() => resolveAlert(a.id)} style={{
-                          padding: '0.25rem 0.75rem', borderRadius: '0.375rem', cursor: 'pointer',
-                          border: '1px solid var(--border-color)', fontSize: '0.8rem', fontWeight: 500,
-                          backgroundColor: 'white', color: 'var(--text-muted)', transition: 'all 0.2s',
-                        }}>
-                          แก้ไขแล้ว
-                        </button>
-                      )}
+                      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        {a.status === 'Active' && (
+                          <button
+                            onClick={() => handleWorkflow(a.id, 'acknowledge')}
+                            style={{
+                              padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer',
+                              border: '1px solid #f59e0b', fontSize: '0.75rem', fontWeight: 600,
+                              backgroundColor: '#fffbeb', color: '#b45309'
+                            }}
+                          >
+                            รับทราบ
+                          </button>
+                        )}
+                        {(a.status === 'Active' || a.status === 'Acknowledged') && (
+                          <button
+                            onClick={() => handleWorkflow(a.id, 'in-progress')}
+                            style={{
+                              padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer',
+                              border: '1px solid #3b82f6', fontSize: '0.75rem', fontWeight: 600,
+                              backgroundColor: '#eff6ff', color: '#1d4ed8'
+                            }}
+                          >
+                            เริ่มตรวจ
+                          </button>
+                        )}
+                        {a.status !== 'Resolved' && a.status !== 'Verified' && (
+                          <button
+                            onClick={() => handleWorkflow(a.id, 'resolve')}
+                            style={{
+                              padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer',
+                              border: '1px solid #10b981', fontSize: '0.75rem', fontWeight: 600,
+                              backgroundColor: '#ecfdf5', color: '#047857'
+                            }}
+                          >
+                            แก้ไขแล้ว
+                          </button>
+                        )}
+                        {a.status === 'Resolved' && (
+                          <button
+                            onClick={() => handleWorkflow(a.id, 'verify')}
+                            style={{
+                              padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer',
+                              border: '1px solid #8b5cf6', fontSize: '0.75rem', fontWeight: 700,
+                              backgroundColor: '#f5f3ff', color: '#6d28d9'
+                            }}
+                          >
+                            วิศวกรยืนยัน
+                          </button>
+                        )}
+                        {a.status === 'Verified' && (
+                          <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600 }}>
+                            ✓ ปิดสมบูรณ์
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

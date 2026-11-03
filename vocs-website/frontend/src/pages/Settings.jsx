@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, RotateCcw, CheckCircle, Info, RefreshCw, Cpu, Volume2, VolumeX, ShieldAlert, Volume1 } from 'lucide-react';
+import {
+  Settings as SettingsIcon, Save, RotateCcw, CheckCircle, Info, RefreshCw,
+  Cpu, Volume2, VolumeX, ShieldAlert, Volume1, Users, UserPlus, FileText,
+  Download, Shield, Search, Lock, UserX, MessageSquare, Bell, Trash2
+} from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import {
   getThresholds, saveThresholds, DEFAULT_THRESHOLDS,
   getGeneral,    saveGeneral,    DEFAULT_GENERAL,
@@ -48,11 +53,141 @@ export default function Settings() {
   const [adminKeySaved, setAdminKeySaved] = useState(false);
   const isMock = false;
 
+  const { user: currentUser, authHeaders, hasRole } = useAuth();
+  const [usersList, setUsersList] = useState([]);
+  const [auditEvents, setAuditEvents] = useState([]);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [auditFilter, setAuditFilter] = useState('');
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [newUser, setNewUser] = useState({ username: '', password: '', full_name: '', role: 'operator', site: 'Main Plant' });
+  const [userMsg, setUserMsg] = useState('');
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
+  // LINE Bot Subscribers
+  const [lineSubscribers, setLineSubscribers] = useState([]);
+  const [loadingLine, setLoadingLine] = useState(false);
+  const [lineMsg, setLineMsg] = useState('');
+
   function handleSaveAdminKey() {
     localStorage.setItem('voc_admin_key', adminKeyInput.trim());
     setAdminKeySaved(true);
     setTimeout(() => setAdminKeySaved(false), 3500);
   }
+
+  async function fetchUsers() {
+    setLoadingUsers(true);
+    try {
+      const res = await fetch(`${API}/api/users`, { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setUsersList(data);
+      }
+    } catch (e) {
+      console.warn('Fetch users error:', e);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }
+
+  async function fetchAuditEvents(actionFilter = '') {
+    setLoadingAudit(true);
+    try {
+      const url = actionFilter
+        ? `${API}/api/audit-events?limit=30&action=${encodeURIComponent(actionFilter)}`
+        : `${API}/api/audit-events?limit=30`;
+      const res = await fetch(url, { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditEvents(data.items || []);
+        setAuditTotal(data.total || 0);
+      }
+    } catch (e) {
+      console.warn('Fetch audit events error:', e);
+    } finally {
+      setLoadingAudit(false);
+    }
+  }
+
+  async function handleCreateUser(e) {
+    e.preventDefault();
+    setUserMsg('');
+    try {
+      const res = await fetch(`${API}/api/users`, {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(newUser)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Create user failed');
+      setUserMsg(`✅ สร้างผู้ใช้ ${data.username} สำเร็จ`);
+      setShowCreateUser(false);
+      setNewUser({ username: '', password: '', full_name: '', role: 'operator', site: 'Main Plant' });
+      fetchUsers();
+    } catch (err) {
+      setUserMsg(`❌ เกิดข้อผิดพลาด: ${err.message}`);
+    }
+  }
+
+  async function handleDeactivateUser(userId) {
+    if (!confirm('ยืนยันปิดการใช้งานบัญชีผู้ใช้นี้?')) return;
+    try {
+      const res = await fetch(`${API}/api/users/${userId}`, {
+        method: 'DELETE',
+        headers: authHeaders()
+      });
+      if (res.ok) {
+        fetchUsers();
+      }
+    } catch (e) {
+      console.warn('Deactivate error:', e);
+    }
+  }
+
+  async function fetchLineSubscribers() {
+    setLoadingLine(true);
+    try {
+      const res = await fetch(`${API}/api/line/subscribers`, { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setLineSubscribers(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.warn('Fetch LINE subscribers error:', e);
+    } finally {
+      setLoadingLine(false);
+    }
+  }
+
+  async function handleDeactivateSubscriber(subId) {
+    if (!confirm(`ยืนยันยกเลิกการแจ้งเตือนผู้ใช้ LINE ID #${subId}?`)) return;
+    try {
+      const res = await fetch(`${API}/api/line/subscribers/${subId}`, {
+        method: 'DELETE',
+        headers: authHeaders()
+      });
+      if (res.ok) {
+        setLineMsg(`✅ ยกเลิกการแจ้งเตือนผู้ใช้ #${subId} เรียบร้อยแล้ว`);
+        fetchLineSubscribers();
+      } else {
+        const data = await res.json();
+        setLineMsg(`❌ ไม่สามารถยกเลิกได้: ${data.detail || 'Error'}`);
+      }
+    } catch (e) {
+      setLineMsg(`❌ เกิดข้อผิดพลาด: ${e.message}`);
+    }
+    setTimeout(() => setLineMsg(''), 4000);
+  }
+
+  useEffect(() => {
+    if (hasRole('admin')) {
+      fetchUsers();
+    }
+    if (hasRole('admin', 'engineer')) {
+      fetchAuditEvents(auditFilter);
+      fetchLineSubscribers();
+    }
+  }, [currentUser, auditFilter]);
 
   useEffect(() => {
     const handleToggle = (e) => setSoundOn(e.detail.enabled);
@@ -657,6 +792,436 @@ export default function Settings() {
             {adminKeySaved ? '✅ บันทึกแล้ว' : 'บันทึก Key'}
           </button>
         </div>
+      </div>
+
+      {/* ── Section: User Management & Access Control (Phase W1) ─ */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
+              <Users size={18} color="#7c3aed" /> จัดการบัญชีผู้ใช้งานและสิทธิ์ (User & Access Control — Phase W1)
+            </h2>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>
+              รองรับ 4 บทบาทหลักตามข้อกำหนดโรงงาน: <b style={{ color: '#7c3aed' }}>Admin</b>, <b style={{ color: '#2563eb' }}>Engineer</b>, <b style={{ color: '#059669' }}>Operator</b>, <b style={{ color: '#64748b' }}>Viewer</b>
+            </p>
+          </div>
+          {hasRole('admin') && (
+            <button
+              onClick={() => setShowCreateUser(!showCreateUser)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.35rem',
+                padding: '0.45rem 0.85rem', borderRadius: '0.4rem',
+                backgroundColor: '#7c3aed', color: 'white', border: 'none',
+                fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <UserPlus size={15} /> {showCreateUser ? 'ปิดฟอร์ม' : 'เพิ่มผู้ใช้'}
+            </button>
+          )}
+        </div>
+
+        {userMsg && (
+          <div style={{ padding: '0.5rem 0.75rem', borderRadius: '0.4rem', backgroundColor: userMsg.includes('✅') ? '#f0fdf4' : '#fee2e2', color: userMsg.includes('✅') ? '#15803d' : '#dc2626', fontSize: '0.8rem', marginBottom: '0.85rem' }}>
+            {userMsg}
+          </div>
+        )}
+
+        {/* Create User Form */}
+        {showCreateUser && hasRole('admin') && (
+          <form onSubmit={handleCreateUser} style={{ padding: '1rem', borderRadius: '0.5rem', backgroundColor: '#faf5ff', border: '1px solid #e9d5ff', marginBottom: '1rem' }}>
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 700, margin: '0 0 0.75rem', color: '#581c87' }}>➕ เพิ่มผู้ใช้ใหม่เข้าสู่ระบบ</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.2rem' }}>Username *</label>
+                <input
+                  type="text" required placeholder="เช่น john_doe"
+                  value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})}
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.2rem' }}>Password *</label>
+                <input
+                  type="password" required placeholder="รหัสผ่านขั้นต่ำ 6 ตัว"
+                  value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})}
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.2rem' }}>ชื่อ-นามสกุล</label>
+                <input
+                  type="text" placeholder="เช่น นายสมชาย สายตรวจ"
+                  value={newUser.full_name} onChange={e => setNewUser({...newUser, full_name: e.target.value})}
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.2rem' }}>บทบาท (Role) *</label>
+                <select
+                  value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem', background: 'white' }}
+                >
+                  <option value="operator">Operator (ผู้ดูแลหน้างาน)</option>
+                  <option value="engineer">Engineer (วิศวกรสอบเทียบ)</option>
+                  <option value="admin">Admin (ผู้ดูแลระบบ)</option>
+                  <option value="viewer">Viewer (ผู้ตรวจประเมิน/ดูอย่างเดียว)</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" style={{ padding: '0.45rem 1.2rem', backgroundColor: '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>
+              บันทึกผู้ใช้
+            </button>
+          </form>
+        )}
+
+        {/* Users Table */}
+        {!hasRole('admin') ? (
+          <div style={{ padding: '1rem', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '0.5rem', color: '#64748b', fontSize: '0.85rem' }}>
+            🔒 การจัดการบัญชีผู้ใช้สงวนสิทธิ์เฉพาะผู้ดูแลระบบ (Admin) เท่านั้น (ปัจจุบันคุณล็อกอินเป็น: <b style={{ textTransform: 'uppercase' }}>{currentUser?.role || 'Guest'}</b>)
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
+                  <th style={{ padding: '0.5rem' }}>ID</th>
+                  <th style={{ padding: '0.5rem' }}>Username</th>
+                  <th style={{ padding: '0.5rem' }}>ชื่อ-สกุล</th>
+                  <th style={{ padding: '0.5rem' }}>Role</th>
+                  <th style={{ padding: '0.5rem' }}>พื้นที่ (Site)</th>
+                  <th style={{ padding: '0.5rem' }}>สถานะ</th>
+                  <th style={{ padding: '0.5rem' }}>ล็อกอินล่าสุด</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'right' }}>จัดการ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usersList.map(u => (
+                  <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '0.5rem', color: '#64748b' }}>#{u.id}</td>
+                    <td style={{ padding: '0.5rem', fontWeight: 600 }}>{u.username}</td>
+                    <td style={{ padding: '0.5rem' }}>{u.full_name || '-'}</td>
+                    <td style={{ padding: '0.5rem' }}>
+                      <span style={{
+                        display: 'inline-block', padding: '0.15rem 0.45rem', borderRadius: '4px',
+                        fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
+                        backgroundColor: u.role === 'admin' ? '#f5f3ff' :
+                                         u.role === 'engineer' ? '#eff6ff' :
+                                         u.role === 'operator' ? '#ecfdf5' : '#f1f5f9',
+                        color: u.role === 'admin' ? '#7c3aed' :
+                               u.role === 'engineer' ? '#2563eb' :
+                               u.role === 'operator' ? '#059669' : '#64748b',
+                      }}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td style={{ padding: '0.5rem', color: '#64748b' }}>{u.site || 'Main Plant'}</td>
+                    <td style={{ padding: '0.5rem' }}>
+                      <span style={{ color: u.is_active ? '#10b981' : '#94a3b8', fontWeight: 600, fontSize: '0.75rem' }}>
+                        {u.is_active ? '● ใช้งาน' : '○ ปิด'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '0.5rem', color: '#64748b', fontSize: '0.75rem' }}>{u.last_login || 'ยังไม่เคย'}</td>
+                    <td style={{ padding: '0.5rem', textAlign: 'right' }}>
+                      {u.is_active && u.username !== 'admin' && (
+                        <button
+                          onClick={() => handleDeactivateUser(u.id)}
+                          title="ปิดการใช้งานบัญชี"
+                          style={{
+                            padding: '0.2rem 0.5rem', fontSize: '0.7rem', border: '1px solid #fee2e2',
+                            backgroundColor: '#fef2f2', color: '#dc2626', borderRadius: '4px', cursor: 'pointer',
+                          }}
+                        >
+                          ปิดการใช้งาน
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Section: Append-Only Audit Trail (Phase W1) ─────────── */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0 }}>
+              <Shield size={18} color="#2563eb" /> บันทึกการตรวจสอบย้อนหลัง 5 ปี (Append-only Audit Trail — Phase W1)
+            </h2>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>
+              บันทึกทุกเหตุการณ์ความปลอดภัย การแก้ไข Alert, การ Export ข้อมูล และการปรับแต่งอุปกรณ์โดยไม่สามารถแก้ไขย้อนหลังได้ (Immutable Log)
+            </p>
+          </div>
+          {hasRole('admin', 'engineer') && (
+            <a
+              href={`${API}/api/audit-events/export`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.35rem',
+                padding: '0.45rem 0.85rem', borderRadius: '0.4rem',
+                backgroundColor: '#0f172a', color: 'white', textDecoration: 'none',
+                fontSize: '0.8rem', fontWeight: 600,
+              }}
+            >
+              <Download size={15} /> Export Audit (CSV)
+            </a>
+          )}
+        </div>
+
+        {!hasRole('admin', 'engineer') ? (
+          <div style={{ padding: '1rem', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '0.5rem', color: '#64748b', fontSize: '0.85rem' }}>
+            🔒 บันทึก Audit Trail สามารถเข้าถึงได้เฉพาะบทบาท <b>Engineer</b> และ <b>Admin</b> เท่านั้น
+          </div>
+        ) : (
+          <>
+            {/* Filter controls */}
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <select
+                value={auditFilter}
+                onChange={e => setAuditFilter(e.target.value)}
+                style={{ padding: '0.35rem 0.65rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.78rem', background: 'white' }}
+              >
+                <option value="">ทุกประเภทเหตุการณ์ (All Actions)</option>
+                <option value="LOGIN">LOGIN</option>
+                <option value="LOGOUT">LOGOUT</option>
+                <option value="RESOLVE_ALERT">RESOLVE_ALERT</option>
+                <option value="EXPORT_REPORT">EXPORT_REPORT</option>
+                <option value="UPDATE_DEVICE">UPDATE_DEVICE</option>
+                <option value="REQUEST_CALIBRATION">REQUEST_CALIBRATION</option>
+                <option value="CREATE_USER">CREATE_USER</option>
+              </select>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                พบทั้งหมด {auditTotal} เหตุการณ์ (แสดง 30 รายการล่าสุด)
+              </span>
+            </div>
+
+            <div style={{ overflowX: 'auto', maxHeight: '350px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                <thead style={{ position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 1 }}>
+                  <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
+                    <th style={{ padding: '0.45rem' }}>เวลา</th>
+                    <th style={{ padding: '0.45rem' }}>ผู้ใช้งาน</th>
+                    <th style={{ padding: '0.45rem' }}>Role</th>
+                    <th style={{ padding: '0.45rem' }}>Action</th>
+                    <th style={{ padding: '0.45rem' }}>เป้าหมาย</th>
+                    <th style={{ padding: '0.45rem' }}>IP</th>
+                    <th style={{ padding: '0.45rem' }}>สถานะ</th>
+                    <th style={{ padding: '0.45rem' }}>รายละเอียด</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditEvents.map(evt => (
+                    <tr key={evt.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '0.45rem', whiteSpace: 'nowrap', color: '#64748b' }}>
+                        {new Date(evt.timestamp).toLocaleString('th-TH', { hour12: false })}
+                      </td>
+                      <td style={{ padding: '0.45rem', fontWeight: 600 }}>{evt.username}</td>
+                      <td style={{ padding: '0.45rem' }}>
+                        <span style={{
+                          display: 'inline-block', padding: '0.1rem 0.35rem', borderRadius: '3px',
+                          fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase',
+                          backgroundColor: evt.role === 'admin' ? '#f5f3ff' :
+                                           evt.role === 'engineer' ? '#eff6ff' :
+                                           evt.role === 'operator' ? '#ecfdf5' : '#f1f5f9',
+                          color: evt.role === 'admin' ? '#7c3aed' :
+                                 evt.role === 'engineer' ? '#2563eb' :
+                                 evt.role === 'operator' ? '#059669' : '#64748b',
+                        }}>
+                          {evt.role}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.45rem', fontWeight: 600, color: '#0f172a' }}>{evt.action}</td>
+                      <td style={{ padding: '0.45rem', color: '#64748b' }}>{evt.resource_type}:{evt.resource_id || '-'}</td>
+                      <td style={{ padding: '0.45rem', color: '#64748b', fontFamily: 'monospace' }}>{evt.ip_address}</td>
+                      <td style={{ padding: '0.45rem' }}>
+                        <span style={{
+                          color: evt.status === 'SUCCESS' ? '#10b981' : '#ef4444',
+                          fontWeight: 700, fontSize: '0.7rem',
+                        }}>
+                          {evt.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.45rem', color: '#475569', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {typeof evt.details === 'object' ? JSON.stringify(evt.details) : String(evt.details || '-')}
+                      </td>
+                    </tr>
+                  ))}
+                  {auditEvents.length === 0 && (
+                    <tr>
+                      <td colSpan="8" style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8' }}>
+                        ยังไม่มีบันทึก Audit ในเงื่อนไขนี้
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Section: LINE Bot Alerts & Subscriber Pairing ───── */}
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: '#06c75515', color: '#06c755', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <MessageSquare size={18} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>
+                📱 ระบบแจ้งเตือน LINE Bot (SLA Escalation & Subscriber Pairing)
+              </h2>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                เพิ่มเพื่อน Official Account หรือกลุ่มงาน เพื่อรับแจ้งเตือนเมื่อเกิด Alert ที่ไม่มีคนรับทราบภายในเวลา SLA
+              </p>
+            </div>
+          </div>
+          {hasRole('admin', 'engineer') && (
+            <button
+              onClick={fetchLineSubscribers}
+              disabled={loadingLine}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.35rem 0.75rem' }}
+            >
+              <RefreshCw size={13} style={{ animation: loadingLine ? 'spin 1s linear infinite' : 'none' }} />
+              รีเฟรชรายชื่อ
+            </button>
+          )}
+        </div>
+
+        {lineMsg && (
+          <div style={{
+            padding: '0.6rem 0.9rem', marginBottom: '1rem', borderRadius: '6px', fontSize: '0.82rem',
+            background: lineMsg.startsWith('✅') ? '#ecfdf5' : '#fef2f2',
+            color: lineMsg.startsWith('✅') ? '#065f46' : '#991b1b',
+            border: `1px solid ${lineMsg.startsWith('✅') ? '#a7f3d0' : '#fecaca'}`,
+          }}>
+            {lineMsg}
+          </div>
+        )}
+
+        {/* Guide / How to connect card */}
+        <div style={{
+          background: 'var(--bg-color)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '8px',
+          padding: '1rem',
+          marginBottom: '1.25rem',
+          fontSize: '0.82rem',
+          lineHeight: 1.6
+        }}>
+          <div style={{ fontWeight: 600, color: '#06c755', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+            <Bell size={15} /> วิธีเพิ่มเพื่อนและผูกกล่องเซนเซอร์ (Bot Commands)
+          </div>
+          <div style={{ color: 'var(--text-color)', marginBottom: '0.75rem' }}>
+            1. สแกน QR Code หรือเพิ่มเพื่อน LINE Official Account ของระบบความปลอดภัยโรงงาน<br />
+            2. พิมพ์คำสั่งในห้องแชท LINE เพื่อเลือกกล่องเซนเซอร์ที่ต้องการรับแจ้งเตือน:
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+            <div style={{ background: '#ffffff', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', fontSize: '0.85rem' }}>BIND BOX-001</div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>
+                ผูกบัญชี LINE กับกล่อง <strong>BOX-001</strong> เมื่อเกิด SLA Breach จะมีข้อความ Push แจ้งเตือนเข้าแชทคุณทันที
+              </div>
+            </div>
+            <div style={{ background: '#ffffff', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', fontSize: '0.85rem' }}>STATUS</div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>
+                ตรวจสอบรายการกล่องเซนเซอร์ทั้งหมดที่คุณกำลังรับแจ้งเตือนอยู่
+              </div>
+            </div>
+            <div style={{ background: '#ffffff', padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', fontSize: '0.85rem' }}>UNBIND BOX-001</div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>
+                ยกเลิกการรับแจ้งเตือนสำหรับกล่องที่ระบุ
+              </div>
+            </div>
+          </div>
+          <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#64748b', borderTop: '1px dashed #cbd5e1', paddingTop: '0.5rem' }}>
+            💡 <strong>เกร็ดความรู้ Quota:</strong> คำสั่งโต้ตอบในแชท (BIND / STATUS / Help) ใช้ <code>Reply API</code> ฟรี 100% ไม่จำกัดจำนวนครั้ง ส่วน <code>Push API</code> จะส่งเฉพาะเมื่อเกิด SLA Breach จริงเท่านั้น จึงช่วยประหยัดโควต้า 500 ข้อความ/เดือน ได้สูงสุด
+          </div>
+        </div>
+
+        {/* Subscribers table for admin/engineer */}
+        {hasRole('admin', 'engineer') ? (
+          <div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Users size={14} /> รายชื่อผู้ใช้ LINE ที่ผูกกับกล่อง ({lineSubscribers.filter(s => s.is_active).length} บัญชีที่กำลัง Active)
+            </div>
+            <div style={{ overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-color)', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                    <th style={{ padding: '0.5rem' }}>#</th>
+                    <th style={{ padding: '0.5rem' }}>ชื่อ LINE</th>
+                    <th style={{ padding: '0.5rem' }}>LINE User ID</th>
+                    <th style={{ padding: '0.5rem' }}>กล่องที่ผูก</th>
+                    <th style={{ padding: '0.5rem' }}>วันที่เริ่มผูก</th>
+                    <th style={{ padding: '0.5rem' }}>สถานะ</th>
+                    {hasRole('admin') && <th style={{ padding: '0.5rem', textAlign: 'center' }}>จัดการ</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {lineSubscribers.map((sub, idx) => (
+                    <tr key={sub.id || idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '0.5rem', color: '#64748b' }}>{sub.id}</td>
+                      <td style={{ padding: '0.5rem', fontWeight: 600, color: '#0f172a' }}>{sub.display_name || 'LINE User'}</td>
+                      <td style={{ padding: '0.5rem', fontFamily: 'monospace', color: '#64748b' }}>
+                        {sub.line_user_id ? `${sub.line_user_id.slice(0, 8)}...${sub.line_user_id.slice(-4)}` : '-'}
+                      </td>
+                      <td style={{ padding: '0.5rem' }}>
+                        <span style={{
+                          display: 'inline-block', padding: '0.15rem 0.45rem', borderRadius: '4px',
+                          background: '#f1f5f9', fontWeight: 700, fontFamily: 'monospace'
+                        }}>
+                          {sub.box_id}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.5rem', color: '#64748b' }}>{sub.created_at || '-'}</td>
+                      <td style={{ padding: '0.5rem' }}>
+                        <span style={{
+                          padding: '0.15rem 0.45rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 700,
+                          background: sub.is_active ? '#ecfdf5' : '#f1f5f9',
+                          color: sub.is_active ? '#059669' : '#94a3b8'
+                        }}>
+                          {sub.is_active ? '● รับแจ้งเตือน' : '○ ปิดใช้งาน'}
+                        </span>
+                      </td>
+                      {hasRole('admin') && (
+                        <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                          {sub.is_active && (
+                            <button
+                              onClick={() => handleDeactivateSubscriber(sub.id)}
+                              className="btn btn-secondary"
+                              title="ยกเลิกการผูกบัญชีนี้"
+                              style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem', color: '#ef4444', borderColor: '#fca5a5' }}
+                            >
+                              <Trash2 size={12} /> ยกเลิก
+                            </button>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                  {lineSubscribers.length === 0 && (
+                    <tr>
+                      <td colSpan={hasRole('admin') ? 7 : 6} style={{ textAlign: 'center', padding: '1.25rem', color: '#94a3b8' }}>
+                        ยังไม่มีผู้ใช้ LINE ผูกกับกล่องเซนเซอร์ในระบบ
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            🔒 รายชื่อผู้รับแจ้งเตือนสงวนสิทธิ์สำหรับบทบาท Admin และ Engineer เท่านั้น
+          </div>
+        )}
       </div>
 
       {/* ── Section 4: System Info ──────────────────────────── */}

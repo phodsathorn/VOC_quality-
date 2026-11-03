@@ -16,9 +16,9 @@ import {
   Activity, AlertTriangle, CheckCircle2, Clock, Cpu, Filter,
   RefreshCw, Wrench, Zap, ChevronRight,
   BarChart3, Gauge, FileText,
-  Printer, Check, Play
+  Printer, Check, Play, ClipboardList, CheckSquare, PlusCircle
 } from 'lucide-react';
-
+import { useAuth } from '../context/AuthContext';
 import { API } from '../config';
 
 /* ─────────────────────────────────────────────────────────────
@@ -880,10 +880,225 @@ function SensorRow({ sensor, onSelect, onCalibrate }) {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   WORK ORDER MODAL COMPONENT (Phase W2)
+   ───────────────────────────────────────────────────────────── */
+const PRESET_CHECKLISTS = {
+  FILTER_REPLACE: {
+    title: 'เปลี่ยนชุดไส้กรอง HEPA + Activated Carbon',
+    items: [
+      'ตัดการทำงานของพัดลมดูดอากาศหลัก (Turn intake fan OFF)',
+      'ถอดตลับกรองเก่าและตรวจสอบสิ่งอุดตันในท่อลำเลียง',
+      'ติดตั้งตลับกรองใหม่และตรวจเช็ค Rubber Gasket ซีลสนิท',
+      'เปิดพัดลมดูดอากาศและวัดค่า Differential Pressure (<25 Pa)',
+      'รันระบบ Flow Test เป็นเวลา 15 นาที เพื่อปรับสมดุลอากาศ'
+    ]
+  },
+  ZERO_AIR_CALIB: {
+    title: 'สอบเทียบก๊าซสังเคราะห์บริสุทธิ์ (Zero-Air Calibration)',
+    items: [
+      'เชื่อมต่อถังก๊าซสังเคราะห์ Zero-Air (Ultra Pure 99.999%)',
+      'ปรับตั้งความดันแก๊ส 0.5 bar และอัตราไหล 1.0 L/min',
+      'Purge ก๊าซเข้า Sensor Chamber อย่างต่อเนื่อง 10 นาที',
+      'บันทึกและตรวจสอบค่าความแปรปรวน (Variance < 0.05)',
+      'บันทึกค่า R0 ลงหน่วยความจำ EEPROM และ Cloud Database'
+    ]
+  },
+  CHAMBER_CLEAN: {
+    title: 'ทำความสะอาด Chamber และหัววัดแสงสะท้อน',
+    items: [
+      'ตัดกระแสไฟฟ้าหลักของชุดเซนเซอร์และพัดลมดูด',
+      'ใช้ Dry Nitrogen เป่ากำจัดเศษฝุ่นและละอองสะสม',
+      'เช็ดทำความสะอาดผนังเทฟลอน PTFE ด้วย Isopropanol 99%',
+      'ตรวจสอบซีลยางซิลิโคนกันอากาศรั่วซึมรอบฝาครอบ',
+      'ตรวจสอบการหมุนและความเร็วของพัดลมระบายอากาศ'
+    ]
+  },
+  SENSOR_SWAP: {
+    title: 'เปลี่ยนโมดูลเซนเซอร์ตรวจวัดก๊าซใหม่ (Sensor Module Swap)',
+    items: [
+      'ปลดสายไฟและขันน็อตถอดโมดูลเซนเซอร์เก่าออก',
+      'ติดตั้งโมดูลเซนเซอร์ใหม่และขันยึดแน่นหนา',
+      'ตรวจสอบแรงดันไฟฮีตเตอร์ (V_heater = 5.0V ± 0.1V)',
+      'รันกระบวนการ Pre-heat / Burn-in ต่อเนื่อง 48 ชม.',
+      'ทำ Zero-Air Calibration และ Span Calibration รอบแรก'
+    ]
+  }
+};
+
+function WorkOrderModal({ onClose, onSuccess }) {
+  const [taskType, setTaskType] = useState('FILTER_REPLACE');
+  const [boxId, setBoxId] = useState('BOX-001');
+  const [checks, setChecks] = useState({});
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const preset = PRESET_CHECKLISTS[taskType] || PRESET_CHECKLISTS.FILTER_REPLACE;
+
+  const handleToggleCheck = (index) => {
+    setChecks(prev => ({ ...prev, [index]: !prev[index] }));
+  };
+
+  const allChecked = preset.items.every((_, i) => checks[i]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!allChecked) {
+      alert('กรุณาปฏิบัติตามและติ๊กถูกครบทุกขั้นตอนใน SOP Checklist ก่อนลงนามบันทึก');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const checklistArray = preset.items.map((item, i) => ({
+        step: i + 1,
+        text: item,
+        passed: !!checks[i]
+      }));
+
+      const res = await fetch(`${API}/api/maintenance/work-orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        },
+        body: JSON.stringify({
+          box_id: boxId,
+          task_type: taskType,
+          title: preset.title,
+          checklist: checklistArray,
+          notes: notes.trim()
+        })
+      });
+
+      if (res.ok) {
+        onSuccess();
+        onClose();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || 'เกิดข้อผิดพลาดในการบันทึกใบสั่งงาน');
+      }
+    } catch (err) {
+      alert('เครือข่ายขัดข้อง ไม่สามารถบันทึกได้');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 10000,
+      background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center'
+    }} onClick={onClose}>
+      <div style={{
+        background: 'white', borderRadius: 20, padding: '24px 28px',
+        maxWidth: 580, width: '92%', maxHeight: '90vh', overflowY: 'auto',
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', fontFamily: 'Inter, sans-serif'
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ background: '#eff6ff', color: '#2563eb', padding: 8, borderRadius: 10 }}>
+              <ClipboardList size={22} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                บันทึกใบสั่งงานและ Checklist (Work Order SOP)
+              </h3>
+              <span style={{ fontSize: 11, color: '#64748b' }}>ISO 17025 & Cleanroom Maintenance Compliance</span>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>หมายเลขกล่อง (Device Box)</label>
+              <select value={boxId} onChange={e => setBoxId(e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13 }}>
+                <option value="BOX-001">BOX-001 (Production Line A)</option>
+                <option value="BOX-002">BOX-002 (Production Line B)</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>ประเภทงานซ่อมบำรุง</label>
+              <select value={taskType} onChange={e => { setTaskType(e.target.value); setChecks({}); }} style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13 }}>
+                <option value="FILTER_REPLACE">เปลี่ยนแผ่นกรอง (Filter Swap)</option>
+                <option value="ZERO_AIR_CALIB">สอบเทียบก๊าซสังเคราะห์ (Zero-Air)</option>
+                <option value="CHAMBER_CLEAN">ทำความสะอาด Chamber</option>
+                <option value="SENSOR_SWAP">เปลี่ยนโมดูลเซนเซอร์ (Sensor Swap)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ background: '#f8fafc', padding: 14, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#1e293b', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CheckSquare size={16} color="#2563eb" />
+              <span>ขั้นตอนมาตรฐาน (SOP Checklist) — ต้องผ่านการตรวจครบทุกข้อ</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {preset.items.map((item, idx) => (
+                <label key={idx} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer',
+                  padding: '8px 10px', borderRadius: 8,
+                  background: checks[idx] ? '#ecfdf5' : '#ffffff',
+                  border: `1px solid ${checks[idx] ? '#a7f3d0' : '#e2e8f0'}`
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={!!checks[idx]}
+                    onChange={() => handleToggleCheck(idx)}
+                    style={{ marginTop: 3, accentColor: '#10b981', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 12, color: checks[idx] ? '#065f46' : '#334155', fontWeight: checks[idx] ? 600 : 400 }}>
+                    {idx + 1}. {item}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>หมายเหตุเพิ่มเติม / ข้อสังเกตช่าง</label>
+            <textarea
+              rows={3}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="ระบุรหัสล็อตอะไหล่, ค่าความดันตกคร่อมหลังเปลี่ยน, หรือผลการตรวจสอบสภาพ..."
+              style={{ width: '100%', boxSizing: 'border-box', padding: '8px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12 }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button type="button" onClick={onClose} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #cbd5e1', background: 'white', color: '#475569', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>ยกเลิก</button>
+            <button
+              type="submit"
+              disabled={submitting || !allChecked}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '9px 20px', borderRadius: 8, border: 'none',
+                background: allChecked ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : '#cbd5e1',
+                color: 'white', cursor: allChecked ? 'pointer' : 'not-allowed',
+                fontSize: 13, fontWeight: 700,
+                boxShadow: allChecked ? '0 4px 12px rgba(37,99,235,0.3)' : 'none'
+              }}
+            >
+              {submitting ? 'กำลังบันทึก...' : 'ลงนามเสร็จสิ้นใบสั่งงาน'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
    MAIN PAGE
    ───────────────────────────────────────────────────────────── */
 export default function Maintenance() {
+  const { user, hasPermission } = useAuth();
   const [data, setData] = useState(null);
+  const [realHealth, setRealHealth] = useState(null);
+  const [workOrders, setWorkOrders] = useState([]);
+  const [showWorkOrderModal, setShowWorkOrderModal] = useState(false);
   const [selected, setSelected] = useState(null);
   const [calibratingSensor, setCalibratingSensor] = useState(null);
   const [showDiagModal, setShowDiagModal] = useState(false);
@@ -913,10 +1128,28 @@ export default function Maintenance() {
           };
         });
         setData({ ...raw, sensors: mergedSensors });
-        return;
+      } else {
+        setData(generateMaintenanceData());
       }
-    } catch { /* mock fallback */ }
-    setData(generateMaintenanceData());
+    } catch {
+      setData(generateMaintenanceData());
+    }
+
+    // Load Real Hardware Health (Phase W2)
+    try {
+      const rh = await fetch(`${API}/api/maintenance/real-health?box_id=BOX-001`);
+      if (rh.ok) {
+        setRealHealth(await rh.json());
+      }
+    } catch { /* silent */ }
+
+    // Load Work Orders (Phase W2)
+    try {
+      const wo = await fetch(`${API}/api/maintenance/work-orders?box_id=BOX-001`);
+      if (wo.ok) {
+        setWorkOrders(await wo.json());
+      }
+    } catch { /* silent */ }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -1357,7 +1590,153 @@ export default function Maintenance() {
         </div>
       </div>
 
+      {/* ── Real Hardware Health & Uptime Diagnostics (Phase W2) ── */}
+      <div style={{ marginTop: 24, background: 'white', borderRadius: 16, padding: '20px 24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1.5px solid #f1f5f9' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Cpu size={20} color="#2563eb" />
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                สถานะฮาร์ดแวร์จริงและชั่วโมงการทำงาน (Real Hardware Diagnostics)
+              </h3>
+              <div style={{ fontSize: 12, color: '#64748b' }}>
+                ดึงข้อมูลจริงจาก Hardware EEPROM / PostgreSQL Database สำหรับกล่อง {realHealth?.box_id || 'BOX-001'}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{
+              fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 8,
+              background: realHealth?.calibration_status === 'VALID' ? '#dcfce7' : '#fef3c7',
+              color: realHealth?.calibration_status === 'VALID' ? '#166534' : '#92400e',
+              border: `1px solid ${realHealth?.calibration_status === 'VALID' ? '#86efac' : '#fde68a'}`
+            }}>
+              {realHealth?.calibration_status === 'VALID' ? '✅ สถานะสอบเทียบ: สมบูรณ์' : '⚠️ สถานะสอบเทียบ: เกิน 90 วัน'}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+          {realHealth?.runtime_hours ? Object.entries(realHealth.runtime_hours).map(([sensor, hours]) => (
+            <div key={sensor} style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                {sensor} Running Hours
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#1e293b', marginTop: 4 }}>
+                {hours} <span style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8' }}>ชม.</span>
+              </div>
+              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>
+                Lifespan used: {((hours / 17520) * 100).toFixed(1)}% (2 ปี)
+              </div>
+            </div>
+          )) : (
+            <div style={{ color: '#94a3b8', fontSize: 13 }}>กำลังเชื่อมต่อข้อมูลฮาร์ดแวร์...</div>
+          )}
+
+          <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>ระยะเวลาตั้งแต่สอบเทียบล่าสุด</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#1e293b', marginTop: 4 }}>
+              {realHealth?.days_since_last_calibration || 0} <span style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8' }}>วัน</span>
+            </div>
+            <div style={{ fontSize: 10, color: realHealth?.days_since_last_calibration > 90 ? '#d97706' : '#16a34a', marginTop: 4 }}>
+              {realHealth?.days_since_last_calibration > 90 ? '⚠️ เกินกำหนด 90 วัน ควรทำ Zero-Air' : '✅ ภายในเกณฑ์มาตรฐาน 90 วัน'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Work Orders & Maintenance Logs (Phase W2) ── */}
+      <div style={{ marginTop: 24, background: 'white', borderRadius: 16, padding: '20px 24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1.5px solid #f1f5f9' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <ClipboardList size={20} color="#059669" />
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                บันทึกประวัติการบำรุงรักษาและ SOP Checklist (Maintenance Work Orders)
+              </h3>
+              <div style={{ fontSize: 12, color: '#64748b' }}>
+                บันทึกขั้นตอนการปฏิบัติงานของช่างตามข้อกำหนดมาตรฐาน Cleanroom & Safety
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowWorkOrderModal(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '9px 16px', borderRadius: 10, border: 'none',
+              background: 'linear-gradient(135deg,#059669,#047857)',
+              color: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+              boxShadow: '0 4px 14px rgba(5,150,105,0.3)'
+            }}
+          >
+            <PlusCircle size={15} /> สร้างใบสั่งงาน / Checklist
+          </button>
+        </div>
+
+        {/* Work order table */}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', color: '#64748b', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+                <th style={{ padding: '10px 12px' }}>วันที่ / เวลา</th>
+                <th style={{ padding: '10px 12px' }}>กล่อง</th>
+                <th style={{ padding: '10px 12px' }}>ประเภทงาน</th>
+                <th style={{ padding: '10px 12px' }}>หัวข้อ</th>
+                <th style={{ padding: '10px 12px' }}>ผู้ปฏิบัติงาน (Role)</th>
+                <th style={{ padding: '10px 12px' }}>สถานะ SOP</th>
+                <th style={{ padding: '10px 12px' }}>หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workOrders.length > 0 ? workOrders.map((wo) => (
+                <tr key={wo.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '10px 12px', color: '#64748b' }}>{wo.completed_at || '-'}</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 600 }}>{wo.box_id}</td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+                      background: '#f1f5f9', color: '#475569'
+                    }}>{wo.task_type}</span>
+                  </td>
+                  <td style={{ padding: '10px 12px', fontWeight: 700, color: '#1e293b' }}>{wo.title}</td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <span style={{ fontWeight: 600 }}>{wo.performed_by}</span>
+                    <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }}>({wo.role})</span>
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 999,
+                      background: '#dcfce7', color: '#15803d', border: '1px solid #86efac'
+                    }}>
+                      ✓ {wo.status || 'COMPLETED'} ({Array.isArray(wo.checklist) ? wo.checklist.length : '5/5'})
+                    </span>
+                  </td>
+                  <td style={{ padding: '10px 12px', color: '#64748b' }}>{wo.notes || '-'}</td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>
+                    ยังไม่มีประวัติใบสั่งงาน คลิกปุ่ม "สร้างใบสั่งงาน / Checklist" เพื่อบันทึกงานใหม่
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* ── Modals ── */}
+      {showWorkOrderModal && (
+        <WorkOrderModal
+          onClose={() => setShowWorkOrderModal(false)}
+          onSuccess={() => {
+            load();
+            setToastMsg('✅ บันทึกใบสั่งงานซ่อมบำรุงและ SOP Checklist เรียบร้อยแล้ว');
+            setTimeout(() => setToastMsg(null), 4000);
+          }}
+        />
+      )}
       {selected && (
         <SensorModal
           sensor={selected}
