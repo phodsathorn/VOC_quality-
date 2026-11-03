@@ -58,3 +58,21 @@
 3. **สาเหตุและแนวทางแก้ไข Wi-Fi เชื่อมต่อไม่ได้**:
    - เพิ่มตัวสแกนเครือข่ายก่อนเชื่อมต่อ (`WiFi.scanNetworks()`) แสดงชื่อ SSID, ความแรงสัญญาณ (dBm) และสถานะ OPEN/Secured ออกทาง Serial Monitor
    - สำหรับ Open Wi-Fi (เช่น `@NU-WiFi`) ให้เรียกคำสั่ง `WiFi.begin(ssid)` โดยตรงโดยไม่ส่ง Passphrase ว่าง ซึ่งเคยทำให้ ESP32 ค้าง
+
+---
+
+## รายการบันทึกต่อเนื่อง: เวลา 19:15 น. ICT — Exhaustive Multi-Pin I2C Probing & Robot Club Router AP Migration
+
+### สรุป (Summary)
+1. **Wi-Fi Credential Migration**:
+   - ปรับการเชื่อมต่อ Wi-Fi หลักไปใช้เราท์เตอร์ประจำห้อง `robot_club` (รหัสผ่าน `robot123`) เพื่อลดปัญหาการติด Captive Portal ของเครือข่ายกลางมหาวิทยาลัย
+   - คง `@NU-WiFi` ไว้เป็นระบบสำรอง
+2. **Exhaustive Multi-Pin I2C Probing Engine**:
+   - เนื่องจากบอร์ดจริงอาจมีการสลับคู่ขา I2C ที่แตกต่างกันไป จึงเพิ่มระบบสแกนทดสอบทุกคู่ขาที่เป็นไปได้ใน ESP32:
+     - คู่ที่ 1: `SDA: 21, SCL: 22` (Standard Bus)
+     - คู่ที่ 2: `SDA: 32, SCL: 13` (Circuit v2 Bus #2)
+     - คู่ที่ 3: `SDA: 18, SCL: 19` (Legacy Alt Bus)
+     - คู่ที่ 4: `SDA: 25, SCL: 26` (Alt Header)
+     - คู่ที่ 5: `SDA: 4,  SCL: 15` (Dev Header)
+   - วนสแกนทุกคู่ขาและทุก Address (0x08 - 0x77): หากตรวจพบ `ADS1115 (0x48)` หรือ `CCS811 (0x5A/0x5B)` ที่คู่ขาใด ระบบจะ Lock-in และจดจำขานั้นไว้ใช้งานตลอดการทำงานทันที
+   - ป้องกันอาการ Crash เมื่อไม่พบ ADS1115 โดยกำหนดค่าแอนะล็อกเริ่มต้นเป็น 0 แทนการสั่งอ่าน I2C

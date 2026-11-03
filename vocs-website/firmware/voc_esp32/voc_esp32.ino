@@ -286,15 +286,31 @@ unsigned long lastSessionPoll = 0;
 #define DHT_PIN       27     // DHT22 DATA (GPIO 27 ตาม Circuit Design v2)
 #define DHT_TYPE      DHT22
 
-// I2C Bus #1: CCS811 (Hardware Wire)
-#define I2C1_SDA      21
-#define I2C1_SCL      22
-#define CCS811_ADDR   0x5B   // ADDR pin -> HIGH (สำรอง 0x5A หาก ADDR -> GND)
+// I2C Bus Candidates: สแกนจับคู่ขาทั้งหมดจนกว่าจะพบ
+struct I2cPinPair {
+  uint8_t sda;
+  uint8_t scl;
+  const char* name;
+};
 
-// I2C Bus #2: ADS1115 (TwoWire Software/Secondary)
-#define I2C2_SDA      32
-#define I2C2_SCL      13
-#define ADS1115_ADDR  0x48   // ADDR pin -> GND
+const I2cPinPair I2C_CANDIDATES[] = {
+  { 21, 22, "Standard Bus (SDA:21, SCL:22)" },
+  { 32, 13, "Circuit v2 Bus #2 (SDA:32, SCL:13)" },
+  { 18, 19, "Legacy Alt Bus (SDA:18, SCL:19)" },
+  { 25, 26, "Alt Fan Header (SDA:25, SCL:26)" },
+  { 4,  15, "Alt Dev Header (SDA:4, SCL:15)" }
+};
+const uint8_t NUM_I2C_CANDIDATES = sizeof(I2C_CANDIDATES) / sizeof(I2C_CANDIDATES[0]);
+
+#define CCS811_ADDR   0x5A   // ปกติคือ 0x5A (หรือ 0x5B หาก ADDR pin -> HIGH)
+#define ADS1115_ADDR  0x48   // ปกติคือ 0x48 (ADDR pin -> GND)
+
+// บันทึกตำแหน่งบัสและแอดเดรสที่ตรวจพบจริง
+int adsFoundSda = -1, adsFoundScl = -1;
+int ccsFoundSda = -1, ccsFoundScl = -1;
+uint8_t ccsActiveAddr = 0;
+bool isAdsReady = false;
+bool isCcsReady = false;
 
 // UART2 (PMS5003)
 #define PMS_RX        16
@@ -499,70 +515,65 @@ void setup() {
   analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
 
-  Serial.println("\n[VOC] Starting E-Nose v2 (Universal Hardware Auto-Detect)...");
+  Serial.println("\n[VOC] Starting E-Nose v2 (Exhaustive Pin Search & Auto-Detect)...");
 
-  // 1. ตรวจจับและสแกน I2C Bus #1 (GPIO 21 SDA / GPIO 22 SCL) ก่อน
-  // เพื่อรองรับทั้งบอร์ดต้นแบบดั้งเดิม (Shared Bus 21/22) และบอร์ด Circuit v2
-  Wire.begin(I2C1_SDA, I2C1_SCL);
-  Wire.setClock(100000);
-  delay(100);
+  // 1. สแกนหา I2C ทุกคู่ขา (Exhaustive Multi-Pin Bus Scanner) จนกว่าจะพบเซนเซอร์
+  Serial.println("[I2C] Scanning all candidate pin pairs for ADS1115 and CCS811...");
+  
+  for (uint8_t c = 0; c < NUM_I2C_CANDIDATES; ++c) {
+    uint8_t sda = I2C_CANDIDATES[c].sda;
+    uint8_t scl = I2C_CANDIDATES[c].scl;
+    Serial.printf("\n[I2C] Probing Pair #%d: %s ...\n", c + 1, I2C_CANDIDATES[c].name);
+    
+    Wire.begin(sda, scl);
+    Wire.setClock(100000);
+    delay(40);
 
-  Serial.println("[I2C] Scanning Bus #1: GPIO 21 (SDA), GPIO 22 (SCL)...");
-  bool adsOnBus1 = false;
-  uint8_t ccsAddr = 0;
-
-  for (uint8_t addr = 0x08; addr < 0x78; addr++) {
-    Wire.beginTransmission(addr);
-    if (Wire.endTransmission() == 0) {
-      Serial.printf("  -> พบอุปกรณ์ I2C บน Bus #1 ที่แอดเดรส: 0x%02X", addr);
-      if (addr == 0x48) { 
-        Serial.print(" → ADS1115"); 
-        adsOnBus1 = true; 
-      } else if (addr == 0x5A || addr == 0x5B) { 
-        Serial.print(" → CCS811"); 
-        ccsAddr = addr; 
+    for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+      Wire.beginTransmission(addr);
+      if (Wire.endTransmission() == 0) {
+        Serial.printf("   -> พบอุปกรณ์ I2C ที่แอดเดรส: 0x%02X (SDA:%d, SCL:%d)", addr, sda, scl);
+        
+        // ตรวจพบ ADS1115 (ปกติ 0x48)
+        if (addr == 0x48 && !isAdsReady) {
+          Serial.print(" → ADS1115");
+          if (ads.begin(0x48, &Wire)) {
+            isAdsReady = true;
+            adsFoundSda = sda;
+            adsFoundScl = scl;
+            Serial.print(" [INIT OK]");
+          }
+        }
+        // ตรวจพบ CCS811 (ปกติ 0x5A หรือ 0x5B)
+        else if ((addr == 0x5A || addr == 0x5B) && !isCcsReady) {
+          Serial.print(" → CCS811");
+          if (ccs.begin(addr, &Wire)) {
+            isCcsReady = true;
+            ccsFoundSda = sda;
+            ccsFoundScl = scl;
+            ccsActiveAddr = addr;
+            Serial.print(" [INIT OK]");
+          }
+        }
+        Serial.println();
       }
-      Serial.println();
     }
   }
 
-  // ผูก ADS1115 ตามตำแหน่งจริงที่ตรวจพบ
-  if (adsOnBus1) {
-    if (ads.begin(0x48, &Wire)) {
-      Serial.println("[OK] ADS1115 ready on Bus #1 (Shared GPIO 21/22)");
-    } else {
-      Serial.println("[ERR] ADS1115 detected on Bus #1 at 0x48 but begin() failed!");
-    }
+  // สรุปผลการตรวจจับ I2C
+  Serial.println("\n──────────────────────────────────────────────────────────");
+  if (isAdsReady) {
+    Serial.printf("[OK] ADS1115 lock-in: SDA=%d, SCL=%d (Addr: 0x48)\n", adsFoundSda, adsFoundScl);
   } else {
-    // หากไม่พบบน Bus #1 ลองตรวจสอบบน Bus #2 (GPIO 32 SDA / 13 SCL)
-    Serial.println("[I2C] ADS1115 not on Bus #1, scanning Bus #2: GPIO 32 (SDA), GPIO 13 (SCL)...");
-    I2C2.begin(I2C2_SDA, I2C2_SCL);
-    I2C2.setClock(100000);
-    delay(50);
-    if (ads.begin(ADS1115_ADDR, &I2C2)) {
-      Serial.println("[OK] ADS1115 ready on Bus #2 (GPIO 32/13)");
-    } else {
-      Serial.println("[ERR] ADS1115 not found on Bus #1 (21/22) nor Bus #2 (32/13)!");
-    }
+    Serial.println("[ERR] ADS1115 not detected on any tested I2C pin pair!");
   }
 
-  // ผูก CCS811 ตามแอดเดรสที่ตรวจพบจริง
-  if (ccsAddr != 0) {
-    if (ccs.begin(ccsAddr, &Wire)) {
-      Serial.printf("[OK] CCS811 ready on Bus #1 (0x%02X)\n", ccsAddr);
-    } else {
-      Serial.printf("[ERR] CCS811 detected at 0x%02X but begin() failed! Check WAKE pin.\n", ccsAddr);
-    }
+  if (isCcsReady) {
+    Serial.printf("[OK] CCS811 lock-in: SDA=%d, SCL=%d (Addr: 0x%02X)\n", ccsFoundSda, ccsFoundScl, ccsActiveAddr);
   } else {
-    // ลองทดสอบแอดเดรสทั้ง 0x5A และ 0x5B ซ้ำอีกครั้ง
-    if (ccs.begin(0x5A, &Wire)) {
-      Serial.println("[OK] CCS811 ready on Bus #1 (0x5A)");
-    } else if (ccs.begin(0x5B, &Wire)) {
-      Serial.println("[OK] CCS811 ready on Bus #1 (0x5B)");
-    } else {
-      Serial.println("[ERR] CCS811 not found on Bus #1 (GPIO 21/22)! Check wiring & WAKE pin (connect to GND).");
-    }
+    Serial.println("[ERR] CCS811 not detected on any tested I2C pin pair! Please verify WAKE pin is connected to GND.");
   }
+  Serial.println("──────────────────────────────────────────────────────────");
 
   // 2. Init DHT22 & PMS5003
   dht.begin();
@@ -688,7 +699,7 @@ SensorData readSensors() {
   // CCS811 (TVOC/eCO2)
   // ชดเชยอุณหภูมิ/ความชื้นทุก 60 วินาที เพื่อไม่ให้ชิปรีเซ็ต Baseline บ่อยเกินไป
   static unsigned long lastEnvUpdate = 0;
-  if (d.temp > 0 && d.rh > 0 && (millis() - lastEnvUpdate >= 60000)) {
+  if (isCcsReady && d.temp > 0 && d.rh > 0 && (millis() - lastEnvUpdate >= 60000)) {
     lastEnvUpdate = millis();
     ccs.setEnvironmentalData((uint8_t)d.rh, d.temp);
   }
@@ -696,7 +707,7 @@ SensorData readSensors() {
   static float lastValidTvoc = 10.0;
   static float lastValidEco2 = 400.0;
 
-  if (ccs.available() && !ccs.checkError() && !ccs.readData()) {
+  if (isCcsReady && ccs.available() && !ccs.checkError() && !ccs.readData()) {
     uint16_t raw_tvoc = ccs.getTVOC();
     uint16_t raw_eco2 = ccs.geteCO2();
     // กรองขยะ I2C bus error frames (เช่น 64319, 39064, 32800) ซึ่งทำให้ AI ทายแอลกอฮอล์ผิดพลาด
@@ -724,13 +735,19 @@ SensorData readSensors() {
   d.mq135  = readMedianAdc(MQ135_PIN);
 
   // MiCS-6814 ผ่าน ADS1115 (16-bit ADC)
-  // แปลงค่าเป็น mV และ clamp ค่าไม่ให้ติดลบ
-  int v0 = (int)(ads.computeVolts(ads.readADC_SingleEnded(0)) * 1000.0f);
-  int v1 = (int)(ads.computeVolts(ads.readADC_SingleEnded(1)) * 1000.0f);
-  int v2 = (int)(ads.computeVolts(ads.readADC_SingleEnded(2)) * 1000.0f);
-  d.mics_co = max(0, v0);
-  d.no2     = max(0, v1);
-  d.nh3     = max(0, v2);
+  // แปลงค่าเป็น mV และ clamp ค่าไม่ให้ติดลบ (อ่านเฉพาะเมื่อตรวจพบ ADS1115 จริง ป้องกันบัสค้าง)
+  if (isAdsReady) {
+    int v0 = (int)(ads.computeVolts(ads.readADC_SingleEnded(0)) * 1000.0f);
+    int v1 = (int)(ads.computeVolts(ads.readADC_SingleEnded(1)) * 1000.0f);
+    int v2 = (int)(ads.computeVolts(ads.readADC_SingleEnded(2)) * 1000.0f);
+    d.mics_co = max(0, v0);
+    d.no2     = max(0, v1);
+    d.nh3     = max(0, v2);
+  } else {
+    d.mics_co = 0;
+    d.no2     = 0;
+    d.nh3     = 0;
+  }
 
   return d;
 }
