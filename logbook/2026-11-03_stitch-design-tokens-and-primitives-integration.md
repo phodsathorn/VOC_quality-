@@ -190,9 +190,23 @@
 - เพิ่ม `overflow-x-auto` ให้กับคอนเทนเนอร์รอบตาราง และกำหนด `min-w-[440px]`
 - เพิ่ม `whitespace-nowrap` ให้กับทุกคอลัมน์และข้อมูลในเซลล์ (`Sensor ID`, `Location`, `Value`, `Threshold`, `Status`) ป้องกันการตัดคำหรือข้อความตกบรรทัด
 
-### การตรวจสอบ
-- รัน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ภายใน 250ms
-- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+### อัปเดตเวลา 23:51 ICT (ปรับหน้า Alerts ให้ตรงกับดีไซน์ต้นฉบับ Stitch 1:1)
+1. **ปัญหาที่พบ:**
+   - หัวข้อและ Badge บนการ์ด 3 ใบด้านบนไม่ตรงกับต้นฉบับ (แสดง `CRITICAL ALERTS` แทน `Critical`, `Active` แทน `0 Active`, `1 Pending`, `Normal`, และตัวเลขเป็น 3 แทน 5)
+   - แผงควบคุม Incident ด้านขวามือถูกยัดเยียดข้อมูลย่อย (SLA bar, Owner select, Mitigation note) ลงไปพร้อมกันทั้งหมด ทำให้แผงยาวเกินหน้าจอจนปุ่ม Action (`Acknowledge` และ `Mark resolved`) โดนขอบจอล่างตัดหายไปบางส่วน และไม่มีปุ่ม `X` ปิดแผงตามต้นฉบับ
+2. **สิ่งที่แก้ไขใน `vocs-website/frontend/src/pages/Alerts.jsx`:**
+   - ปรับการ์ดสรุป 3 ใบด้านบนให้ใช้ข้อความและโครงสร้างตามต้นฉบับ 100%:
+     - การ์ด 1: `Critical`, Badge `0 Active`, ตัวเลข `0`, `Immediate action req.`, `View →`
+     - การ์ด 2: `Warning`, Badge `1 Pending`, ตัวเลข `1`, `Threshold advisory`, `View →`
+     - การ์ด 3: `Resolved today`, Badge `Normal`, ตัวเลข `5`, `Logs archived`, `View →`
+   - เพิ่มปุ่ม `X` (Dismiss / Reset panel) ที่หัวแผง Action Panel ด้านขวา
+   - ติดตั้งตัวสลับมุมมอง **View Mode Pill Switcher** (`Standard` vs `SLA & Owner`):
+     - **โหมด Standard (ค่าเริ่มต้น - ตรงกับ `main_pages/alerts` 100%):** ตารางมี 4 คอลัมน์ (`Time`, `Level`, `Condition`, `Status`) และแผงด้านขวามีเฉพาะดรอปดาวน์ `Action taken` พร้อมปุ่ม `Acknowledge` และ `Mark resolved` ไม่ล้นจอ ไม่ถูกตัดขอบ
+     - **โหมด SLA & Owner (ตรงกับ `sub_states/alerts` 100%):** ตารางเพิ่มคอลัมน์ `Owner` พร้อม Avatar ประจำตัว และแผงด้านขวาขยายเพิ่มแถบ SLA Response (6m/10m target), ช่องเลือก Owner และ Mitigation note
+3. **การตรวจสอบ:**
+   - ทดสอบรัน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ภายใน 175ms
+   - Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`) เพื่อให้ Vercel Deploy อัตโนมัติ
+
 
 
 
@@ -236,9 +250,23 @@
 - เพิ่ม `overflow-x-auto` ให้กับคอนเทนเนอร์รอบตาราง และกำหนด `min-w-[440px]`
 - เพิ่ม `whitespace-nowrap` ให้กับทุกคอลัมน์และข้อมูลในเซลล์ (`Sensor ID`, `Location`, `Value`, `Threshold`, `Status`) ป้องกันการตัดคำหรือข้อความตกบรรทัด
 
-### การตรวจสอบ
-- รัน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ภายใน 250ms
-- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+### อัปเดตเวลา 23:51 ICT (ปรับหน้า Alerts ให้ตรงกับดีไซน์ต้นฉบับ Stitch 1:1)
+1. **ปัญหาที่พบ:**
+   - หัวข้อและ Badge บนการ์ด 3 ใบด้านบนไม่ตรงกับต้นฉบับ (แสดง `CRITICAL ALERTS` แทน `Critical`, `Active` แทน `0 Active`, `1 Pending`, `Normal`, และตัวเลขเป็น 3 แทน 5)
+   - แผงควบคุม Incident ด้านขวามือถูกยัดเยียดข้อมูลย่อย (SLA bar, Owner select, Mitigation note) ลงไปพร้อมกันทั้งหมด ทำให้แผงยาวเกินหน้าจอจนปุ่ม Action (`Acknowledge` และ `Mark resolved`) โดนขอบจอล่างตัดหายไปบางส่วน และไม่มีปุ่ม `X` ปิดแผงตามต้นฉบับ
+2. **สิ่งที่แก้ไขใน `vocs-website/frontend/src/pages/Alerts.jsx`:**
+   - ปรับการ์ดสรุป 3 ใบด้านบนให้ใช้ข้อความและโครงสร้างตามต้นฉบับ 100%:
+     - การ์ด 1: `Critical`, Badge `0 Active`, ตัวเลข `0`, `Immediate action req.`, `View →`
+     - การ์ด 2: `Warning`, Badge `1 Pending`, ตัวเลข `1`, `Threshold advisory`, `View →`
+     - การ์ด 3: `Resolved today`, Badge `Normal`, ตัวเลข `5`, `Logs archived`, `View →`
+   - เพิ่มปุ่ม `X` (Dismiss / Reset panel) ที่หัวแผง Action Panel ด้านขวา
+   - ติดตั้งตัวสลับมุมมอง **View Mode Pill Switcher** (`Standard` vs `SLA & Owner`):
+     - **โหมด Standard (ค่าเริ่มต้น - ตรงกับ `main_pages/alerts` 100%):** ตารางมี 4 คอลัมน์ (`Time`, `Level`, `Condition`, `Status`) และแผงด้านขวามีเฉพาะดรอปดาวน์ `Action taken` พร้อมปุ่ม `Acknowledge` และ `Mark resolved` ไม่ล้นจอ ไม่ถูกตัดขอบ
+     - **โหมด SLA & Owner (ตรงกับ `sub_states/alerts` 100%):** ตารางเพิ่มคอลัมน์ `Owner` พร้อม Avatar ประจำตัว และแผงด้านขวาขยายเพิ่มแถบ SLA Response (6m/10m target), ช่องเลือก Owner และ Mitigation note
+3. **การตรวจสอบ:**
+   - ทดสอบรัน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ภายใน 175ms
+   - Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`) เพื่อให้ Vercel Deploy อัตโนมัติ
+
 
 
 
