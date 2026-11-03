@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  CheckCircle2, Radio, Sliders, ArrowRight, FileText
+  CheckCircle2, Radio, Sliders, ArrowRight, FileText, X, ShieldAlert
 } from 'lucide-react';
 import { Modal } from '../components/ui';
 
