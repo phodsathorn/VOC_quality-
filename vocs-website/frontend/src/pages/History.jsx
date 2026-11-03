@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CalendarDays, Download, RefreshCw } from 'lucide-react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { AqiScaleBar, AqiBadge, Button } from '../components/ui';
 
 import { API } from '../config';
 const PARAMETERS = [
@@ -99,6 +100,21 @@ export default function History() {
       </section>
 
       {error && <div className="history-notice"><strong>ยังเปิดข้อมูลย้อนหลังไม่ได้</strong><span>{error} · ระบบต้องมี daily history API และนโยบายเก็บข้อมูลที่รองรับช่วงวันที่ที่เลือก</span></div>}
+
+      {/* Air4Thai PCD Standard Scale Bar for PM2.5 */}
+      {parameter === 'pm25' && (
+        <div style={{ background: '#ffffff', borderRadius: 12, padding: '14px 18px', border: '1px solid #e2e8f0', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
+              เกณฑ์เปรียบเทียบมาตรฐาน PM2.5 ตามระดับ Air4Thai (กรมควบคุมมลพิษ)
+            </span>
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+              มาตรฐานค่าเฉลี่ย 24 ชม. ของไทย ไม่เกิน 37.5 µg/m³
+            </span>
+          </div>
+          <AqiScaleBar showLabels={true} compact={false} />
+        </div>
+      )}
 
       <section className="history-chart-card">
         <div className="history-card-heading"><div><h2>{selected.label}</h2><span>ค่าเฉลี่ยรายวัน · {selected.unit}</span></div><span className="history-record-count">{rows.length} วัน</span></div>

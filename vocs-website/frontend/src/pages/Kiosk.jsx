@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { API } from '../config';
 import { isSoundEnabled, toggleSoundEnabled, triggerAlertSound } from '../utils/soundAlert';
+import { AqiScaleBar, AqiBadge, Button, Card, StatCard, calculatePm25Aqi, getAqiCategory } from '../components/ui';
 
 export default function Kiosk() {
   const { user, login, logout, authHeaders } = useAuth();
@@ -483,6 +484,29 @@ export default function Kiosk() {
           <span>{actionMsg}</span>
         </div>
       )}
+
+      {/* ── Air4Thai PCD Standard Reference Bar ── */}
+      <div style={{
+        backgroundColor: colors.surface,
+        border: `1px solid ${colors.border}`,
+        borderRadius: '0.75rem',
+        padding: '1rem 1.25rem',
+        marginBottom: '1.25rem',
+        boxShadow: isDark ? 'none' : '0 1px 3px rgba(0,0,0,0.04)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 800, color: colors.textMain }}>
+              เกณฑ์ดัชนีคุณภาพอากาศของประเทศไทย (PCD / Air4Thai AQI Standard)
+            </span>
+            <AqiBadge pm25={Number(pm25Val)} />
+          </div>
+          <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>
+            คำนวณจากความเข้มข้น PM2.5 ฝุ่นสี = {pm25Val} µg/m³
+          </span>
+        </div>
+        <AqiScaleBar currentAqi={calculatePm25Aqi(Number(pm25Val))} compact={false} />
+      </div>
 
       {/* ── Section 1: Live Telemetry Gauges (Shopfloor Air Quality) ── */}
       <div style={{

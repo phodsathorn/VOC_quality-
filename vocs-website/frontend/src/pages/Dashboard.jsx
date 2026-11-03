@@ -2,8 +2,9 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { AlertTriangle, CheckCircle, RefreshCw, Clock, Cpu, ChevronDown, Info, Zap } from 'lucide-react';
 import { getThresholds, getGeneral } from '../utils/settings';
-import { convertAllToPpm, formatPpm, getUnitMode, setUnitMode } from '../utils/ppmConverter';
+import { convertAllToPpm, formatPpm, getUnitMode, setUnitMode, convertTvocToPpm } from '../utils/ppmConverter';
 import DashboardSkeleton from '../components/DashboardSkeleton';
+import { AqiScaleBar, AqiBadge, Button, Card, StatCard, PageHeader, calculatePm25Aqi, getAqiCategory } from '../components/ui';
 
 import { API } from '../config';
 const REFRESH_INTERVAL_MS = 5000; // auto-refresh ทุก 5 วินาที
@@ -211,10 +212,10 @@ export default function Dashboard() {
         </div>
       )}
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Dashboard</h1>
-          {/* Box ID selector */}
+      <PageHeader
+        title="Dashboard คุณภาพอากาศ"
+        subtitle="ศูนย์ควบคุมและประเมินสภาวะอากาศแบบเรียลไทม์ เชื่อมโยงเกณฑ์มาตรฐานกรมควบคุมมลพิษ (PCD / Air4Thai)"
+        badge={
           <div style={{ position: 'relative' }}>
             <select
               value={boxId}
@@ -235,30 +236,26 @@ export default function Dashboard() {
             </select>
             <ChevronDown size={14} style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b' }} />
           </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-          {lastUpdated && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-              <Clock size={14} />
-              อัปเดต {lastUpdated.toLocaleTimeString('th-TH')}
-            </span>
-          )}
-          <button
-            onClick={() => fetchAll()}
-            disabled={loading}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.375rem',
-              padding: '0.4rem 0.875rem', border: '1px solid var(--border-color)',
-              borderRadius: '0.5rem', backgroundColor: 'white', cursor: 'pointer',
-              fontSize: '0.875rem', color: 'var(--text-muted)',
-              transition: 'all 0.2s',
-            }}
-          >
-            <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-            รีเฟรช
-          </button>
-        </div>
-      </div>
+        }
+        actions={
+          <>
+            {lastUpdated && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                <Clock size={14} />
+                อัปเดต {lastUpdated.toLocaleTimeString('th-TH')}
+              </span>
+            )}
+            <Button
+              onClick={() => fetchAll()}
+              loading={loading}
+              iconLeft={<RefreshCw size={14} />}
+              size="sm"
+            >
+              รีเฟรช
+            </Button>
+          </>
+        }
+      />
 
       {/* AI Model Status Banner */}
       {!data.ai_model_loaded && (
@@ -289,38 +286,67 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Top KPI Cards */}
+      {/* Air4Thai PCD Thailand Standard Reference Card */}
+      <Card style={{ marginBottom: '1.5rem', padding: '16px 20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>
+              เกณฑ์ดัชนีคุณภาพอากาศของประเทศไทย (Air Quality Index : AQI — PCD Standard)
+            </span>
+            <AqiBadge aqi={calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)} />
+          </div>
+          <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+            อ้างอิงมาตรฐานกรมควบคุมมลพิษ (air4thai.pcd.go.th)
+          </span>
+        </div>
+        <AqiScaleBar currentAqi={calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)} />
+      </Card>
+
+      {/* Top KPI Cards (Unified Component Architecture) */}
       <div className="dashboard-grid">
-        <div className={`card ${isDangerous ? '' : 'ai-card'}`}
-          style={isDangerous ? { background: 'linear-gradient(135deg, #fee2e2, #fecaca)', borderColor: '#fca5a5' } : {}}>
-          <div className="stat-title">AI Detection</div>
-          <div className="stat-value" style={{ color: isDangerous ? '#991b1b' : undefined }}>
-            {data.ai_detection?.prediction ?? '—'}
-          </div>
-          <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: isDangerous ? '#b91c1c' : '#1e40af' }}>
-            Confidence: <strong>{data.ai_detection?.confidence ?? '—'}%</strong>
-            {!data.ai_model_loaded && <span style={{ opacity: 0.6 }}> (Mock)</span>}
-          </div>
-        </div>
+        {/* KPI 1: Air4Thai AQI Card */}
+        <StatCard
+          title="Air4Thai AQI"
+          value={calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)}
+          valueColor={getAqiCategory(calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)).colorHex}
+          badge={<AqiBadge aqi={calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)} />}
+          subtext={`เกณฑ์ PCD: ${getAqiCategory(calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)).label} (${getAqiCategory(calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)).rangeStr})`}
+          progress={{
+            value: calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0),
+            max: 200,
+            color: getAqiCategory(calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)).colorHex
+          }}
+        />
 
-        <div className="card stat-card">
-          <div className="stat-title">System Status</div>
-          <div className="stat-value" style={{
-            color: data.status === 'ONLINE' ? 'var(--success-color)' : 'var(--danger-color)',
-            display: 'flex', alignItems: 'center', gap: '8px'
-          }}>
-            {data.status === 'ONLINE' ? <CheckCircle size={24} /> : <AlertTriangle size={24} />}
-            {data.status}
-          </div>
-        </div>
+        {/* KPI 2: AI Detection */}
+        <StatCard
+          title="AI Detection (E-Nose)"
+          value={data.ai_detection?.prediction ?? '—'}
+          valueColor={isDangerous ? '#dc2626' : '#2563eb'}
+          badge={
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 999, backgroundColor: isDangerous ? '#fee2e2' : '#eff6ff', color: isDangerous ? '#dc2626' : '#1d4ed8' }}>
+              {data.ai_detection?.confidence ?? 0}% Conf
+            </span>
+          }
+          subtext={isDangerous ? 'ตรวจพบสารอันตรายเกินเกณฑ์ควบคุม' : 'สภาวะอากาศปกติ ไม่พบสารเคมีแปลกปลอม'}
+        />
 
-        <div className="card stat-card">
-          <div className="stat-title">Active Alerts</div>
-          <div className="stat-value" style={{ color: alerts.length > 0 ? 'var(--danger-color)' : 'var(--success-color)' }}>
-            {alerts.filter(a => a.status === 'Active').length}
-          </div>
-          <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>รายการที่ยังไม่แก้ไข</div>
-        </div>
+        {/* KPI 3: System Status */}
+        <StatCard
+          title="System Status"
+          value={data.status}
+          valueColor={data.status === 'ONLINE' ? '#16a34a' : '#dc2626'}
+          icon={data.status === 'ONLINE' ? <CheckCircle size={22} color="#16a34a" /> : <AlertTriangle size={22} color="#dc2626" />}
+          subtext={`อุปกรณ์ ${boxId} ส่งข้อมูลต่อเนื่องทุก 5 วินาที`}
+        />
+
+        {/* KPI 4: Active Alerts */}
+        <StatCard
+          title="Active Alerts"
+          value={alerts.filter(a => a.status === 'Active').length}
+          valueColor={alerts.filter(a => a.status === 'Active').length > 0 ? '#dc2626' : '#16a34a'}
+          subtext={alerts.filter(a => a.status === 'Active').length > 0 ? 'มีเหตุการณ์ที่ต้องเข้าตรวจสอบ' : 'ไม่มีรายการแจ้งเตือนค้าง'}
+        />
       </div>
 
       {/* Environment */}
