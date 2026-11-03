@@ -514,13 +514,13 @@ export default function Dashboard() {
       )}
       <aside
         aria-label="Live sensor telemetry"
-        className={`fixed top-0 right-0 h-full w-[480px] max-w-full bg-white shadow-2xl z-50 flex flex-col justify-between border-l border-[#eaedff] transition-transform duration-300 ${
+        className={`fixed top-0 right-0 h-full w-full sm:w-[520px] max-w-[100vw] bg-white shadow-2xl z-50 flex flex-col justify-between border-l border-[#eaedff] transition-transform duration-300 ${
           isTelemetryDrawerOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className="flex flex-col h-full overflow-hidden">
           {/* Drawer Header */}
-          <div className="h-16 px-6 border-b border-[#eaedff] flex items-center justify-between shrink-0">
+          <div className="h-16 px-5 sm:px-6 border-b border-[#eaedff] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-full bg-[#004ac6]/10 flex items-center justify-center text-[#004ac6]">
                 <Radio size={18} />
@@ -544,7 +544,7 @@ export default function Dashboard() {
           </div>
 
           {/* Drawer Body / Table Content */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
             <div className="flex items-center justify-between mb-4">
               <span className="text-[11px] uppercase tracking-wider text-[#505f76] font-medium">
                 Real-time probe readings
@@ -555,15 +555,15 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="border border-[#eaedff] rounded-2xl overflow-hidden bg-white shadow-xs">
-              <table className="w-full text-left border-collapse text-[13px]">
+            <div className="border border-[#eaedff] rounded-2xl overflow-x-auto bg-white shadow-xs">
+              <table className="w-full text-left border-collapse text-[13px] min-w-[440px]">
                 <thead>
-                  <tr className="bg-[#f2f3ff] border-b border-[#eaedff] text-[#505f76] font-medium">
-                    <th className="py-2.5 px-3">Sensor ID</th>
-                    <th className="py-2.5 px-3">Location</th>
-                    <th className="py-2.5 px-3 text-right">Value</th>
-                    <th className="py-2.5 px-3 text-right">Threshold</th>
-                    <th className="py-2.5 px-3 text-center">Status</th>
+                  <tr className="bg-[#f2f3ff] border-b border-[#eaedff] text-[#505f76] font-medium text-[12px]">
+                    <th className="py-2.5 px-3 whitespace-nowrap">Sensor ID</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">Location</th>
+                    <th className="py-2.5 px-3 text-right whitespace-nowrap">Value</th>
+                    <th className="py-2.5 px-3 text-right whitespace-nowrap">Threshold</th>
+                    <th className="py-2.5 px-3 text-center whitespace-nowrap">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#eaedff] text-[#131b2e]">
@@ -575,12 +575,12 @@ export default function Dashboard() {
                     { id: 'TGS2602', loc: 'Recirculation Line', val: '55 ppb', thresh: '90 ppb', status: 'Normal' },
                   ].map((probe) => (
                     <tr key={probe.id} className="hover:bg-[#eaedff]/40 transition-colors">
-                      <td className="py-3 px-3 font-semibold text-[#004ac6]">{probe.id}</td>
-                      <td className="py-3 px-3 text-[#505f76]">{probe.loc}</td>
-                      <td className="py-3 px-3 text-right font-medium tabular-nums">{probe.val}</td>
-                      <td className="py-3 px-3 text-right text-[#505f76] tabular-nums">{probe.thresh}</td>
-                      <td className="py-3 px-3 text-center">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#00CC66]/10 text-[#009944]">
+                      <td className="py-2.5 px-3 font-semibold text-[#004ac6] whitespace-nowrap">{probe.id}</td>
+                      <td className="py-2.5 px-3 text-[#505f76] whitespace-nowrap">{probe.loc}</td>
+                      <td className="py-2.5 px-3 text-right font-medium tabular-nums whitespace-nowrap">{probe.val}</td>
+                      <td className="py-2.5 px-3 text-right text-[#505f76] tabular-nums whitespace-nowrap">{probe.thresh}</td>
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#00CC66]/10 text-[#009944] whitespace-nowrap">
                           {probe.status}
                         </span>
                       </td>
@@ -591,7 +591,7 @@ export default function Dashboard() {
             </div>
 
             {/* Quick Summary Card inside Drawer */}
-            <div className="mt-6 p-4 rounded-2xl bg-[#f2f3ff] border border-[#eaedff]">
+            <div className="mt-5 p-4 rounded-2xl bg-[#f2f3ff] border border-[#eaedff]">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[12px] font-semibold text-[#131b2e]">Sampling Rate</span>
                 <span className="text-[12px] text-[#505f76]">2.5 Hz (Continuous)</span>
@@ -606,7 +606,7 @@ export default function Dashboard() {
           </div>
 
           {/* Drawer Footer */}
-          <div className="p-6 border-t border-[#eaedff] bg-white shrink-0 flex items-center justify-between">
+          <div className="p-4 sm:p-5 border-t border-[#eaedff] bg-white shrink-0 flex items-center justify-between">
             <span className="text-[12px] text-[#505f76]">
               Array ID: <span className="font-mono text-[#131b2e] font-medium">SN-98442-E</span>
             </span>

@@ -180,6 +180,22 @@
 - ตรวจสอบการคอมไพล์: `npm --prefix vocs-website/frontend run build` ผ่าน 100%
 - Push ขึ้นทั้ง GitLab และ GitHub เรียบร้อยแล้ว
 
+## อัปเดตเวลา 23:42 ICT (แก้ไขตาราง Live Sensor Telemetry Drawer ถูกตัดขอบขวา)
+### ปัญหาที่พบ
+- ในหน้า Dashboard เมื่อเปิดลิ้นชัก Live Sensor Telemetry คอลัมน์ด้านขวาสุด (`Status` และ Badge `Normal`) ถูกตัดขอบ (`Statu`, `Norma...`) และข้อความเช่น `48 ppb`, `Vent Exhaust` ตกบรรทัด เนื่องจากความกว้าง drawer เดิมถูกล็อกไว้ที่ 480px ร่วมกับ padding 24px ทำให้พื้นที่แสดงผลจริงของตารางเหลือไม่พอ และกล่องตารางครอบด้วย `overflow-hidden` โดยไม่มี `overflow-x-auto`
+
+### สิ่งที่แก้ไขใน `vocs-website/frontend/src/pages/Dashboard.jsx`
+- ปรับความกว้างของ Drawer จาก `w-[480px]` เป็น `w-full sm:w-[520px] max-w-[100vw]`
+- ปรับ padding ภายในเป็น `p-4 sm:p-5`
+- เพิ่ม `overflow-x-auto` ให้กับคอนเทนเนอร์รอบตาราง และกำหนด `min-w-[440px]`
+- เพิ่ม `whitespace-nowrap` ให้กับทุกคอลัมน์และข้อมูลในเซลล์ (`Sensor ID`, `Location`, `Value`, `Threshold`, `Status`) ป้องกันการตัดคำหรือข้อความตกบรรทัด
+
+### การตรวจสอบ
+- รัน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ภายใน 250ms
+- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+
+
+
 ## อัปเดตเวลา 23:36 ICT — ผนวก Sub-States ทั้งหมด 11 หมวด เข้าสู่หน้าหลักแบบ 1:1 Pixel-Perfect
 ### สิ่งที่เปลี่ยน
 1. **`Kiosk.jsx` (`sub_states/kiosk/kiosk_multi_state_4_gauges`):**
@@ -209,6 +225,22 @@
 ### การตรวจสอบ
 - ตรวจสอบการคอมไพล์: `npm --prefix vocs-website/frontend run build` ผ่าน 100%
 - Push ขึ้นทั้ง GitLab และ GitHub เรียบร้อยแล้ว
+
+## อัปเดตเวลา 23:42 ICT (แก้ไขตาราง Live Sensor Telemetry Drawer ถูกตัดขอบขวา)
+### ปัญหาที่พบ
+- ในหน้า Dashboard เมื่อเปิดลิ้นชัก Live Sensor Telemetry คอลัมน์ด้านขวาสุด (`Status` และ Badge `Normal`) ถูกตัดขอบ (`Statu`, `Norma...`) และข้อความเช่น `48 ppb`, `Vent Exhaust` ตกบรรทัด เนื่องจากความกว้าง drawer เดิมถูกล็อกไว้ที่ 480px ร่วมกับ padding 24px ทำให้พื้นที่แสดงผลจริงของตารางเหลือไม่พอ และกล่องตารางครอบด้วย `overflow-hidden` โดยไม่มี `overflow-x-auto`
+
+### สิ่งที่แก้ไขใน `vocs-website/frontend/src/pages/Dashboard.jsx`
+- ปรับความกว้างของ Drawer จาก `w-[480px]` เป็น `w-full sm:w-[520px] max-w-[100vw]`
+- ปรับ padding ภายในเป็น `p-4 sm:p-5`
+- เพิ่ม `overflow-x-auto` ให้กับคอนเทนเนอร์รอบตาราง และกำหนด `min-w-[440px]`
+- เพิ่ม `whitespace-nowrap` ให้กับทุกคอลัมน์และข้อมูลในเซลล์ (`Sensor ID`, `Location`, `Value`, `Threshold`, `Status`) ป้องกันการตัดคำหรือข้อความตกบรรทัด
+
+### การตรวจสอบ
+- รัน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ภายใน 250ms
+- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+
+
 
 
 
