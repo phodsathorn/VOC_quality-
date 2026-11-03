@@ -1,102 +1,126 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  Wifi, RotateCcw, Box, CheckCircle2, ChevronRight, X
+  Wifi, RotateCcw, AlertTriangle, ShieldCheck, CheckCircle2,
+  HardDrive, Cpu, Radio, Router, Download, ArrowUpRight, X,
+  Info
 } from 'lucide-react';
+import { API } from '../config';
 import { Drawer } from '../components/ui';
 
 export default function Devices() {
-  const [rebootingNode, setRebootingNode] = useState(null);
-  const [selectedDevice, setSelectedDevice] = useState(null);
-
-  const devices = [
+  const [devices, setDevices] = useState([
     {
       id: 'ESP32 Node 01',
+      type: 'Telemetry Node',
+      location: 'Chamber Inflow',
       status: 'Online',
       isOnline: true,
       rssi: '-58 dBm',
-      firmware: 'Firmware v2.4.1',
-      ip: '192.168.1.101',
-      voltage: '3.31 V',
-      sensors: 'MQ-3, MQ-2, MQ-135, MICS-5524',
-      uptime: '14d 6h 22m',
+      signalQuality: 'Excellent',
+      ip: '192.168.1.104',
+      voltage: '3.32 V',
+      firmware: 'v2.4.1',
+      uptime: '18d 06h 42m',
+      sensors: 'MQ-135, MQ-2, MQ-3, MQ-8, MiCS-5524',
     },
     {
       id: 'ESP32 Node 02',
+      type: 'Telemetry Node',
+      location: 'Curing Tunnel Exit',
       status: 'Online',
       isOnline: true,
       rssi: '-64 dBm',
-      firmware: 'Firmware v2.4.1',
-      ip: '192.168.1.102',
-      voltage: '3.29 V',
-      sensors: 'MQ-8, Laser PM2.5, SHT31 Temp/RH',
-      uptime: '12d 18h 05m',
+      signalQuality: 'Good',
+      ip: '192.168.1.108',
+      voltage: '3.30 V',
+      firmware: 'v2.4.1',
+      uptime: '18d 06h 40m',
+      sensors: 'PID-VOC, PM2.5 Optical, Pitot Airflow',
     },
     {
       id: 'Gateway Hub',
-      status: 'Offline',
-      isOnline: false,
-      rssi: '-58 dBm',
-      firmware: 'Firmware v2.4.1',
-      ip: '192.168.1.100',
-      voltage: '5.02 V',
-      sensors: 'Modbus RS-485 to MQTT Bridge',
-      uptime: 'Standby / Secondary Failover',
+      type: 'Industrial Edge Hub',
+      location: 'Control Room Rack A',
+      status: 'Online',
+      isOnline: true,
+      rssi: '-42 dBm',
+      signalQuality: 'Strong',
+      ip: '192.168.1.1',
+      voltage: '12.0 V',
+      firmware: 'v3.1.0-modbus',
+      uptime: '42d 12h 15m',
+      sensors: 'Modbus TCP Broker, LTE Failover Uplink',
     },
-  ];
+  ]);
 
-  function handleReboot(id) {
-    setRebootingNode(id);
+  const [selectedDevice, setSelectedDevice] = useState(null);
+  const [rebootingNode, setRebootingNode] = useState(null);
+  const [isOtaModalOpen, setIsOtaModalOpen] = useState(false);
+  const [otaProgress, setOtaProgress] = useState(68);
+
+  function handleReboot(nodeId) {
+    setRebootingNode(nodeId);
     setTimeout(() => {
       setRebootingNode(null);
     }, 1800);
   }
 
+  function startOta() {
+    setIsOtaModalOpen(true);
+    setOtaProgress(15);
+    const interval = setInterval(() => {
+      setOtaProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 12;
+      });
+    }, 600);
+  }
+
   return (
-    <div className="flex flex-col w-full max-w-7xl mx-auto gap-8">
-      {/* ── Header ── */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2.5">
-          <span className="w-1.5 h-6 rounded-full bg-[#004ac6] inline-block" />
-          <h1 className="text-[28px] md:text-[36px] font-bold text-[#131b2e] tracking-tight">
-            Devices
+    <div className="flex flex-col w-full gap-8 max-w-7xl mx-auto">
+      {/* Top Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[20px] font-semibold text-[#131b2e] tracking-tight">
+            Connected Devices
           </h1>
+          <p className="text-[14px] text-[#434655] mt-0.5">
+            Real-time status of wireless ESP32 edge telemetry nodes and Modbus gateway.
+          </p>
         </div>
-        <p className="text-[14px] text-[#434655] pl-4">
-          Telemetry hardware &amp; connection status
-        </p>
       </div>
 
-      {/* ── 3 Device Cards (h-[300px]) ── */}
+      {/* ── 3 Main Device Cards ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {devices.map((d) => (
           <div
             key={d.id}
             onClick={() => setSelectedDevice(d)}
-            className="relative bg-white rounded-3xl p-8 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between h-[300px] cursor-pointer"
+            className="group bg-white rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between h-[280px] border border-[#eaedff] cursor-pointer"
           >
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[16px] font-bold text-[#131b2e]">
-                  {d.id}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[14px] font-semibold text-[#505f76] uppercase tracking-wider">
+                  {d.location}
                 </span>
-                <div
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold ${
-                    d.isOnline
-                      ? 'bg-[#eaedff] text-[#004ac6]'
-                      : 'bg-[#f1f5f9] text-[#64748b]'
-                  }`}
-                >
-                  {d.isOnline && (
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#004ac6] opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#004ac6]" />
-                    </span>
-                  )}
-                  {!d.isOnline && <span className="inline-flex rounded-full h-2 w-2 bg-[#64748b]" />}
-                  <span>{d.status}</span>
-                </div>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-[#d0e1fb] text-[#004ac6]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6] animate-pulse" />
+                  {d.status}
+                </span>
               </div>
+              <h3 className="text-[20px] font-bold text-[#131b2e] leading-tight group-hover:text-[#004ac6] transition-colors">
+                {d.id}
+              </h3>
+              <span className="text-[12px] text-[#505f76] mt-0.5 block">{d.type}</span>
+            </div>
 
+            <div className="py-2">
+              <div className="text-[11px] font-semibold text-[#505f76] uppercase tracking-wider">
+                Signal Strength (RSSI)
+              </div>
               <div className="flex items-center gap-2.5 text-[#131b2e] pt-2">
                 <Wifi size={22} className={d.isOnline ? 'text-[#004ac6]' : 'text-[#94a3b8]'} />
                 <span className="text-[24px] font-bold tracking-tight leading-none tabular-nums">
@@ -116,7 +140,7 @@ export default function Devices() {
                   handleReboot(d.id);
                 }}
                 disabled={rebootingNode === d.id}
-                className="px-4 py-1.5 rounded-full bg-[#eaedff] text-[#131b2e] hover:bg-[#dbe1ff] transition-colors text-[13px] font-bold flex items-center gap-1.5"
+                className="px-4 py-1.5 rounded-full bg-[#eaedff] text-[#131b2e] hover:bg-[#dbe1ff] transition-colors text-[13px] font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw
                   size={14}
@@ -129,44 +153,164 @@ export default function Devices() {
         ))}
       </div>
 
-      {/* ── Sub-State Device Specs Drawer ── */}
+      {/* ── Sub-State Right Drawer: ESP32 Node 01 ── */}
       {selectedDevice && (
-        <Drawer
-          isOpen={Boolean(selectedDevice)}
-          onClose={() => setSelectedDevice(null)}
-          title={selectedDevice.id}
-          subtitle={`Hardware Diagnostics • ${selectedDevice.status}`}
-        >
-          <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0] space-y-2">
-              <div className="flex justify-between text-[13px]">
-                <span className="text-[#64748b]">IP Address:</span>
-                <span className="font-bold text-[#131b2e] font-mono">{selectedDevice.ip}</span>
+        <div className="fixed inset-0 z-50 flex justify-end bg-[#131b2e]/20 backdrop-blur-[2px] transition-opacity">
+          <div className="w-full max-w-[420px] h-full bg-white shadow-2xl flex flex-col justify-between border-l border-[#eaedff] animate-in slide-in-from-right duration-300">
+            <div className="flex flex-col">
+              {/* Sticky Header */}
+              <div className="px-6 py-4 border-b border-[#eaedff] flex items-center justify-between sticky top-0 bg-white">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#e2e7ff] flex items-center justify-center text-[#004ac6]">
+                    <Router size={22} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[18px] text-[#131b2e] leading-tight font-semibold">
+                      {selectedDevice.id}
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6] inline-block" />
+                      <span className="text-[11px] text-[#505f76] font-medium">
+                        Online • Telemetry Node
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDevice(null)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[#505f76] hover:text-[#131b2e] hover:bg-[#f2f3ff] transition-colors cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
               </div>
-              <div className="flex justify-between text-[13px]">
-                <span className="text-[#64748b]">Operating Voltage:</span>
-                <span className="font-bold text-[#131b2e] font-mono">{selectedDevice.voltage}</span>
-              </div>
-              <div className="flex justify-between text-[13px]">
-                <span className="text-[#64748b]">Signal RSSI:</span>
-                <span className="font-bold text-[#004ac6] font-mono">{selectedDevice.rssi}</span>
-              </div>
-              <div className="flex justify-between text-[13px]">
-                <span className="text-[#64748b]">System Uptime:</span>
-                <span className="font-bold text-[#131b2e]">{selectedDevice.uptime}</span>
+
+              {/* Specs List */}
+              <div className="p-6 flex flex-col gap-2">
+                <div className="text-[11px] uppercase tracking-wider font-semibold text-[#505f76] px-1 mb-1">
+                  Device Details
+                </div>
+                <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-[#f2f3ff]">
+                  <span className="text-[13px] text-[#505f76]">IP address</span>
+                  <span className="text-[13px] font-semibold text-[#131b2e] font-mono">
+                    {selectedDevice.ip}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-[#f2f3ff]">
+                  <span className="text-[13px] text-[#505f76]">WiFi RSSI</span>
+                  <div className="flex items-center gap-1.5">
+                    <Wifi size={14} className="text-[#004ac6]" />
+                    <span className="text-[13px] font-semibold text-[#131b2e]">
+                      {selectedDevice.rssi}{' '}
+                      <span className="text-[12px] font-normal text-[#505f76]">
+                        ({selectedDevice.signalQuality})
+                      </span>
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-[#f2f3ff]">
+                  <span className="text-[13px] text-[#505f76]">Voltage</span>
+                  <span className="text-[13px] font-semibold text-[#131b2e]">
+                    {selectedDevice.voltage}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-[#f2f3ff]">
+                  <span className="text-[13px] text-[#505f76]">Firmware</span>
+                  <span className="text-[13px] font-semibold text-[#131b2e]">
+                    {selectedDevice.firmware}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-[#f2f3ff]">
+                  <span className="text-[13px] text-[#505f76]">Uptime</span>
+                  <span className="text-[13px] font-semibold text-[#131b2e]">
+                    {selectedDevice.uptime}
+                  </span>
+                </div>
+
+                <div className="mt-3">
+                  <span className="block text-[11px] font-semibold text-[#505f76] uppercase tracking-wider mb-1.5 px-1">
+                    Connected Sensors
+                  </span>
+                  <div className="p-3 rounded-xl bg-[#f2f3ff] text-[13px] font-medium text-[#131b2e]">
+                    {selectedDevice.sensors}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div>
-              <span className="block text-[11px] font-bold text-[#434655] uppercase tracking-wider mb-1">
-                Connected Sensors
-              </span>
-              <p className="text-[14px] text-[#131b2e] p-3 rounded-xl bg-[#f2f3ff]">
-                {selectedDevice.sensors}
-              </p>
+            {/* Drawer Footer Buttons */}
+            <div className="p-6 border-t border-[#eaedff] flex items-center gap-3 bg-white">
+              <button
+                type="button"
+                onClick={() => handleReboot(selectedDevice.id)}
+                className="flex-1 py-2.5 px-4 rounded-full border border-[#eaedff] text-[#131b2e] hover:bg-[#f2f3ff] transition-colors text-[13px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <RotateCcw size={16} className="text-[#505f76]" />
+                <span>Reboot</span>
+              </button>
+              <button
+                type="button"
+                onClick={startOta}
+                className="flex-1 py-2.5 px-4 rounded-full bg-[#004ac6] text-white hover:bg-[#003ea8] transition-colors text-[13px] font-semibold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <Download size={16} />
+                <span>Update firmware (OTA)</span>
+              </button>
             </div>
           </div>
-        </Drawer>
+        </div>
+      )}
+
+      {/* ── Sub-State OTA Progress Modal ── */}
+      {isOtaModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#131b2e]/30 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl border border-[#eaedff] w-full max-w-[420px] p-6 flex flex-col gap-5">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#d0e1fb] flex items-center justify-center text-[#004ac6]">
+                  <Download size={22} className="animate-pulse" />
+                </div>
+                <div className="flex flex-col">
+                  <h3 className="text-[18px] text-[#131b2e] leading-tight font-semibold">
+                    Firmware Update (OTA)
+                  </h3>
+                  <span className="text-[13px] text-[#004ac6] font-medium mt-0.5">
+                    {otaProgress < 100 ? 'Updating to v2.5.0' : 'Update Complete!'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOtaModalOpen(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[#505f76] hover:text-[#131b2e] hover:bg-[#f2f3ff] transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-[#131b2e] font-medium">Firmware Binary</span>
+                <span className="text-[#004ac6] font-bold tabular-nums">{otaProgress}%</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-[#e2e7ff] overflow-hidden relative">
+                <div
+                  className="h-full rounded-full bg-[#004ac6] relative transition-all duration-500"
+                  style={{ width: `${otaProgress}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-[#f2f3ff] text-[#505f76] text-[12px] leading-relaxed">
+              <Info size={18} className="text-[#004ac6] shrink-0" />
+              <span>
+                {otaProgress < 100
+                  ? 'Transferring firmware binary... Do not disconnect power.'
+                  : 'Rebooting node with new firmware image.'}
+              </span>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

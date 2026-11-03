@@ -247,25 +247,105 @@ export default function AirflowDiagram() {
         </div>
       </div>
 
-      {/* ── Sub-State Drawer ── */}
+      {/* ── Sub-State Carbon Scrubber Telemetry Drawer ── */}
       {selectedStage && (
-        <Drawer
-          isOpen={Boolean(selectedStage)}
-          onClose={() => setSelectedStage(null)}
-          title={`${selectedStage.name} Details`}
-          subtitle={selectedStage.role}
-        >
-          <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0]">
-              <div className="text-[11px] font-bold text-[#64748b] uppercase">Operational Reading</div>
-              <div className="text-[28px] font-bold text-[#131b2e]">{selectedStage.value}</div>
-              <div className="text-[12px] text-[#004ac6] font-semibold">{selectedStage.metric}</div>
+        <div className="fixed inset-0 z-50 flex justify-end bg-[#131b2e]/20 backdrop-blur-[2px] transition-opacity">
+          <div className="w-full max-w-[440px] h-full bg-white shadow-2xl flex flex-col justify-between border-l border-[#eaedff] animate-in slide-in-from-right duration-300">
+            {/* Drawer Header */}
+            <div className="p-6 border-b border-[#eaedff] flex items-start justify-between bg-[#faf8ff]/50">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#d0e1fb] flex items-center justify-center text-[#004ac6] mt-0.5">
+                  <Filter size={22} />
+                </div>
+                <div>
+                  <h3 className="text-[18px] font-bold text-[#131b2e] leading-tight">
+                    Carbon Scrubber Telemetry
+                  </h3>
+                  <span className="text-[12px] text-[#505f76] mt-1 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#004ac6] inline-block" />
+                    Adsorption Bed Line 01 • Real-time
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedStage(null)}
+                className="w-9 h-9 rounded-full hover:bg-[#f2f3ff] flex items-center justify-center text-[#505f76] hover:text-[#131b2e] transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
             </div>
-            <p className="text-[14px] text-[#434655] leading-relaxed">
-              {selectedStage.details}
-            </p>
+
+            {/* Drawer Content: 3 BIG NUMBERS */}
+            <div className="p-6 flex-1 flex flex-col justify-around gap-6 my-2">
+              {/* Number 1: Differential Pressure 312 Pa */}
+              <div className="flex flex-col p-5 rounded-2xl bg-[#f2f3ff]/60 hover:bg-[#f2f3ff] transition-colors border border-[#eaedff]">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#505f76] mb-1">
+                  Differential Pressure
+                </span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[44px] font-bold text-[#131b2e] leading-none tabular-nums">
+                    312
+                  </span>
+                  <span className="text-[16px] text-[#505f76] font-medium">Pa</span>
+                </div>
+                <span className="text-[12px] text-[#505f76] mt-2">
+                  Pressure drop across Stage 2 activated carbon bed. Normal range: 250 - 450 Pa.
+                </span>
+              </div>
+
+              {/* Number 2: Bed Temperature 21.8 °C */}
+              <div className="flex flex-col p-5 rounded-2xl bg-[#f2f3ff]/60 hover:bg-[#f2f3ff] transition-colors border border-[#eaedff]">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#505f76] mb-1">
+                  Bed Temperature
+                </span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[44px] font-bold text-[#131b2e] leading-none tabular-nums">
+                    21.8
+                  </span>
+                  <span className="text-[16px] text-[#505f76] font-medium">°C</span>
+                </div>
+                <span className="text-[12px] text-[#505f76] mt-2">
+                  Thermal stabilization within optimal adsorption envelope. Threshold: 45.0 °C.
+                </span>
+              </div>
+
+              {/* Number 3: Active Carbon Media Remaining 78% */}
+              <div className="flex flex-col p-5 rounded-2xl bg-[#f2f3ff]/60 hover:bg-[#f2f3ff] transition-colors border border-[#eaedff]">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#505f76] mb-1">
+                  Media Life Remaining
+                </span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[44px] font-bold text-[#004ac6] leading-none tabular-nums">
+                    78%
+                  </span>
+                  <span className="text-[14px] text-[#505f76] font-medium">(~420 hrs)</span>
+                </div>
+                <span className="text-[12px] text-[#505f76] mt-2">
+                  Pelletized virgin coconut shell carbon bed. Last rotated 3 days ago.
+                </span>
+              </div>
+            </div>
+
+            {/* Drawer Footer */}
+            <div className="p-6 border-t border-[#eaedff] flex items-center justify-between bg-white">
+              <button
+                type="button"
+                onClick={() => alert('Exporting telemetry log...')}
+                className="px-4 py-2.5 rounded-xl border border-[#eaedff] text-[#131b2e] hover:bg-[#f2f3ff] transition-colors text-[13px] font-semibold cursor-pointer"
+              >
+                Export telemetry log
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedStage(null)}
+                className="px-5 py-2.5 rounded-xl bg-[#004ac6] text-white hover:bg-[#003ea8] transition-colors text-[13px] font-semibold cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
-        </Drawer>
+        </div>
       )}
     </div>
   );

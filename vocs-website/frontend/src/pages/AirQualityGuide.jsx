@@ -259,46 +259,111 @@ export default function AirQualityGuide() {
         </div>
       </div>
 
-      {/* ── Level Detail Modal ── */}
+      {/* ── Sub-State Level Detail Modal ── */}
       {selectedLevel && (
-        <Modal
-          isOpen={Boolean(selectedLevel)}
-          onClose={() => setSelectedLevel(null)}
-          title={`${selectedLevel.title} (${selectedLevel.range})`}
-          maxWidth="max-w-xl"
-        >
-          <div className="space-y-4">
-            <div
-              className="p-4 rounded-2xl flex items-center justify-between"
-              style={{ backgroundColor: `${selectedLevel.color}15` }}
-            >
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: selectedLevel.color }}>
-                  Protocol Standard
-                </span>
-                <div className="text-[20px] font-bold text-[#131b2e]">
-                  {selectedLevel.title} — {selectedLevel.titleTh}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#131b2e]/40 backdrop-blur-sm animate-fadeIn">
+          <div
+            aria-hidden="true"
+            className="fixed inset-0 cursor-pointer"
+            onClick={() => setSelectedLevel(null)}
+          />
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-[#eaedff] p-8 flex flex-col gap-5 z-10 animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-[#eaedff]">
+              <div className="flex flex-col gap-1.5">
+                <div>
+                  <span
+                    className="text-[12px] font-bold tracking-wider px-2.5 py-1 rounded-full"
+                    style={{ backgroundColor: `${selectedLevel.color}18`, color: selectedLevel.color }}
+                  >
+                    {selectedLevel.range}
+                  </span>
                 </div>
+                <h2 className="text-[22px] text-[#131b2e] font-bold">
+                  {selectedLevel.title} / {selectedLevel.titleTh}
+                </h2>
               </div>
-              <span
-                className="px-3 py-1 rounded-full text-[12px] font-bold"
-                style={{ backgroundColor: selectedLevel.color, color: 'white' }}
+              <button
+                type="button"
+                aria-label="Close dialog"
+                onClick={() => setSelectedLevel(null)}
+                className="p-1.5 rounded-full hover:bg-[#f2f3ff] text-[#505f76] hover:text-[#131b2e] transition-colors cursor-pointer"
               >
-                {selectedLevel.action}
-              </span>
+                <X size={20} />
+              </button>
             </div>
 
-            <div className="space-y-2">
-              <h4 className="text-[13px] font-bold text-[#131b2e] uppercase tracking-wider">
-                คำอธิบายและการปฏิบัติการ
-              </h4>
-              <p className="text-[14px] text-[#434655] leading-relaxed">
-                {selectedLevel.details}
-              </p>
+            {/* 3 Detailed Guidelines */}
+            <div className="flex flex-col gap-3 py-1">
+              {/* Section 1: General Public */}
+              <div className="p-4 rounded-2xl bg-[#f2f3ff] flex items-start gap-3.5 border border-[#eaedff]">
+                <div className="w-9 h-9 rounded-full bg-[#d0e1fb] flex items-center justify-center shrink-0 text-[#004ac6]">
+                  <CheckCircle2 size={20} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-[#505f76] uppercase tracking-wider">
+                    General personnel
+                  </span>
+                  <p className="text-[14px] text-[#131b2e] leading-snug mt-1 font-medium">
+                    {selectedLevel.level <= 2
+                      ? 'Air quality is acceptable for daily factory work. No general operational restrictions required.'
+                      : 'Non-essential operators should limit time in Coating Line 1. Maintain standard barrier separation.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Section 2: Sensitive Groups */}
+              <div className="p-4 rounded-2xl bg-[#f2f3ff] flex items-start gap-3.5 border border-[#eaedff]">
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `${selectedLevel.color}20`, color: selectedLevel.color }}
+                >
+                  <ShieldAlert size={20} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-[#505f76] uppercase tracking-wider">
+                    Sensitive groups
+                  </span>
+                  <p className="text-[14px] text-[#131b2e] leading-snug mt-1 font-medium">
+                    {selectedLevel.level === 1
+                      ? 'No special restrictions. Full normal activity allowed.'
+                      : selectedLevel.level === 2
+                      ? 'Individuals with respiratory sensitivities should reduce heavy exertion. Keep standard mechanical ventilation active.'
+                      : 'Immediate rotation of sensitive operators out of booth area. Monitor for symptoms.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Section 3: Factory Protocol and PPE */}
+              <div className="p-4 rounded-2xl bg-[#f2f3ff] flex items-start gap-3.5 border border-[#eaedff]">
+                <div className="w-9 h-9 rounded-full bg-[#dbe1ff] flex items-center justify-center shrink-0 text-[#004ac6]">
+                  <Sliders size={20} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-[#505f76] uppercase tracking-wider">
+                    Factory protocol and PPE
+                  </span>
+                  <p className="text-[14px] text-[#131b2e] leading-snug mt-1 font-medium">
+                    {selectedLevel.details}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#eaedff]">
+              <button
+                type="button"
+                onClick={() => setSelectedLevel(null)}
+                className="px-4 py-2 rounded-xl bg-[#eaedff] text-[#131b2e] text-[13px] font-semibold hover:bg-[#dbe1ff] transition-colors cursor-pointer"
+              >
+                Dismiss
+              </button>
             </div>
           </div>
-        </Modal>
+        </div>
       )}
     </div>
   );
 }
+

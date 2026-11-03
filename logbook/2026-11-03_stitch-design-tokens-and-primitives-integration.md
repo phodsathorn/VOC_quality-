@@ -180,6 +180,37 @@
 - ตรวจสอบการคอมไพล์: `npm --prefix vocs-website/frontend run build` ผ่าน 100%
 - Push ขึ้นทั้ง GitLab และ GitHub เรียบร้อยแล้ว
 
+## อัปเดตเวลา 23:36 ICT — ผนวก Sub-States ทั้งหมด 11 หมวด เข้าสู่หน้าหลักแบบ 1:1 Pixel-Perfect
+### สิ่งที่เปลี่ยน
+1. **`Kiosk.jsx` (`sub_states/kiosk/kiosk_multi_state_4_gauges`):**
+   - เพิ่มแถบเลือกดูสถานะ Kiosk (Demo Mode) 4 โหมด: ปกติ, State A, State B, State C
+   - ปรับเป็น 4 Telemetry Radial Dials: TVOC (64 ppb), PM2.5 (14 µg/m³), Temp/RH (28° / 52%), Airflow (0.45 m/s)
+   - ผนวก 3 Modals ตามแบบ Stitch:
+     - **State A Modal:** ยืนยันเหตุฉุกเฉินสารเคมีรั่วไหล พร้อมตัวนับถอยหลัง 10 วินาที
+     - **State B Modal:** เร่งพัดลมดูดอากาศ 100% (2,400 RPM MAX, 12,500 m³/h, ปุ่ม Stop)
+     - **State C Modal:** Checklist ตรวจสอบซ่อมบำรุงประจำวัน 5 ข้อ พร้อมปุ่ม Save
+2. **`Alerts.jsx` (`sub_states/alerts/alerts_incident_detail_with_sla_owner`):**
+   - เพิ่มคอลัมน์ Owner (PK, ST, EM) ในตาราง Incidents
+   - ปรับแผงควบคุมด้านขวาให้มีบัตร SLA Response (6m / 10m target, progress bar สีเขียว), ดรอปดาวน์ Action taken, ดรอปดาวน์ Owner, และช่อง Mitigation note
+3. **`AirQualityGuide.jsx` (`sub_states/air_quality_guide/air_quality_guide_level_detail_modal`):**
+   - คลิกการ์ดระดับ 1–5 แล้วเปิด Level Detail Modal ที่แบ่งออกเป็น 3 หมวดชัดเจน: General personnel, Sensitive groups, และ Factory protocol & PPE
+4. **`Devices.jsx` (`sub_states/devices/devices_node_01_drawer_ota_modal`):**
+   - เพิ่มปุ่ม "Update firmware (OTA)" ในลิ้นชักข้อมูล Node 01
+   - ผนวก Modal แสดงความคืบหน้าการอัปเดตเฟิร์มแวร์ไร้สาย (Firmware Binary 68% พร้อมแถบวิ่งแบบ Pulse)
+5. **`DataCollection.jsx` (`sub_states/data_collection/data_collection_dropdown_open_past_sessions_table_stop_state`):**
+   - เพิ่มแท็บสลับระหว่าง "Live" (3-phase stepper + 5 MOS curves) กับ "Past sessions" (ตารางประวัติ 5 รอบการทดสอบสาร)
+   - ปรับปุ่ม Action ให้สลับระหว่าง "Start sampling" (สีน้ำเงิน) และ "Stop sampling" (สีแดงพร้อมไอคอนสี่เหลี่ยมหยุด)
+6. **`History.jsx` (`sub_states/history/history_custom_range_expanded_telemetry_table`):**
+   - เพิ่มปุ่ม "Custom" พร้อมป๊อปอัปเลือกช่วงวันที่ (Start Date, End Date)
+   - เพิ่มปุ่มสลับระหว่าง Summary Table (4 คอลัมน์) และ Expanded Telemetry Table (Min, Max, Avg, PM2.5, Status, Uptime %)
+7. **`AirflowDiagram.jsx` (`sub_states/airflow/airflow_telemetry_drawer_pathway_details`):**
+   - ปรับ Drawer ลิ้นชักท่อลมของ Carbon Scrubber ให้แสดง 3 ตัวเลขยักษ์ (Clinical Whitespace): Differential Pressure (312 Pa), Bed Temperature (21.8 °C), และ Media Life Remaining (78% ~420 hrs)
+
+### การตรวจสอบ
+- ตรวจสอบการคอมไพล์: `npm --prefix vocs-website/frontend run build` ผ่าน 100%
+- Push ขึ้นทั้ง GitLab และ GitHub เรียบร้อยแล้ว
+
+
 
 
 
