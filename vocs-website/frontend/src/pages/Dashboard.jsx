@@ -505,106 +505,244 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* ── Sub-State Drawer: Live Telemetry Diagnostics ── */}
-      <Drawer
-        isOpen={isTelemetryDrawerOpen}
-        onClose={() => setIsTelemetryDrawerOpen(false)}
-        title="Live Chamber Telemetry"
-        subtitle="Powder Coating Booth 1 • Sensor Node Array"
-        width="w-full max-w-[480px]"
+      {/* ── Sub-State Right-side Drawer: Live sensor telemetry (480px) ── */}
+      {isTelemetryDrawerOpen && (
+        <div
+          onClick={() => setIsTelemetryDrawerOpen(false)}
+          className="fixed inset-0 bg-[#283044]/20 backdrop-blur-[2px] z-50 transition-opacity"
+        />
+      )}
+      <aside
+        aria-label="Live sensor telemetry"
+        className={`fixed top-0 right-0 h-full w-[480px] max-w-full bg-white shadow-2xl z-50 flex flex-col justify-between border-l border-[#eaedff] transition-transform duration-300 ${
+          isTelemetryDrawerOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
       >
-        <div className="space-y-6">
-          <div className="p-4 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0]">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-[#64748b] mb-1">
-              Active Air Quality
+        <div className="flex flex-col h-full overflow-hidden">
+          {/* Drawer Header */}
+          <div className="h-16 px-6 border-b border-[#eaedff] flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-[#004ac6]/10 flex items-center justify-center text-[#004ac6]">
+                <Radio size={18} />
+              </div>
+              <div>
+                <h2 className="text-[18px] font-semibold leading-tight text-[#131b2e]">
+                  Live sensor telemetry
+                </h2>
+                <span className="text-[11px] text-[#505f76]">
+                  Powder Coating Booth 1 · 5 Active Probes
+                </span>
+              </div>
             </div>
-            <div className="text-[32px] font-bold text-[#131b2e]">
-              AQI {currentAqi} — {aqiCategory.label}
-            </div>
-            <p className="text-[12px] text-[#64748b] mt-1">{aqiCategory.description}</p>
+            <button
+              type="button"
+              onClick={() => setIsTelemetryDrawerOpen(false)}
+              className="p-1.5 rounded-full text-[#505f76] hover:text-[#131b2e] hover:bg-[#eaedff] transition-colors flex items-center justify-center cursor-pointer"
+            >
+              <X size={20} />
+            </button>
           </div>
 
-          <div className="space-y-3">
-            <h4 className="text-[13px] font-bold text-[#131b2e] uppercase tracking-wider">
-              Diagnostic Channels
-            </h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl bg-white border border-[#e2e8f0]">
-                <div className="text-[11px] text-[#64748b]">TVOC Real-time</div>
-                <div className="text-[18px] font-bold text-[#131b2e]">{tvocValue} ppb</div>
+          {/* Drawer Body / Table Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[11px] uppercase tracking-wider text-[#505f76] font-medium">
+                Real-time probe readings
+              </span>
+              <div className="flex items-center gap-1.5 text-[11px] text-[#00AA55] font-medium">
+                <span className="w-2 h-2 rounded-full bg-[#00CC66] animate-pulse" />
+                All systems nominal
               </div>
-              <div className="p-3 rounded-xl bg-white border border-[#e2e8f0]">
-                <div className="text-[11px] text-[#64748b]">PM2.5 Particles</div>
-                <div className="text-[18px] font-bold text-[#131b2e]">{pm25Value} μg/m³</div>
+            </div>
+
+            <div className="border border-[#eaedff] rounded-2xl overflow-hidden bg-white shadow-xs">
+              <table className="w-full text-left border-collapse text-[13px]">
+                <thead>
+                  <tr className="bg-[#f2f3ff] border-b border-[#eaedff] text-[#505f76] font-medium">
+                    <th className="py-2.5 px-3">Sensor ID</th>
+                    <th className="py-2.5 px-3">Location</th>
+                    <th className="py-2.5 px-3 text-right">Value</th>
+                    <th className="py-2.5 px-3 text-right">Threshold</th>
+                    <th className="py-2.5 px-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#eaedff] text-[#131b2e]">
+                  {[
+                    { id: 'MQ-135', loc: 'Booth Inflow', val: '48 ppb', thresh: '100 ppb', status: 'Normal' },
+                    { id: 'MQ-137', loc: 'Vent Exhaust', val: '32 ppb', thresh: '80 ppb', status: 'Normal' },
+                    { id: 'PID', loc: 'Primary Chamber', val: '64 ppb', thresh: '120 ppb', status: 'Normal' },
+                    { id: 'SGP40', loc: 'Curing Zone', val: '18 ppb', thresh: '50 ppb', status: 'Normal' },
+                    { id: 'TGS2602', loc: 'Recirculation Line', val: '55 ppb', thresh: '90 ppb', status: 'Normal' },
+                  ].map((probe) => (
+                    <tr key={probe.id} className="hover:bg-[#eaedff]/40 transition-colors">
+                      <td className="py-3 px-3 font-semibold text-[#004ac6]">{probe.id}</td>
+                      <td className="py-3 px-3 text-[#505f76]">{probe.loc}</td>
+                      <td className="py-3 px-3 text-right font-medium tabular-nums">{probe.val}</td>
+                      <td className="py-3 px-3 text-right text-[#505f76] tabular-nums">{probe.thresh}</td>
+                      <td className="py-3 px-3 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#00CC66]/10 text-[#009944]">
+                          {probe.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Quick Summary Card inside Drawer */}
+            <div className="mt-6 p-4 rounded-2xl bg-[#f2f3ff] border border-[#eaedff]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[12px] font-semibold text-[#131b2e]">Sampling Rate</span>
+                <span className="text-[12px] text-[#505f76]">2.5 Hz (Continuous)</span>
               </div>
-              <div className="p-3 rounded-xl bg-white border border-[#e2e8f0]">
-                <div className="text-[11px] text-[#64748b]">Temperature</div>
-                <div className="text-[18px] font-bold text-[#131b2e]">
-                  {data.latest_reading?.temp ?? 24.5} °C
+              <div className="w-full bg-[#e2e7ff] h-1.5 rounded-full overflow-hidden">
+                <div className="bg-[#004ac6] h-full rounded-full w-full" />
+              </div>
+              <p className="text-[11px] text-[#505f76] mt-2">
+                Latest synchronization occurred 3 seconds ago via Modbus TCP gateway.
+              </p>
+            </div>
+          </div>
+
+          {/* Drawer Footer */}
+          <div className="p-6 border-t border-[#eaedff] bg-white shrink-0 flex items-center justify-between">
+            <span className="text-[12px] text-[#505f76]">
+              Array ID: <span className="font-mono text-[#131b2e] font-medium">SN-98442-E</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsTelemetryDrawerOpen(false)}
+              className="px-4 py-2 rounded-xl bg-[#eaedff] text-[#131b2e] text-[13px] font-medium hover:bg-[#dae2fd] transition-colors cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Sub-State Solvent 8-Channel Radar Modal Dialog ── */}
+      {isRadarModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setIsRadarModalOpen(false)}
+            className="fixed inset-0 bg-[#283044]/40 backdrop-blur-xs transition-opacity"
+          />
+          <div className="relative bg-white rounded-3xl max-w-lg w-full p-8 shadow-2xl border border-[#eaedff] z-10 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[11px] uppercase tracking-wider text-[#505f76] font-medium">
+                    Chemical Fingerprint Analysis
+                  </span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-semibold text-[#004ac6] bg-[#004ac6]/10">
+                    {solventMatch}% match
+                  </span>
                 </div>
+                <h3 className="text-[32px] font-bold text-[#131b2e] leading-tight">
+                  {solventName}{' '}
+                  <span className="text-[20px] text-[#505f76] font-normal font-sans">
+                    {solventMatch}% match
+                  </span>
+                </h3>
               </div>
-              <div className="p-3 rounded-xl bg-white border border-[#e2e8f0]">
-                <div className="text-[11px] text-[#64748b]">Relative Humidity</div>
-                <div className="text-[18px] font-bold text-[#131b2e]">
-                  {data.latest_reading?.rh ?? 55.0} %
-                </div>
+              <button
+                type="button"
+                onClick={() => setIsRadarModalOpen(false)}
+                className="p-1.5 rounded-full text-[#505f76] hover:text-[#131b2e] hover:bg-[#eaedff] transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="text-[13px] text-[#505f76] mb-4">
+              Expanded 8-channel metal-oxide sensor matrix comparison against reference NIST VOC signature library.
+            </p>
+
+            {/* Large 8-Channel Radar Chart */}
+            <div className="flex items-center justify-center py-4 bg-[#f2f3ff]/50 rounded-2xl border border-[#eaedff]">
+              <div className="w-64 h-64">
+                <svg className="w-full h-full overflow-visible" viewBox="0 0 240 240">
+                  <defs>
+                    <radialGradient cx="50%" cy="50%" id="modalRadarGlow" r="50%">
+                      <stop offset="0%" stopColor="#2563EB" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#2563EB" stopOpacity="0.02" />
+                    </radialGradient>
+                  </defs>
+                  {/* Outer Octagon ring (R=90) */}
+                  <polygon
+                    fill="none"
+                    points="120,30 183.6,56.4 210,120 183.6,183.6 120,210 56.4,183.6 30,120 56.4,56.4"
+                    stroke="#D1D5DB"
+                    strokeDasharray="3 3"
+                    strokeWidth="1"
+                  />
+                  {/* Middle Octagon ring (R=60) */}
+                  <polygon
+                    fill="none"
+                    points="120,60 162.4,77.6 180,120 162.4,162.4 120,180 77.6,162.4 60,120 77.6,77.6"
+                    stroke="#E5E7EB"
+                    strokeWidth="1"
+                  />
+                  {/* Inner Octagon ring (R=30) */}
+                  <polygon
+                    fill="none"
+                    points="120,90 141.2,98.8 150,120 141.2,141.2 120,150 98.8,141.2 90,120 98.8,98.8"
+                    stroke="#E5E7EB"
+                    strokeWidth="1"
+                  />
+                  {/* 8 Axes */}
+                  <line x1="120" y1="120" x2="120" y2="30" stroke="#E5E7EB" strokeWidth="1" />
+                  <line x1="120" y1="120" x2="183.6" y2="56.4" stroke="#E5E7EB" strokeWidth="1" />
+                  <line x1="120" y1="120" x2="210" y2="120" stroke="#E5E7EB" strokeWidth="1" />
+                  <line x1="120" y1="120" x2="183.6" y2="183.6" stroke="#E5E7EB" strokeWidth="1" />
+                  <line x1="120" y1="120" x2="120" y2="210" stroke="#E5E7EB" strokeWidth="1" />
+                  <line x1="120" y1="120" x2="56.4" y2="183.6" stroke="#E5E7EB" strokeWidth="1" />
+                  <line x1="120" y1="120" x2="30" y2="120" stroke="#E5E7EB" strokeWidth="1" />
+                  <line x1="120" y1="120" x2="56.4" y2="56.4" stroke="#E5E7EB" strokeWidth="1" />
+
+                  {/* 8-Channel Solvent Fingerprint polygon */}
+                  <polygon
+                    fill="url(#modalRadarGlow)"
+                    points="120,40 166,74 195,120 155,155 120,180 88,152 50,120 81,81"
+                    stroke="#2563EB"
+                    strokeWidth="2"
+                  />
+                  {/* Data vertices */}
+                  <circle cx="120" cy="40" fill="#2563EB" r="3" />
+                  <circle cx="166" cy="74" fill="#2563EB" r="3" />
+                  <circle cx="195" cy="120" fill="#2563EB" r="3" />
+                  <circle cx="155" cy="155" fill="#2563EB" r="3" />
+                  <circle cx="120" cy="180" fill="#2563EB" r="3" />
+                  <circle cx="88" cy="152" fill="#2563EB" r="3" />
+                  <circle cx="50" cy="120" fill="#2563EB" r="3" />
+                  <circle cx="81" cy="81" fill="#2563EB" r="3" />
+                  {/* 8 Labels */}
+                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="middle" x="120" y="20">Ch 1</text>
+                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="start" x="195" y="50">Ch 2</text>
+                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="start" x="218" y="124">Ch 3</text>
+                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="start" x="195" y="195">Ch 4</text>
+                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="middle" x="120" y="228">Ch 5</text>
+                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="end" x="45" y="195">Ch 6</text>
+                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="end" x="22" y="124">Ch 7</text>
+                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="end" x="45" y="50">Ch 8</text>
+                </svg>
               </div>
-              <div className="p-3 rounded-xl bg-white border border-[#e2e8f0]">
-                <div className="text-[11px] text-[#64748b]">eCO2 Carbon Equiv</div>
-                <div className="text-[18px] font-bold text-[#131b2e]">
-                  {data.latest_reading?.eco2 ?? 410} ppm
-                </div>
-              </div>
-              <div className="p-3 rounded-xl bg-white border border-[#e2e8f0]">
-                <div className="text-[11px] text-[#64748b]">Exhaust Airflow</div>
-                <div className="text-[18px] font-bold text-[#00CC66]">18.4 m/s (Nominal)</div>
-              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between text-[12px] text-[#505f76]">
+              <span>Standard: C7H8 Aromatics</span>
+              <button
+                type="button"
+                onClick={() => setIsRadarModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-[#004ac6] text-white text-[13px] font-medium hover:bg-[#2563eb] transition-colors cursor-pointer"
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>
-      </Drawer>
-
-      {/* ── Sub-State Modal: Radar Chemical Classification ── */}
-      <Modal
-        isOpen={isRadarModalOpen}
-        onClose={() => setIsRadarModalOpen(false)}
-        title="8-Channel E-Nose Fingerprint Profile"
-        maxWidth="max-w-2xl"
-      >
-        <div className="space-y-5">
-          <div className="p-4 rounded-2xl bg-[#eaedff] flex items-center justify-between">
-            <div>
-              <div className="text-[12px] font-bold uppercase text-[#004ac6]">
-                Identified Vapor Composition
-              </div>
-              <div className="text-[24px] font-bold text-[#131b2e]">{solventName}</div>
-            </div>
-            <div className="px-3 py-1 rounded-full bg-[#004ac6] text-white text-[13px] font-bold">
-              {solventMatch}% Match
-            </div>
-          </div>
-
-          <p className="text-[13px] text-[#434655]">
-            ระบบเปรียบเทียบรูปแบบสัญญาณความต้านทานไฟฟ้า (Resistance Ratio Rs/R0) ข้ามเซนเซอร์โลหะออกไซด์
-            8 ช่องสัญญาณ กับฐานข้อมูลมาตรฐานสารระเหยอุตสาหกรรม (ISO-16000 / OSHA PEL)
-          </p>
-
-          <div className="grid grid-cols-4 gap-2 pt-2">
-            {[
-              { name: 'MQ-3', target: 'Alcohol', val: data.latest_reading?.mq3 ?? 2100 },
-              { name: 'MQ-2', target: 'Combustible', val: data.latest_reading?.mq2 ?? 1200 },
-              { name: 'MQ-135', target: 'Benzene/NH3', val: data.latest_reading?.mq135 ?? 1400 },
-              { name: 'MQ-8', target: 'Hydrogen', val: data.latest_reading?.mq8 ?? 1600 },
-            ].map((s) => (
-              <div key={s.name} className="p-2.5 rounded-xl bg-[#f8fafc] border border-[#e2e8f0]">
-                <div className="text-[10px] text-[#64748b]">{s.name}</div>
-                <div className="text-[14px] font-bold text-[#131b2e]">{s.val}</div>
-                <div className="text-[9px] text-[#004ac6]">{s.target}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Modal>
+      )}
     </div>
   );
 }

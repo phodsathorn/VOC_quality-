@@ -164,6 +164,23 @@
 - ตรวจสอบการคอมไพล์: `npm --prefix vocs-website/frontend run build` ผ่าน 100% สำเร็จเรียบร้อย
 - ส่งขึ้น Git repository ไปยังทั้ง GitLab (`origin`) และ GitHub (`github`) เพื่อให้ Vercel รีบิลด์เวอร์ชันล่าสุด
 
+## อัปเดตเวลา 23:23 ICT — ปรับ Sub-State ของ Dashboard (Drawer & Modal) ให้ตรงกับ `screen.png` แบบ 1:1 Pixel-Perfect
+### สิ่งที่เปลี่ยน
+1. **`src/pages/Dashboard.jsx` (Sub-States):**
+   - **Live Telemetry Drawer (480px):**
+     - ปรับโครงสร้างตารางเซนเซอร์ 5 probes ให้ตรงกับภาพ Stitch `screen.png` 100%: คอลัมน์ `Sensor ID`, `Location`, `Value`, `Threshold`, `Status` (โพรบ: `MQ-135`, `MQ-137`, `PID`, `SGP40`, `TGS2602`)
+     - เพิ่มการ์ดสรุป Sampling Rate: `2.5 Hz (Continuous)` พร้อมแถบ Progress Bar สีน้ำเงิน และข้อความ `Latest synchronization occurred 3 seconds ago via Modbus TCP gateway.`
+     - ส่วนท้าย Drawer: แสดง `Array ID: SN-98442-E` และปุ่ม `Dismiss`
+   - **Chemical Fingerprint 8-Channel Radar Modal:**
+     - ปรับหัวข้อเป็น `Chemical Fingerprint Analysis` พร้อมค่า `Toluene 87% match`
+     - นำกราฟเรดาร์รูปแปดเหลี่ยม (8-Channel Octagon Radar Chart) พร้อมเส้นแกน 8 ทิศทางและจุดโพลีกอนคลุม Ch 1 ถึง Ch 8 จากโค้ดต้นฉบับ Stitch มาใส่แบบ 1:1
+     - ส่วนท้าย Modal: แสดง `Standard: C7H8 Aromatics` และปุ่ม `Done`
+
+### การตรวจสอบ
+- ตรวจสอบการคอมไพล์: `npm --prefix vocs-website/frontend run build` ผ่าน 100%
+- Push ขึ้นทั้ง GitLab และ GitHub เรียบร้อยแล้ว
+
+
 
 
 
