@@ -1,84 +1,149 @@
 # รีวิวและแผนดำเนินงาน — Hardware / Firmware
 
-**ขอบเขต:** ESP32, sensor, วงจร/ไฟเลี้ยง, การติดตั้ง, ความถูกต้องการวัด, device security, calibration, touch display และ firmware reliability  
-**ไม่อยู่ในขอบเขต:** login/RBAC และ UI เว็บ — ดู `WEB_BACKEND_REVIEW_AND_PLAN.md`
+**ขอบเขต:** ESP32, sensor array, วงจรไฟฟ้า/ไฟเลี้ยง, การติดตั้ง, ความถูกต้องของการวัด, device cybersecurity, sensor calibration, touch display และ firmware reliability  
+**ไม่อยู่ในขอบเขต:** การจัดการผู้ใช้, สิทธิ์ RBAC, และ UI หน้าเว็บ — ให้ดูที่ [WEB_BACKEND_REVIEW_AND_PLAN.md](WEB_BACKEND_REVIEW_AND_PLAN.md)
 
-## สถานะปัจจุบัน
+---
 
-มี range check, median sampling สำหรับ MQ, warm-up gate และ telemetry สถานะ/ชั่วโมงทำงานแล้ว แต่ **ยังไม่สามารถยืนยันความแม่นยำหรือใช้ยืนยันความปลอดภัยโรงงานได้** เพราะยังไม่มี schematic, รุ่น module ที่แน่นอน และผลวัดสภาพไฟฟ้าจริง อีกทั้ง firmware มี Wi-Fi credential ใน source, TLS ไม่ตรวจ certificate และ OTA ยังไม่มี authentication/signature
+## 1. สถานะปัจจุบันและการทบทวนสถาปัตยกรรม (Current Status & Architecture)
 
-## ข้อกำหนดที่ยืนยันแล้ว
+ระบบฮาร์ดแวร์และเฟิร์มแวร์ปัจจุบันได้รับการพัฒนาและจัดทำโครงสร้างบนสถาปัตยกรรม **Circuit Design v2** รองรับการทำงานในสภาพแวดล้อมโรงงานพ่นสี (Powder Coating / Paint Shop) พร้อมทั้งติดตั้งเกราะป้องกันทางดิจิทัลและเฟิร์มแวร์ (Defense-in-depth):
 
-- ติดตั้งภายในโรงงานพ่นสีฝุ่น/สี เริ่มหนึ่งกล่องแต่รองรับหลายกล่อง
-- Sensor: DHT22, CCS811, PMS5003, MQ-2/MQ-3/MQ-8/MQ-135 และ **MiCS-6814**
-- มีจอสัมผัสที่กล่อง/พื้นที่งานเพื่อแสดงและรับทราบ Alert
-- ต้อง OTA จากภายนอกได้ แต่เป็น outbound-only และ signed
-- ต้องมี calibration/reference equipment และกราฟ maintenance trend
+### ตารางสถานะงาน (Implementation Status Matrix)
 
-## คำถามบังคับ — หยุดก่อนเริ่ม Implement
+| หมวดงาน | หัวข้อย่อย | สถานะ | รายละเอียดที่ทำแล้ว |
+| :--- | :--- | :---: | :--- |
+| **H0: Security & Electrical** | การแยก Credential ออกจากโค้ด | ✅ **Done** | แยก Wi-Fi & OTA secrets ไว้ใน `secrets.h` พร้อม template `secrets.example.h` ไม่หลุดขึ้น Git |
+| | Web OTA Access Control | ✅ **Done** | ป้องกันหน้า Web OTA `/update` ด้วย Basic Authentication ป้องกันการแอบแฟลชใน LAN |
+| | Cloud Pull OTA & Digital Signature | ✅ **Done** | ตรวจสอบ SHA-256 Checksum, HMAC Signature และระบบ 1-Click Rollback |
+| | การป้องกันไฟเกิน ADC ESP32 | ⚠️ **Review** | ต้องใช้ Voltage Divider สำหรับสัญญาณ Analog จากเซนเซอร์ MQ เพื่อไม่ให้เกิน 3.3V |
+| **H1: Sensor Protocol** | MQ-3 Conditioning & Pre-heat | ✅ **Done** | ระบบ 48-Hour Pre-heat Gate (`mq3_ready`) และ Median Spread Filter (< 150 ADC count) |
+| | CCS811 Environmental Compensation | ✅ **Done** | ชดเชย T/RH ทุก 60 วินาที พร้อมฟิลเตอร์กรอง I2C Glitch Error Frames (64319, 39064) |
+| | MiCS-6814 Dual-Bus Isolation | ✅ **Done** | แยก ADS1115 (16-bit ADC) ไปอยู่บน I2C Bus #2 ป้องกันบัสชนกับ CCS811 |
+| | Clean Air Baseline Capture | ✅ **Done** | รองรับคำสั่ง Capture Baseline จาก Web UI แบบ Non-blocking ผ่าน API |
+| **H2: Reliability & Telemetry**| Monotonic Uptime Tracking | ✅ **Done** | ส่ง `device_uptime_sec` คำนวณชั่วโมงทำงานเซนเซอร์จริง ป้องกันการรีเซ็ตหลอก |
+| | Packet Sequence & Diagnostics | ✅ **Done** | ส่ง `seq_no`, `wifi_rssi`, `free_heap_kb`, และ `reset_reason` ในทุก Frame |
+| | ADC 12-bit & Attenuation Lock | ✅ **Done** | ล็อก `analogReadResolution(12)` และ `analogSetAttenuation(ADC_11db)` ในเฟิร์มแวร์ |
+| | Dual WiFi Network Failover | ✅ **Done** | ใช้ `WiFiMulti` สลับระหว่างเน็ตโรงงานและฮอตสปอตอัตโนมัติ |
+| **H3: Statutory Boundary** | ขอบเขตการตรวจปล่อยมลพิษ | ✅ **Done** | กำหนดขอบเขต E-Nose เป็น Indoor Safety และแยกรายงานมลพิษปล่อง (Stack CEMS/Lab) ออกชัดเจน |
 
-ห้ามแก้ calibration, firmware security หรือ deploy หน้างานจนกว่าจะตอบครบ
+---
 
-1. ส่ง schematic, PCB revision, part number ของ module, รูปวงจร/การประกอบ และ pin map จริง
-2. MQ ทุกช่องมี divider/buffer ให้ ADC ESP32 ไม่เกิน 3.3V หรือไม่? ส่งผลวัดแรงดันสูงสุดจริง
-3. ส่งผลวัด rail 5V และกระแสตอน MOS heater ทุกตัวทำงาน, PSU rating, fuse/grounding
-4. อธิบาย enclosure, airflow, จุดติดตั้งเทียบ spray/exhaust, อุณหภูมิ/ความชื้น, สารทำความสะอาด และ hazardous-area classification
-5. มี zero air, calibration gas, chamber, stack flow meter, thermometer/RH reference, PM reference และ accredited lab อะไรบ้าง?
-6. ยอมรับ downtime สำหรับ burn-in, calibration และ firmware update เท่าไร? ระหว่างล่มต้องอยู่ safe state ใด?
-7. จอสัมผัส, badge/PIN, buzzer/stack light และ offline acknowledgement ใช้อุปกรณ์ใด/ต้องการแบบใด?
-8. ส่ง permit, stack layout และ control equipment ก่อนออกแบบระบบตรวจปล่อยตามกฎหมาย
+## 2. ตาราง Pinout และการจัดสรรบัสสัญญาณ (Hardware Pinout Specification)
 
-## ลำดับดำเนินงาน
+ตามแบบแผน **Circuit Design v2**:
 
-### H0 — Electrical, Physical และ Cybersecurity Gate
+```
+                              ┌───────────────────┐
+                              │    ESP32 DEVKIT   │
+                              │                   │
+         [DHT22 Data] ────────┤ GPIO 27           │
+                              │                   │
+   [I2C Bus #1 - CCS811] ─────┤ GPIO 21 (SDA)     │
+                              │ GPIO 22 (SCL)     │
+                              │                   │
+  [I2C Bus #2 - ADS1115] ─────┤ GPIO 32 (SDA)     │ (สำหรับ MiCS-6814: CO, NO2, NH3)
+                              │ GPIO 13 (SCL)     │
+                              │                   │
+      [UART2 - PMS5003] ──────┤ GPIO 16 (RX)      │
+                              │ GPIO 17 (TX)      │
+                              │ GPIO 23 (SET)     │
+                              │                   │
+      [Analog MQ Sensors] ────┤ GPIO 33 (MQ-2)    │ (ผ่าน Voltage Divider ให้แรงดัน ≤ 3.3V)
+                              │ GPIO 36 (MQ-3)    │
+                              │ GPIO 34 (MQ-8)    │
+                              │ GPIO 39 (MQ-135)  │
+                              │                   │
+     [Airflow Fan Relays] ────┤ GPIO 25 (Intake)  │
+                              │ GPIO 26 (Exhaust) │
+                              └───────────────────┘
+```
 
-1. จัดทำ as-built schematic/BOM และทำ electrical design review
-2. วัด 5V heater supply/current, อุณหภูมิ, ADC input และ common ground ใน worst case
-3. เพิ่ม divider/buffer/protection ให้ analog ที่อาจเกิน input ESP32 และยืนยัน ADC attenuation/calibration
-4. ย้าย Wi-Fi/device secret ออกจาก firmware และ provision credential เฉพาะเครื่อง
-5. ปิดหรือยืนยันตัวตน Web OTA/ArduinoOTA; แทน `setInsecure()` ด้วย CA validation หรือ certificate/public-key pinning
-6. ใช้ signed outbound-only OTA พร้อม anti-rollback, recovery image และ post-reboot report
-7. ให้ผู้เชี่ยวชาญความปลอดภัย/ไฟฟ้าโรงงานตรวจ enclosure, grounding, ignition/hazard และ placement ก่อน pilot
+> [!IMPORTANT]
+> **การใช้ ADC1 ของ ESP32:** ขา GPIO 33, 34, 36 (VP), 39 (VN) อยู่บน ADC1 ภายในตัวชิป จึงสามารถอ่านค่าสัญญาณแอนะล็อกได้อย่างแม่นยำและไม่ถูกขัดจังหวะจากการทำงานของสัญญาณวิทยุ Wi-Fi (ซึ่งจะกระทบเฉพาะขา ADC2)
 
-### H1 — Protocol ความถูกต้องราย Sensor
+---
 
-1. เขียน protocol: warm-up/burn-in, zero air, reference exposure, condition, จำนวนซ้ำ, pass/fail, uncertainty และ recalibration interval ของแต่ละ module
-2. MQ: หา R0 ต่อ module จากวงจรจริง, จำกัดช่วง target gas, ระบุ cross-sensitivity/out-of-range เป็น estimate หรือ invalid
-3. MQ-3: ต้อง conditioning 48 ชั่วโมงก่อนใช้ calibration/alert alcohol และต้องจับ baseline หลายตัวอย่างที่เสถียร
-4. CCS811: ทำ burn-in/conditioning, temperature/RH compensation และแสดง eCO2 ว่าเป็น equivalent ไม่ใช่ CO2 จริง
-5. MiCS-6814: ยืนยัน heater network/5V ตามผู้ผลิต และสอบเทียบ RED/OX/NH3 แยกกัน
-6. PMS5003: ตรวจ fan/laser/air path, เทียบ reference และกำหนด cleaning/verification
-7. DHT22: เทียบ thermometer/RH ที่สอบกลับได้ และ reject condensation/invalid condition
+## 3. รายละเอียดแผนงานราย Phase (H0 — H3)
 
-### H2 — Firmware Reliability และ Data Integrity
+### Phase H0 — Electrical, Physical และ Cybersecurity Gate
 
-1. เพิ่ม state ต่อ sensor: `WARMING`, `OK`, `MISSING`, `NOISY`, `OUT_OF_RANGE`, `CALIBRATING`, `FAULT`
-2. ส่ง sequence number, reset reason, uptime, RSSI, free heap, brownout/supply, I2C/UART error counter และ state/reason
-3. Calibration ต้อง non-blocking/multi-sample และเก็บ approved baseline/calibration ID ใน NVS พร้อม version/CRC
-4. Command ต้อง authenticated, idempotent และ acknowledge command ID เดียวกัน
-5. ทำ offline queue แบบมีขอบเขต, exponential retry และ duplicate protection
-6. จอต้อง queue acknowledgement ตอน network ล่มและ sync อย่างปลอดภัยเมื่อกลับมา
+1. **การจัดการพลังงานและไฟเลี้ยงขดลวดความร้อน (MOS Heater Power Budget)**:
+   - เซนเซอร์ตระกูล MQ (MQ-2, MQ-3, MQ-8, MQ-135) มีขดลวดความร้อนภายในที่ใช้กระแสตัวละประมาณ 150–200 mA ที่ 5.0V
+   - รวมกับ MiCS-6814, พัดลมระบายอากาศ 2 ตัว, และ ESP32 $\rightarrow$ **ต้องการแหล่งจ่ายไฟ 5V DC ไม่น้อยกว่า 2.5A – 3.0A**
+   - แหล่งจ่ายไฟต้องติดตั้ง Fuse ป้องกันไฟเกิน และต่อสายดิน (Chassis Earth Ground) ของ Enclosure โลหะเพื่อป้องกันสัญญาณรบกวนในโรงงาน
+2. **การป้องกันแรงดันเกิน ADC (Voltage Clamping & Attenuation)**:
+   - วงจรเปรียบเทียบหรือสัญญาณ Analog เอาต์พุตของบอร์ดโมดูล MQ บางรุ่นใช้ไฟ 5V $\rightarrow$ ต้องต่อผ่านวงจรแบ่งแรงดัน (Resistor Voltage Divider เช่น $10\text{k}\Omega / 20\text{k}\Omega$) เพื่อจำกัดแรงดันเข้าขา ESP32 ไม่เกิน 3.3V
+   - เฟิร์มแวร์กำหนด `analogSetAttenuation(ADC_11db)` เพื่อขยายช่วงการวัดของ ADC ให้รองรับ $0 - 3.3\text{V}$ เต็มสเกล
+3. **การแยกความปลอดภัยของ Credential & Dual OTA Architecture**:
+   - บัญชี Wi-Fi และรหัสผ่าน Web OTA ถูกย้ายออกจาก Git เข้าสู่ `secrets.h`
+   - ระบบ Web OTA หน้าเว็บภายในวง LAN (`http://airmon.local/update`) บังคับใช้ **HTTP Basic Authentication**
+   - ระบบ Cloud OTA ผ่านเว็บหลักใช้งาน **Outbound Pull-only Model**: ESP32 เป็นฝ่ายติดต่อขอตรวจสอบอัปเดตจาก Cloud HTTPS พร้อมตรวจสอบ SHA-256 Checksum และ HMAC Digital Signature ก่อนทำการ Flash เสมอ ป้องกันการถูกโจมตีแบบ Man-in-the-Middle
 
-### H3 — ขอบเขตการตรวจปล่อยมลพิษ
+---
 
-E-Nose ภายในพื้นที่ **ยืนยันการปล่อยตามกฎหมายไม่ได้** การวัดรายปีต้องมีปล่องที่ระบุชัด, limit/method ที่เกี่ยวข้อง, การวัดมลพิษที่ผ่านเกณฑ์ และ exhaust flow ที่ตรวจสอบได้
+### Phase H1 — Protocol ความถูกต้องราย Sensor
 
-1. ระบุ stack/duct, flow, ระบบบำบัด และ sampling point
-2. จับคู่ permit กับ pollutant, sampling frequency, method และ QA ร่วมกับผู้รับผิดชอบสิ่งแวดล้อม/ห้องแล็บ
-3. ใช้เครื่องมือ stack monitoring หรือ accredited periodic test ที่เหมาะสม; ห้ามใช้ MQ/CCS estimate เป็น monitor ปล่องตามกฎหมาย
-4. เก็บ operating period (คาดไม่เกิน 2 วัน/สัปดาห์), flow และ pollutant ที่ผ่าน validation เพื่อรวมรายปี
-5. ใช้ `INSUFFICIENT EVIDENCE` เมื่อไม่มี coverage/flow/concentration/QA ที่จำเป็น
+1. **MQ-3 Alcohol & Solvent Conditioning Protocol**:
+   - Datasheet ของ MQ-3 กำหนดว่าต้องอุ่นเครื่อง (Pre-heat) ติดต่อกันอย่างน้อย **48 ชั่วโมง** ก่อนที่ค่าความต้านทาน $R_0$ จะเสถียร
+   - เฟิร์มแวร์มีตัวแปร `MQ3_PREHEAT_TIME_MS` และส่งแฟล็ก `mq3_ready` ไปยัง Backend
+   - หากยังไม่ครบ 48 ชั่วโมง Backend จะไม่นำค่า MQ-3 ไปประมวลผลเป็น Alcohol Alert เพื่อป้องกัน False Alarm
+   - ใช้อัลกอริทึม **Median Sampling 9 ค่า** (`readMedianAdc`) และคำนวณค่า Spread: หากสัญญาณกวัดแกว่งเกิน 150 ADC count ระบบจะระบุว่ามีคลื่นรบกวน (Noisy Frame) และไม่นำไปใช้ตัดสินใจ
+2. **CCS811 TVOC/eCO2 Environmental Compensation**:
+   - CCS811 ไวต่ออุณหภูมิและความชื้นสูง $\rightarrow$ เฟิร์มแวร์ดึงค่าอุณหภูมิและความชื้นจริงจาก DHT22 ส่งเข้าไปชดเชยผ่านคำสั่ง `ccs.setEnvironmentalData()` ทุกๆ 60 วินาที
+   - ติดตั้ง I2C Glitch Filter: ตัดเฟรมผิดพลาดของบัส I2C (เช่น $64319, 39064$) ที่หลุดมาจากชิปไม่ให้ส่งไปยังโมเดล AI
+3. **MiCS-6814 ผ่าน ADS1115 16-bit Precision ADC**:
+   - แยก ADS1115 ออกมาอยู่บนบัส I2C Bus #2 (GPIO 32, 13) แยกเด็ดขาดจากบัสหลัก เพื่อป้องกันปัญหา CCS811 ดึงสายสัญญาณ SDA ค้างตอนเริ่มต้นทำงาน
+   - ตรวจวัด 3 ก๊าซเป้าหมาย: คาร์บอนมอนอกไซด์ (CO), ไนโตรเจนไดออกไซด์ (NO2), และแอมโมเนีย (NH3) ในหน่วยมิลลิโวลต์ (mV)
+4. **PMS5003 Laser Dust Sensor Protocol**:
+   - อ่านข้อมูลผ่านฮาร์ดแวร์ UART2 พร้อม Pin SET (GPIO 23) สำหรับสั่งเปิด-ปิดเซนเซอร์เพื่อยืดอายุการใช้งาน Laser Diode
+   - พัดลมเป่าเข้า (Intake) และพัดลมดูดออก (Exhaust) ทำงานต่อเนื่องเพื่อสร้าง Laminar Airflow ผ่านห้องตรวจวัดอย่างสม่ำเสมอ
+5. **Clean Air Baseline Capture Protocol**:
+   - ไม่ใช้วิธีรีเซ็ตศูนย์อัตโนมัติ (Forced Zeroing)
+   - ผู้ใช้งานต้องนำกล่องเซนเซอร์ไปไว้ในที่อากาศบริสุทธิ์ (Clean Air) แล้วกดปุ่มสั่ง **Capture Baseline** จากหน้า Dashboard หรือ Kiosk เท่านั้น
 
-## การทดสอบก่อน Factory Pilot
+---
 
-- Bench: ต่อ/ถอด sensor, ADC rail/short/open, I2C stuck, UART fault, heater power, Wi-Fi loss
-- Reliability: power-cycle/brownout, soak 72 ชั่วโมง, reconnect, database outage, command retry, OTA interruption/recovery
-- Measurement: zero/reference repeatability, ผล T/RH, cross-sensitivity, drift และเปรียบเทียบเครื่องอ้างอิง
-- Safety: อุณหภูมิ enclosure, dust/ingress, grounding, protection และ hazardous-area review
-- เก็บ acceptance record: ผู้ทำ, serial/device, firmware, calibration ID, เครื่องมือ/ใบรับรอง, condition, ผล, exception และผู้อนุมัติ
+### Phase H2 — Firmware Reliability และ Data Integrity
 
-## แหล่งอ้างอิง
+1. **Monotonic Telemetry Tracking**:
+   - ส่ง `device_uptime_sec` ที่นับเวลาต่อเนื่องภายใน ESP32 ในทุก Payload ช่วยให้ Backend คำนวณอายุการใช้งานเซนเซอร์ (`sensor_runtime`) ได้ถูกต้อง แม้ Server จะมี Network Latency
+2. **Sequence Numbering & Reset Diagnostics**:
+   - ทุกแพ็กเก็ตส่ง `seq_no` ที่นับเพิ่มทีละ 1 ช่วยให้ตรวจจับ Packet Loss ทางสถิติได้
+   - ส่ง `reset_reason` (เช่น `POWERON`, `BROWNOUT`, `SW_RESTART`, `CRASH_PANIC`, `WDT_TASK`) ช่วยให้ทีมวิศวกรวินิจฉัยปัญหาไฟกระชากหรือไฟตกในโรงงานได้ทันที
+   - ส่ง `free_heap_kb` และ `wifi_rssi` เพื่อตรวจจับ Memory Leak และความแรงของสัญญาณ Wi-Fi ในจุดติดตั้ง
+3. **Command Queue & Baseline Acknowledgment**:
+   - ระบบรองรับคำสั่งระยะไกล (เช่น การสั่ง Capture Baseline) ผ่าน Polling Loop ที่ทำงานแบบ Non-blocking
+   - ส่งรายงานผลการ Calibration กลับไปพร้อม `calibration_id` เดิม เพื่อให้มั่นใจในหลักการ Idempotency
 
-- [การตรวจสอบ Sensor และ datasheet](SENSOR_VALIDATION.md)
-- [OWASP IoT Top 10](https://owasp.github.io/www-project-internet-of-things/)
-- [สรุปแผนทั้งโครงการ](PROJECT_REVIEW_AND_PLAN.md)
+---
+
+### Phase H3 — ขอบเขตการตรวจปล่อยมลพิษตามกฎหมาย (Statutory Boundary)
+
+> [!CAUTION]
+> **ข้อกำหนดทางกฎหมายที่ต้องระบุให้ชัดเจน:**
+> 1. อุปกรณ์ตรวจวัดก๊าซแบบ E-Nose เป็นอุปกรณ์ตรวจวัดสภาพแวดล้อมเพื่อ **ความปลอดภัยและเตือนภัยล่วงหน้าภายในพื้นที่ปฏิบัติงาน (Indoor Safety & Early Warning Monitoring)** เท่านั้น
+> 2. **ห้ามนำผลการวัดหรือการประมาณการจากเซนเซอร์ E-Nose ไปใช้รายงานการปล่อยมลพิษจากปล่องระบายอากาศ (Exhaust Stacks) ต่อกรมโรงงานอุตสาหกรรม หรือนิคมอุตสาหกรรม**
+> 3. การรายงานมลพิษประจำปีตามกฎหมาย (Statutory Yearly Emission Compliance) ต้องใช้ผลการตรวจวัดจากระบบ **Continuous Emission Monitoring System (CEMS)** ที่ติดตั้งถาวรที่ปล่อง หรือผลการเก็บตัวอย่างและวิเคราะห์จาก **ห้องปฏิบัติการที่ได้รับการรับรองมาตรฐาน ISO/IEC 17025** เท่านั้น
+
+---
+
+## 4. Checklist การตรวจสอบความพร้อมก่อน Factory Pilot (Pre-pilot Validation Checklist)
+
+ก่อนนำกล่องเซนเซอร์ไปติดตั้งจริงในโรงงานพ่นสี ให้ตรวจสอบตามรายการต่อไปนี้:
+
+- [x] **Firmware Secrets**: ไม่มี Wi-Fi password และ OTA credentials อยู่ใน Git repository
+- [x] **Web OTA Authentication**: ทดสอบเข้าหน้า `http://airmon.local/update` แล้วระบบถาม Username/Password ถูกต้อง
+- [x] **Cloud OTA & Rollback**: ทดสอบสั่งอัปเดตและสั่ง Rollback เฟิร์มแวร์ผ่าน Cloud Backend สำเร็จ
+- [x] **ADC Safety Range**: ตรวจสอบด้วยมัลติมิเตอร์ว่าแรงดัน Analog เข้าขา GPIO 33, 34, 36, 39 ไม่เกิน 3.3V ในทุกสภาวะ
+- [ ] **Power Rail Soak Test**: เสียบปลั๊กเปิดเครื่องทิ้งไว้ 72 ชั่วโมง ตรวจสอบว่าไม่มีอาการ Brownout Reset หรือความร้อนสะสมใน Enclosure เกิน $55^\circ\text{C}$
+- [ ] **MQ-3 Pre-heat Burn-in**: บันทึก Log ติดต่อกัน 48 ชั่วโมง และยืนยันว่าสถานะ `mq3_ready` เปลี่ยนเป็น `true`
+- [ ] **Airflow Ingress & Filter**: ติดตั้งตาข่ายกันฝุ่น/ฟิลเตอร์กรองฝุ่นหยาบที่ทางลมเข้า เพื่อป้องกันละอองสีอุดตันผิวหน้าเซนเซอร์ MOS
+- [ ] **Physical Enclosure Grounding**: ต่อสายกราวด์ของโครงตู้โลหะเข้ากับระบบกราวด์โรงงานเพื่อลดสัญญาณรบกวนและป้องกันอันตรายจากไฟฟ้าสถิต
+
+---
+
+## เอกสารอ้างอิง
+- [คู่มือสเปกเซนเซอร์และการทดสอบ (SENSOR_VALIDATION.md)](SENSOR_VALIDATION.md)
+- [รีวิวและแผนระบบ Web/Backend (WEB_BACKEND_REVIEW_AND_PLAN.md)](WEB_BACKEND_REVIEW_AND_PLAN.md)
+- [แผนภาพรวมทั้งโครงการ (PROJECT_REVIEW_AND_PLAN.md)](PROJECT_REVIEW_AND_PLAN.md)

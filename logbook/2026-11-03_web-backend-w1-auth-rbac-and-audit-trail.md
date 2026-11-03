@@ -211,5 +211,41 @@
 ### สถานะ (Status)
 - **เสร็จสมบูรณ์ 100% (Completed)**
 
+---
+
+## รายการบันทึกต่อเนื่อง: เวลา 14:58 น. ICT — Hardware/Firmware Review & ESP32 Security/Telemetry Hardening
+
+### สิ่งที่เปลี่ยนแปลง (Changes)
+1. **ทบทวนและจัดทำเอกสารแผนงานฮาร์ดแวร์ (`HARDWARE_FIRMWARE_REVIEW_AND_PLAN.md`)**:
+   - ปรับปรุงโครงสร้างเอกสารใหม่ตามมาตรฐานสถาปัตยกรรม Circuit Design v2
+   - จัดทำ Implementation Status Matrix (H0–H3) แสดงรายการงานที่ทำเสร็จแล้วเทียบกับที่ต้องทดสอบ
+   - กำหนดตาราง Pinout และ Bus allocation ชัดเจน (I2C Bus #1 CCS811, I2C Bus #2 ADS1115 สำหรับ MiCS-6814, UART2 PMS5003, ADC1 MQs, GPIO Fans)
+   - บันทึกขอบเขตทางกฎหมายอย่างชัดเจน: E-Nose เป็นระบบตรวจวัดความปลอดภัยภายในอาคาร (Indoor Early Warning) ห้ามนำไปใช้อ้างอิงการตรวจปล่อยปล่องระบายมลพิษ (Exhaust Stacks) แทนระบบ CEMS หรือผลแล็บ ISO 17025
+   - จัดทำ Pre-pilot Validation Checklist สำหรับตรวจสอบความพร้อมก่อนติดตั้งในโรงงานจริง
+2. **ยกระดับความปลอดภัยและ Telemetry ของเฟิร์มแวร์ ESP32 (`firmware/voc_esp32/voc_esp32.ino`)**:
+   - **Web OTA Security Hardening**: เพิ่ม HTTP Basic Authentication (`server.authenticate`) ในหน้า `/update` ทั้งโหมดแสดงผล (GET) และรับไฟล์แฟลช (POST) ป้องกันไม่ให้บุคคลภายนอกในวง LAN แอบอัปโหลดเฟิร์มแวร์ที่ไม่ได้รับอนุญาต
+   - **ADC 12-bit & Attenuation Calibration**: ระบุคำสั่ง `analogReadResolution(12)` และ `analogSetAttenuation(ADC_11db)` ในฟังก์ชัน `setup()` อย่างชัดเจน เพื่อให้ช่วงการวัดสัญญาณ Analog 0–3.3V เต็มสเกลและแม่นยำ
+   - **Telemetry Diagnostics Expansion**:
+     - เพิ่มตัวนับลำดับแพ็กเก็ต `seq_no` ใน Payload เพื่อให้ Backend ตรวจจับ Packet Loss ได้
+     - เพิ่ม `reset_reason` (ตรวจจับ Power-on, Brownout, Crash Panic, Watchdog reset)
+     - เพิ่ม `free_heap_kb` และ `wifi_rssi` เพื่อวิเคราะห์สุขภาพหน่วยความจำและสัญญาณเชื่อมต่อ
+   - **Credential Fallback Protection**: ปรับการเรียกใช้ `secrets.h` ด้วย `#if __has_include("secrets.h")` พร้อม Fallback ไปยัง `secrets.example.h` และระบุค่า Default Credentials
+3. **Backend Ingest Compatibility (`backend/main.py`)**:
+   - อัปเดต `IngestPayload` Pydantic model ใน `main.py` ให้รองรับ `seq_no`, `wifi_rssi`, `free_heap_kb`, และ `reset_reason`
+
+### เหตุผล (Rationale)
+- เพื่อให้สอดคล้องกับข้อกำหนด Phase H0 (Hardware & Cyber Security Gate) และ H2 (Firmware Reliability & Data Integrity)
+- ป้องกันการเข้าถึงหน้า Flash เฟิร์มแวร์ผ่าน LAN โดยมิได้รับอนุญาต และเพิ่มความสามารถในการวิเคราะห์ปัญหาระบบไฟฟ้าโรงงานจากระยะไกลผ่าน Telemetry Diagnostics
+
+### การตรวจสอบและทดสอบ (Verification)
+1. **Compilation Check**:
+   - `python3 -m py_compile main.py line_adapter.py` ผ่านสมบูรณ์ (Zero errors)
+2. **Frontend Production Build**:
+   - `npm --prefix vocs-website/frontend run build` ผ่านสมบูรณ์ (Vite built in 377ms)
+
+### สถานะ (Status)
+- **เสร็จสมบูรณ์ (Completed)**
+
+
 
 

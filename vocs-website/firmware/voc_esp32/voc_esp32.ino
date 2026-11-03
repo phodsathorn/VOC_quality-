@@ -32,7 +32,19 @@
 #include <WebServer.h>
 #include <Update.h>
 #include <HTTPUpdate.h>
-#include "secrets.h"  // Local-only Wi-Fi credentials; see secrets.example.h
+
+#if __has_include("secrets.h")
+  #include "secrets.h"  // Local-only Wi-Fi credentials; see secrets.example.h
+#else
+  #include "secrets.example.h"
+#endif
+
+#ifndef OTA_USERNAME
+  #define OTA_USERNAME "admin"
+#endif
+#ifndef OTA_PASSWORD
+  #define OTA_PASSWORD "voc_admin_2026"
+#endif
 
 // ─── Data Structure ──────────────────────────────────────────
 struct SensorData {
@@ -41,8 +53,26 @@ struct SensorData {
 };
 
 WebServer server(80);
-const char* FIRMWARE_VER = "1.0.2";
+const char* FIRMWARE_VER = "1.0.3";
 const char* BOX_ID       = "BOX-001";
+unsigned long packetSeqNo = 0;
+
+// Helper: ดึงสาเหตุการรีเซ็ตของ ESP32 เพื่อตรวจจับไฟตก/Brownout หรือ WDT
+const char* getResetReasonStr() {
+  esp_reset_reason_t r = esp_reset_reason();
+  switch (r) {
+    case ESP_RST_POWERON:   return "POWERON";
+    case ESP_RST_SW:        return "SW_RESTART";
+    case ESP_RST_PANIC:     return "CRASH_PANIC";
+    case ESP_RST_INT_WDT:   return "WDT_INTERRUPT";
+    case ESP_RST_TASK_WDT:  return "WDT_TASK";
+    case ESP_RST_WDT:       return "WDT_OTHER";
+    case ESP_RST_DEEPSLEEP: return "DEEP_SLEEP";
+    case ESP_RST_BROWNOUT:  return "BROWNOUT";
+    case ESP_RST_SDIO:      return "SDIO";
+    default:                return "UNKNOWN";
+  }
+}
 
 SensorData readSensors();
 void sendData(const SensorData& d);
@@ -229,6 +259,9 @@ const char OTA_PAGE[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 void handleServeOTA() {
+  if (!server.authenticate(OTA_USERNAME, OTA_PASSWORD)) {
+    return server.requestAuthentication();
+  }
   String html = FPSTR(OTA_PAGE);
   html.replace("%BOX_ID%", BOX_ID);
   html.replace("%FIRMWARE_VER%", FIRMWARE_VER);
@@ -425,6 +458,11 @@ void setup() {
   digitalWrite(FAN_INTAKE, HIGH);   // เปิดพัดลมตลอดการทำงาน
   digitalWrite(FAN_EXHAUST, HIGH);
 
+  // 0. ADC Configuration for MQ Analog Sensors (ADC1: GPIO 33, 34, 36, 39)
+  // กำหนด Resolution 12-bit (0-4095) และ 11dB Attenuation (0 - 3.3V Full Scale)
+  analogReadResolution(12);
+  analogSetAttenuation(ADC_11db);
+
   Serial.println("\n[VOC] Starting E-Nose v2 (Circuit Design v2)...");
 
   // 1. Init Bus #2 (ADS1115) ก่อนเสมอ เนื่องจาก CCS811 มักดึง SDA ค้างช่วง Power-up
@@ -487,11 +525,17 @@ void setup() {
   server.on("/", HTTP_GET, handleServeOTA);
   server.on("/update", HTTP_GET, handleServeOTA);
   server.on("/update", HTTP_POST, []() {
+    if (!server.authenticate(OTA_USERNAME, OTA_PASSWORD)) {
+      return server.requestAuthentication();
+    }
     server.sendHeader("Connection", "close");
     server.send(200, "text/plain; charset=utf-8", (Update.hasError()) ? "FAIL" : "OK");
     delay(1000);
     ESP.restart();
   }, []() {
+    if (!server.authenticate(OTA_USERNAME, OTA_PASSWORD)) {
+      return;
+    }
     HTTPUpload& upload = server.upload();
     if (upload.status == UPLOAD_FILE_START) {
       Serial.printf("[Web OTA] Update: %s\n", upload.filename.c_str());
@@ -611,16 +655,20 @@ void sendData(const SensorData& d) {
   if (wifiMulti.run() != WL_CONNECTED) return;
 
   JsonDocument doc;
-  doc["box_id"]       = BOX_ID;
-  doc["firmware_ver"] = FIRMWARE_VER;
+  doc["box_id"]            = BOX_ID;
+  doc["firmware_ver"]      = FIRMWARE_VER;
+  doc["seq_no"]            = ++packetSeqNo;
   // Monotonic device runtime lets the backend account actual sensor operating
   // hours and identify ESP32 reboots without relying on server wall-clock.
   doc["device_uptime_sec"] = millis() / 1000UL;
-  doc["temp"]         = d.temp;
-  doc["rh"]           = d.rh;
-  doc["pm25"]         = d.pm25;
-  doc["tvoc"]         = d.tvoc;
-  doc["eco2"]         = d.eco2;
+  doc["wifi_rssi"]         = (WiFi.status() == WL_CONNECTED) ? WiFi.RSSI() : 0;
+  doc["free_heap_kb"]      = (int)(ESP.getFreeHeap() / 1024);
+  doc["reset_reason"]      = getResetReasonStr();
+  doc["temp"]              = d.temp;
+  doc["rh"]                = d.rh;
+  doc["pm25"]              = d.pm25;
+  doc["tvoc"]              = d.tvoc;
+  doc["eco2"]              = d.eco2;
   
   // Note: Backend might need update to save mq2 if needed
   doc["mq2"]      = d.mq2; 

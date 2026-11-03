@@ -2847,6 +2847,10 @@ class IngestPayload(BaseModel):
     box_id: str
     firmware_ver: Optional[str] = None
     device_uptime_sec: Optional[int] = None
+    seq_no: Optional[int] = None
+    wifi_rssi: Optional[int] = None
+    free_heap_kb: Optional[int] = None
+    reset_reason: Optional[str] = None
     temp: Optional[float] = None
     rh: Optional[float] = None
     pm25: Optional[float] = None
