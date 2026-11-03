@@ -207,6 +207,34 @@
    - ทดสอบรัน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ภายใน 175ms
    - Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`) เพื่อให้ Vercel Deploy อัตโนมัติ
 
+## อัปเดตเวลา 23:58 ICT (ปรับหน้า Maintenance ให้ตรงกับดีไซน์ต้นฉบับ Stitch 1:1 ทั้ง Main Page และ Sub-State Drawer)
+### ปัญหาที่พบ
+- การ์ด 3 ใบด้านบนใช้ตัวพิมพ์ใหญ่ทั้งหมด (`HEPA FILTER`, `CARBON FILTER`, `UV LAMP`) แทนที่จะเป็นตัวพิมพ์ผสมตามต้นฉบับ (`HEPA filter`, `Carbon filter`, `UV lamp`)
+- ปุ่ม `+ Add log` เดิมใช้สีน้ำเงินเข้ม `#004ac6` แทนที่จะเป็นสีฟ้า Primary-Container `#2563eb`
+- ตารางในหน้า Maintenance ขาดคอลัมน์ `Serial No.` และ `Certificate (PDF)` ตามที่ออกแบบไว้ใน `sub_states/maintenance/maintenance_table_columns_add_log_drawer`
+- ลิ้นชัก `Add Maintenance Log Drawer` เดิมไม่ได้มี 4 ฟิลด์และดีไซน์ตรงกับโค้ดต้นฉบับของ Stitch
+
+### สิ่งที่แก้ไขใน `vocs-website/frontend/src/pages/Maintenance.jsx`
+1. **การ์ดอายุการใช้งานไส้กรอง 3 ใบ:**
+   - ปรับหัวข้อเป็นการผสมคำ: `HEPA filter` (78%), `Carbon filter` (42%), `UV lamp` (65%)
+   - หลอดความคืบหน้าใช้พื้นหลัง `#e2e7ff` และแถบน้ำเงิน `#004ac6` พร้อมปุ่ม `View details →`
+2. **ปุ่ม Add Log & Drawer 440px:**
+   - ปรับปุ่มหัวหน้าเป็น `+ Add log` สี `#2563eb` ขอบมน 16px (`rounded-2xl`)
+   - ลิ้นชักฝั่งขวา (440px) ประกอบด้วย 4 ฟิลด์เป๊ะตามต้นฉบับ:
+     - ฟิลด์ 1 (Type): `Sensor Calibration`, `Filter Replacement`, `UV Lamp Inspection`, `Zero-Point Drift Check`
+     - ฟิลด์ 2 (Date): Input ชนิด date ค่าเริ่มต้น `2025-10-24`
+     - ฟิลด์ 3 (Technician): Input ชนิด text ค่าเริ่มต้น `E. Mitchell`
+     - ฟิลด์ 4 (Note): Textarea บรรทัด 4 แถวพร้อม Placeholder
+     - ปุ่มบันทึกเดี่ยว: ปุ่มเต็มความกว้าง `Save` สี `#2563eb`
+3. **ตารางตารางประวัติการสอบเทียบ:**
+   - ติดตั้งสลับโหมดตาราง `Standard (4 Cols)` vs `Extended (6 Cols)`
+   - ในโหมด 6 คอลัมน์ มีคอลัมน์ `Serial No.` (เช่น `SN-9402-VOC`) และปุ่มดาวน์โหลด `Certificate` (ปุ่ม PDF พร้อมไอคอน) ตรงตาม `sub_states/maintenance/maintenance_table_columns_add_log_drawer/screen.png` 100%
+
+### การตรวจสอบ
+- คอมไพล์ผ่าน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ใน 237ms
+- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+
+
 
 
 
@@ -266,6 +294,34 @@
 3. **การตรวจสอบ:**
    - ทดสอบรัน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ภายใน 175ms
    - Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`) เพื่อให้ Vercel Deploy อัตโนมัติ
+
+## อัปเดตเวลา 23:58 ICT (ปรับหน้า Maintenance ให้ตรงกับดีไซน์ต้นฉบับ Stitch 1:1 ทั้ง Main Page และ Sub-State Drawer)
+### ปัญหาที่พบ
+- การ์ด 3 ใบด้านบนใช้ตัวพิมพ์ใหญ่ทั้งหมด (`HEPA FILTER`, `CARBON FILTER`, `UV LAMP`) แทนที่จะเป็นตัวพิมพ์ผสมตามต้นฉบับ (`HEPA filter`, `Carbon filter`, `UV lamp`)
+- ปุ่ม `+ Add log` เดิมใช้สีน้ำเงินเข้ม `#004ac6` แทนที่จะเป็นสีฟ้า Primary-Container `#2563eb`
+- ตารางในหน้า Maintenance ขาดคอลัมน์ `Serial No.` และ `Certificate (PDF)` ตามที่ออกแบบไว้ใน `sub_states/maintenance/maintenance_table_columns_add_log_drawer`
+- ลิ้นชัก `Add Maintenance Log Drawer` เดิมไม่ได้มี 4 ฟิลด์และดีไซน์ตรงกับโค้ดต้นฉบับของ Stitch
+
+### สิ่งที่แก้ไขใน `vocs-website/frontend/src/pages/Maintenance.jsx`
+1. **การ์ดอายุการใช้งานไส้กรอง 3 ใบ:**
+   - ปรับหัวข้อเป็นการผสมคำ: `HEPA filter` (78%), `Carbon filter` (42%), `UV lamp` (65%)
+   - หลอดความคืบหน้าใช้พื้นหลัง `#e2e7ff` และแถบน้ำเงิน `#004ac6` พร้อมปุ่ม `View details →`
+2. **ปุ่ม Add Log & Drawer 440px:**
+   - ปรับปุ่มหัวหน้าเป็น `+ Add log` สี `#2563eb` ขอบมน 16px (`rounded-2xl`)
+   - ลิ้นชักฝั่งขวา (440px) ประกอบด้วย 4 ฟิลด์เป๊ะตามต้นฉบับ:
+     - ฟิลด์ 1 (Type): `Sensor Calibration`, `Filter Replacement`, `UV Lamp Inspection`, `Zero-Point Drift Check`
+     - ฟิลด์ 2 (Date): Input ชนิด date ค่าเริ่มต้น `2025-10-24`
+     - ฟิลด์ 3 (Technician): Input ชนิด text ค่าเริ่มต้น `E. Mitchell`
+     - ฟิลด์ 4 (Note): Textarea บรรทัด 4 แถวพร้อม Placeholder
+     - ปุ่มบันทึกเดี่ยว: ปุ่มเต็มความกว้าง `Save` สี `#2563eb`
+3. **ตารางตารางประวัติการสอบเทียบ:**
+   - ติดตั้งสลับโหมดตาราง `Standard (4 Cols)` vs `Extended (6 Cols)`
+   - ในโหมด 6 คอลัมน์ มีคอลัมน์ `Serial No.` (เช่น `SN-9402-VOC`) และปุ่มดาวน์โหลด `Certificate` (ปุ่ม PDF พร้อมไอคอน) ตรงตาม `sub_states/maintenance/maintenance_table_columns_add_log_drawer/screen.png` 100%
+
+### การตรวจสอบ
+- คอมไพล์ผ่าน `npm --prefix vocs-website/frontend run build` สำเร็จ 100% ใน 237ms
+- Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`)
+
 
 
 
