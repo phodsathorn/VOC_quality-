@@ -443,6 +443,39 @@ void pollDeviceCommand() {
   http.end();
 }
 
+#if defined(NU_USERNAME) && defined(NU_PASSWORD)
+// ─── NU Captive Portal Auto-Login (login6.nu.ac.th) ───────────
+void performNuWebLogin() {
+  Serial.println("\n[NU Net] Sending Captive Portal Auto-Login to login6.nu.ac.th...");
+  WiFiClient client;
+  HTTPClient http;
+
+  const char* endpoints[] = {
+    "http://login6.nu.ac.th/login",
+    "http://login6.nu.ac.th:1000/login",
+    "http://10.0.0.1/login"
+  };
+
+  String postPayload = "username=" + String(NU_USERNAME) + 
+                       "&password=" + String(NU_PASSWORD) + 
+                       "&magic=1&4Tredir=";
+
+  for (const char* url : endpoints) {
+    if (http.begin(client, url)) {
+      http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+      http.setTimeout(4000);
+      int code = http.POST(postPayload);
+      Serial.printf("[NU Net] POST %s -> HTTP %d\n", url, code);
+      http.end();
+      if (code == 200 || code == 302) {
+        Serial.println("[NU Net] Auto-login request dispatched successfully!");
+        break;
+      }
+    }
+  }
+}
+#endif
+
 // ─── Setup ───────────────────────────────────────────────────
 void setup() {
   Serial.begin(115200);
@@ -503,6 +536,11 @@ void setup() {
   // Credentials are provisioned locally and must never be committed to Git.
   wifiMulti.addAP(WIFI_SSID_1, WIFI_PASS_1);
   wifiMulti.addAP(WIFI_SSID_2, WIFI_PASS_2);
+  // เพิ่มชื่อ SSID ที่พบบ่อยของมหาวิทยาลัยนเรศวรแบบ Open
+  wifiMulti.addAP("@NU-WiFi", "");
+  wifiMulti.addAP("NU-WiFi", "");
+  wifiMulti.addAP("@NU-Web", "");
+  wifiMulti.addAP("NU_NET", "");
 
   Serial.println("[WiFi] Connecting using provisioned networks...");
   int wifiRetry = 0;
@@ -513,6 +551,9 @@ void setup() {
   }
   if (WiFi.status() == WL_CONNECTED) {
     Serial.printf("\n[WiFi] Connected to: %s | IP: %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+#if defined(NU_USERNAME) && defined(NU_PASSWORD)
+    performNuWebLogin();
+#endif
     reportOtaStatus("SUCCESS", 0, "Online and running");
   } else {
     Serial.println("\n[WiFi] Waiting for network connection in background...");

@@ -40,5 +40,6 @@ postgres_data/
 # Runtime data (may contain operational or sensitive information)
 data/runtime-logs/
 
-# Local credentials for experimental firmware
-experimental/firmware-tests/**/secrets.h
+# Local credentials (must NEVER be committed to Git)
+**/secrets.h
+secrets.h
