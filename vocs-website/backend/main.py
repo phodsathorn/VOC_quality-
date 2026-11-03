@@ -24,10 +24,12 @@ from line_adapter import (
 # ==================================================================
 # Phase W1: Authentication, RBAC & Security Policy Configuration
 # ==================================================================
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "voc_jwt_dev_secret_key_2026_replace_in_prod")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
-DEFAULT_DEVICE_TOKEN = os.getenv("DEFAULT_DEVICE_TOKEN", "esp32_voc_box001_token_2026")
+DEFAULT_DEVICE_TOKEN = os.getenv("DEFAULT_DEVICE_TOKEN", "")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+IS_PRODUCTION = ENVIRONMENT == "production"
 
 # In-memory store fallback for development mode when PostgreSQL is offline
 _in_memory_users = {
@@ -532,12 +534,16 @@ async def _init_db_tables():
                 );
                 CREATE INDEX IF NOT EXISTS idx_mwo_box_time ON maintenance_work_orders (box_id, completed_at DESC);
 
-                -- Phase W3: 5-Year Retention Downsampling, Provenance & Export Audit
+                -- Phase W3 & H2: 5-Year Retention Downsampling, Provenance, Diagnostics & Export Audit
                 ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS is_valid BOOLEAN DEFAULT TRUE;
                 ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS validation_reason VARCHAR(100) DEFAULT 'PASS';
                 ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS calibration_id VARCHAR(50);
                 ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS firmware_ver VARCHAR(20) DEFAULT '1.0.0';
                 ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS model_ver VARCHAR(20) DEFAULT 'v2.1';
+                ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS seq_no BIGINT;
+                ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS wifi_rssi INTEGER;
+                ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS free_heap_kb INTEGER;
+                ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS reset_reason VARCHAR(60);
 
                 CREATE TABLE IF NOT EXISTS sensor_readings_hourly (
                     id            BIGSERIAL PRIMARY KEY,
@@ -687,6 +693,21 @@ async def log_activity(category: str, action: str, status: str = "INFO", detail:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if IS_PRODUCTION:
+        required = ("JWT_SECRET_KEY", "ADMIN_API_KEY", "OTA_SIGNING_KEY", "DEFAULT_DEVICE_TOKEN")
+        missing = [name for name in required if not os.getenv(name)]
+        if missing:
+            raise RuntimeError(f"CRITICAL: Production configuration missing environment variables: {', '.join(missing)}")
+        insecure_defaults = {
+            "JWT_SECRET_KEY": {"voc-secret-key-change-in-production", "secret", "change-me", "default"},
+            "OTA_SIGNING_KEY": {"voc_ota_root_signing_key_2026", "secret", "change-me"},
+            "ADMIN_API_KEY": {"voc_admin_secret_key_2026", "secret", "change-me"},
+            "DEFAULT_DEVICE_TOKEN": {"voc-device-box001-secret-token", "secret", "change-me"},
+        }
+        for key, bad_vals in insecure_defaults.items():
+            val = os.getenv(key, "").strip()
+            if val in bad_vals:
+                raise RuntimeError(f"CRITICAL: {key} is configured with an insecure default value in production.")
     await connect_db()
     await _init_db_tables()
     load_model()  # โหลด AI Model ตอนเริ่มต้น
@@ -740,8 +761,10 @@ async def security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=()"
+    response.headers["Content-Security-Policy"] = "frame-ancestors 'none'; object-src 'none'; base-uri 'none'"
     return response
 
 
@@ -838,13 +861,24 @@ async def get_current_user_optional(
         role = payload.get("role")
         if not user_id or not username or not role:
             return None
-        return {
+        user = {
             "id": int(user_id),
             "username": username,
             "role": role,
             "full_name": payload.get("full_name", username),
             "site": payload.get("site", "Main Plant"),
         }
+        pool = await get_pool()
+        if pool:
+            row = await pool.fetchrow(
+                "SELECT is_active, role, site, assigned_boxes FROM users WHERE id = $1", user["id"]
+            )
+            if not row or not row["is_active"]:
+                return None
+            user["role"] = row["role"]
+            user["site"] = row["site"]
+            user["assigned_boxes"] = list(row["assigned_boxes"] or [])
+        return user
     except Exception:
         return None
 
@@ -876,6 +910,14 @@ def require_roles(*allowed_roles: str):
     return role_checker
 
 
+def require_box_access(user: dict, box_id: str) -> None:
+    """Admin is global; all other users need an explicit box assignment."""
+    if user["role"] == "admin":
+        return
+    if box_id not in (user.get("assigned_boxes") or []):
+        raise HTTPException(status_code=403, detail="Forbidden: user is not assigned to this box.")
+
+
 async def _verify_device_auth(box_id: str, device_token: Optional[str], pool) -> bool:
     """ตรวจสอบความถูกต้องของ Device Token สำหรับ ESP32 Ingest"""
     if not device_token:
@@ -899,7 +941,6 @@ async def _verify_device_auth(box_id: str, device_token: Optional[str], pool) ->
 # ADMIN AUTHENTICATION GUARD (Phase W0 + W1 Integrated)
 # ------------------------------------------------------------------
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
 
 async def verify_admin_key(
     request: Request,
@@ -926,7 +967,7 @@ async def verify_admin_key(
     if jwt_user and jwt_user.get("role") == "admin":
         return True
 
-    if ADMIN_API_KEY or ENVIRONMENT == "production":
+    if ADMIN_API_KEY or IS_PRODUCTION:
         raise HTTPException(
             status_code=401,
             detail="Unauthorized: Admin privileges or valid Admin API Key required."
@@ -1472,6 +1513,15 @@ OTA_DIR.mkdir(parents=True, exist_ok=True)
 OTA_BIN_PATH = OTA_DIR / "latest.bin"
 OTA_META_PATH = OTA_DIR / "meta.json"
 
+def _get_ota_signing_key() -> bytes:
+    key = os.getenv("OTA_SIGNING_KEY", "").strip()
+    if not key:
+        if IS_PRODUCTION:
+            raise HTTPException(status_code=500, detail="CRITICAL: OTA_SIGNING_KEY is not configured in production.")
+        key = "voc_ota_root_signing_key_2026"
+    return key.encode()
+
+
 def _load_ota_meta():
     if OTA_META_PATH.exists():
         try:
@@ -1513,7 +1563,7 @@ async def upload_ota_firmware(
 
     # Phase W4: Cryptographic SHA256 & HMAC-SHA256 Signature
     sha256_checksum = hashlib.sha256(content).hexdigest()
-    ota_signing_key = os.getenv("OTA_SIGNING_KEY", "voc_ota_root_signing_key_2026").encode()
+    ota_signing_key = _get_ota_signing_key()
     signature_ecdsa = hmac.new(ota_signing_key, content, hashlib.sha256).hexdigest()
 
     meta = {
@@ -1580,7 +1630,7 @@ async def rollback_ota(
         download_url = download_url.replace("http://", "https://")
 
     sha256_checksum = hashlib.sha256(content).hexdigest()
-    ota_signing_key = os.getenv("OTA_SIGNING_KEY", "voc_ota_root_signing_key_2026").encode()
+    ota_signing_key = _get_ota_signing_key()
     signature_ecdsa = hmac.new(ota_signing_key, content, hashlib.sha256).hexdigest()
 
     meta = {
@@ -1684,8 +1734,32 @@ async def get_ota_status(request: Request):
         return meta
     return {"available": False, "version": None, "url": ""}
 
+async def _verify_ota_client_auth(
+    request: Request,
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+    x_device_token: Optional[str] = Header(None, alias="X-Device-Token")
+):
+    """
+    ตรวจสอบสิทธิ์การเข้าถึงไฟล์และ API OTA:
+    ต้องเป็น Device Token ที่ถูกต้อง หรือ User JWT (Admin/Engineer)
+    """
+    pool = await get_pool()
+    if x_device_token:
+        if await _verify_device_auth("BOX-001", x_device_token, pool):
+            return {"type": "device"}
+    user = await get_current_user_optional(request, authorization)
+    if user and user.get("role") in ("admin", "engineer"):
+        return {"type": "user", "user": user}
+    raise HTTPException(
+        status_code=401,
+        detail="Unauthorized: Valid X-Device-Token or Admin/Engineer JWT Bearer token required for OTA access."
+    )
+
+
 @app.get("/api/ota/download")
-async def download_ota_firmware():
+async def download_ota_firmware(
+    _client_auth: dict = Depends(_verify_ota_client_auth)
+):
     """ESP32 ยิง GET มาโหลดไฟล์ไบนารี .bin พร้อมรับค่า Signed Headers เพื่อตรวจสอบความปลอดภัย (Phase W4)"""
     if not OTA_BIN_PATH.exists():
         raise HTTPException(status_code=404, detail="No firmware available for OTA download")
@@ -1707,7 +1781,10 @@ class OtaVerifyRequest(BaseModel):
     client_sha256: str
 
 @app.post("/api/ota/verify-signature")
-async def verify_ota_signature(body: OtaVerifyRequest):
+async def verify_ota_signature(
+    body: OtaVerifyRequest,
+    _client_auth: dict = Depends(_verify_ota_client_auth)
+):
     """
     Phase W4: Cryptographic Verification of Firmware Signatures
     ESP32 หรือ Client ตรวจสอบ SHA256 Checksum และ HMAC/ECDSA Signature ก่อนดำเนินการ Flash
@@ -1719,7 +1796,7 @@ async def verify_ota_signature(body: OtaVerifyRequest):
 
     content = target_file.read_bytes()
     expected_sha256 = hashlib.sha256(content).hexdigest()
-    ota_signing_key = os.getenv("OTA_SIGNING_KEY", "voc_ota_root_signing_key_2026").encode()
+    ota_signing_key = _get_ota_signing_key()
     expected_signature = hmac.new(ota_signing_key, content, hashlib.sha256).hexdigest()
 
     client_hash = body.client_sha256.lower().strip()
@@ -1930,22 +2007,13 @@ async def reload_model(_auth: bool = Depends(verify_admin_key)):
 
 @app.post("/api/model/upload")
 async def upload_model(
-    file: UploadFile = File(...),
     _auth: bool = Depends(verify_admin_key),
 ):
-    """อัปโหลดไฟล์ AI Model (.pkl) ใหม่ขึ้น Backend และสั่งโหลดใช้งานทันที"""
-    from model_loader import MODEL_PATH
-    content = await file.read()
-    with open(MODEL_PATH, "wb") as f:
-        f.write(content)
-    load_model()
-    return {
-        "status": "ok",
-        "loaded": is_loaded(),
-        "filename": file.filename,
-        "size_bytes": len(content),
-        "message": "AI Model uploaded and reloaded successfully!",
-    }
+    """Raw pickle is executable Python data and is never accepted over HTTP."""
+    raise HTTPException(
+        status_code=410,
+        detail="Raw pickle upload is disabled. Register a signed CI-produced artifact instead.",
+    )
 
 
 # ==================================================================
@@ -2048,17 +2116,13 @@ class CalibrationRequest(BaseModel):
 async def request_calibration(
     body: CalibrationRequest,
     request: Request,
-    current_user: Optional[dict] = Depends(get_current_user_optional)
+    current_user: dict = Depends(require_roles("admin", "engineer"))
 ):
     """
     สร้างคำสั่ง Clean-air Baseline Calibration สำหรับ ESP32
-    สิทธิ์ตาม Phase W1: เฉพาะ Engineer หรือ Admin เท่านั้น
+    สิทธิ์ตาม Phase W1: เฉพาะ Engineer หรือ Admin ที่มีสิทธิ์ประจำกล่องเท่านั้น
     """
-    if current_user and current_user.get("role") in ("operator", "viewer"):
-        raise HTTPException(
-            status_code=403,
-            detail=f"Forbidden: Role '{current_user['role']}' cannot create calibration requests. Engineer or Admin role required."
-        )
+    require_box_access(current_user, body.box_id)
 
     ip = request.client.host if request.client else "unknown"
     pool = await get_pool()
@@ -2306,23 +2370,25 @@ async def acknowledge_alert(
     alert_id: int,
     request: Request,
     body: Optional[AlertActionBody] = None,
-    current_user: Optional[dict] = Depends(get_current_user_optional)
+    current_user: dict = Depends(require_roles("admin", "engineer", "operator"))
 ):
     """
     ขั้นตอนที่ 2: รับทราบ Alert (Active -> Acknowledged)
     หยุดนับ SLA Countdown และบันทึกผู้รับทราบ
-    สิทธิ์: Operator, Engineer, Admin (Viewer ห้ามแก้ไข)
+    สิทธิ์: Operator, Engineer, Admin (Viewer ห้ามแก้ไข) พร้อมตรวจสิทธิ์ประจำกล่อง
     """
-    if current_user and current_user.get("role") == "viewer":
-        raise HTTPException(status_code=403, detail="Forbidden: Role 'viewer' cannot acknowledge alerts.")
-
-    username = current_user.get("username") if current_user else "kiosk_operator"
-    role = current_user.get("role") if current_user else "operator"
+    username = current_user.get("username", "operator")
+    role = current_user.get("role", "operator")
     source = body.source_screen if body and body.source_screen else "Web Dashboard"
     ip = request.client.host if request.client else "unknown"
 
     pool = await get_pool()
     if pool:
+        alert_info = await pool.fetchrow("SELECT box_id, level, status FROM alerts WHERE id = $1", alert_id)
+        if not alert_info:
+            raise HTTPException(status_code=404, detail="Alert not found")
+        require_box_access(current_user, alert_info["box_id"])
+
         row = await pool.fetchrow(
             """
             UPDATE alerts 
@@ -2336,8 +2402,6 @@ async def acknowledge_alert(
             """,
             username, role, source, alert_id
         )
-        if not row:
-            raise HTTPException(status_code=404, detail="Alert not found")
         box_id = row["box_id"]
         level = row["level"]
     else:
@@ -2346,6 +2410,7 @@ async def acknowledge_alert(
         level = "Warning"
         for a in _in_memory_alerts:
             if a["id"] == alert_id:
+                require_box_access(current_user, a.get("box_id", "BOX-001"))
                 a["status"] = "Acknowledged"
                 a["acknowledged_at"] = datetime.now(timezone.utc).isoformat()
                 a["acknowledged_by"] = username
@@ -2375,20 +2440,22 @@ async def alert_in_progress(
     alert_id: int,
     request: Request,
     body: Optional[AlertActionBody] = None,
-    current_user: Optional[dict] = Depends(get_current_user_optional)
+    current_user: dict = Depends(require_roles("admin", "engineer", "operator"))
 ):
     """
     ขั้นตอนที่ 3: เริ่มปฏิบัติการแก้ไข (Acknowledged -> In progress)
-    สิทธิ์: Operator, Engineer, Admin
+    สิทธิ์: Operator, Engineer, Admin พร้อมตรวจสิทธิ์ประจำกล่อง
     """
-    if current_user and current_user.get("role") == "viewer":
-        raise HTTPException(status_code=403, detail="Forbidden: Role 'viewer' cannot update alerts.")
-
-    username = current_user.get("username") if current_user else "operator"
+    username = current_user.get("username", "operator")
     ip = request.client.host if request.client else "unknown"
 
     pool = await get_pool()
     if pool:
+        alert_info = await pool.fetchrow("SELECT box_id, level, status FROM alerts WHERE id = $1", alert_id)
+        if not alert_info:
+            raise HTTPException(status_code=404, detail="Alert not found")
+        require_box_access(current_user, alert_info["box_id"])
+
         row = await pool.fetchrow(
             """
             UPDATE alerts 
@@ -2400,8 +2467,6 @@ async def alert_in_progress(
             """,
             username, alert_id
         )
-        if not row:
-            raise HTTPException(status_code=404, detail="Alert not found")
         box_id = row["box_id"]
         level = row["level"]
     else:
@@ -2410,6 +2475,7 @@ async def alert_in_progress(
         level = "Warning"
         for a in _in_memory_alerts:
             if a["id"] == alert_id:
+                require_box_access(current_user, a.get("box_id", "BOX-001"))
                 a["status"] = "In progress"
                 a["in_progress_at"] = datetime.now(timezone.utc).isoformat()
                 a["in_progress_by"] = username
@@ -2437,31 +2503,37 @@ async def resolve_alert(
     alert_id: int,
     request: Request,
     body: Optional[AlertActionBody] = None,
-    current_user: Optional[dict] = Depends(get_current_user_optional)
+    current_user: dict = Depends(require_roles("admin", "engineer", "operator"))
 ):
     """
     ขั้นตอนที่ 4: บันทึกการแก้ไขเสร็จสิ้น (In progress -> Resolved)
-    - Warning: Operator สามารถปิดได้พร้อมแนบหลักฐาน/บันทึก
+    - Warning: Operator สามารถปิดได้พร้อมแนบหลักฐาน/บันทึก (บังคับระบุ note เสมอ)
     - High / Critical: Operator สามารถบันทึกการแก้ไขได้ แต่สถานะจะต้องรอให้ Engineer/Admin ตรวจยืนยัน (Verified)
     """
-    if current_user and current_user.get("role") == "viewer":
-        raise HTTPException(status_code=403, detail="Forbidden: Role 'viewer' is view-only and cannot resolve alerts.")
-
-    username = current_user.get("username") if current_user else "operator"
-    role = current_user.get("role") if current_user else "operator"
+    username = current_user.get("username", "operator")
+    role = current_user.get("role", "operator")
     ip = request.client.host if request.client else "unknown"
+
+    note = body.note.strip() if body and body.note else ""
+    evidence = body.evidence.strip() if body and body.evidence else ""
 
     pool = await get_pool()
     level = "Warning"
     box_id = "BOX-001"
-    note = body.note if body else ""
-    evidence = body.evidence if body else ""
 
     if pool:
         alert_info = await pool.fetchrow("SELECT level, box_id, status FROM alerts WHERE id = $1", alert_id)
-        if alert_info:
-            level = alert_info["level"]
-            box_id = alert_info["box_id"]
+        if not alert_info:
+            raise HTTPException(status_code=404, detail="Alert not found")
+        require_box_access(current_user, alert_info["box_id"])
+        level = alert_info["level"]
+        box_id = alert_info["box_id"]
+
+        if level in ("High", "Warning", "Critical") and not note:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Resolution note is mandatory to resolve {level} alerts."
+            )
 
         row = await pool.fetchrow(
             """
@@ -2476,19 +2548,23 @@ async def resolve_alert(
             """,
             username, note, evidence, alert_id
         )
-        if not row:
-            raise HTTPException(status_code=404, detail="Alert not found")
     else:
         found = False
         for a in _in_memory_alerts:
             if a["id"] == alert_id:
+                require_box_access(current_user, a.get("box_id", "BOX-001"))
+                level = a.get("level", "Warning")
+                box_id = a.get("box_id", "BOX-001")
+                if level in ("High", "Warning", "Critical") and not note:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Resolution note is mandatory to resolve {level} alerts."
+                    )
                 a["status"] = "Resolved"
                 a["resolved_at"] = datetime.now(timezone.utc).isoformat()
                 a["resolved_by"] = username
                 a["resolution_note"] = note
                 a["evidence_url"] = evidence
-                level = a.get("level", "Warning")
-                box_id = a.get("box_id", "BOX-001")
                 found = True
                 break
         if not found:
@@ -2572,11 +2648,13 @@ async def verify_alert(
 async def trigger_manual_alert(
     body: ManualAlertRequest,
     request: Request,
-    current_user: Optional[dict] = Depends(get_current_user_optional)
+    current_user: dict = Depends(require_roles("admin", "engineer", "operator"))
 ):
     """
     สร้าง Alert ฉุกเฉินด้วยตนเองจากหน้า Kiosk หรือ Web Dashboard (Phase W2)
+    สิทธิ์: Admin, Engineer, Operator พร้อมตรวจสิทธิ์ประจำกล่อง
     """
+    require_box_access(current_user, body.box_id)
     level = body.level if body.level in ("Warning", "High", "Critical") else "High"
     sla_min = 10 if level == "Warning" else 5
     now_utc = datetime.now(timezone.utc)
@@ -2663,11 +2741,12 @@ async def list_work_orders(box_id: Optional[str] = None, limit: int = 20):
 async def create_work_order(
     body: WorkOrderCreateRequest,
     request: Request,
-    current_user: Optional[dict] = Depends(get_current_user_optional)
+    current_user: dict = Depends(require_roles("admin", "engineer"))
 ):
-    """บันทึกผลการบำรุงรักษา / ใบสั่งงาน (Checklist Completed)"""
-    username = current_user.get("username") if current_user else "operator"
-    role = current_user.get("role") if current_user else "operator"
+    """บันทึกผลการบำรุงรักษา / ใบสั่งงาน (Checklist Completed) — เฉพาะ Admin/Engineer ที่มีสิทธิ์ประจำกล่อง"""
+    require_box_access(current_user, body.box_id)
+    username = current_user.get("username", "engineer")
+    role = current_user.get("role", "engineer")
     ip = request.client.host if request.client else "unknown"
 
     pool = await get_pool()
@@ -2714,10 +2793,11 @@ async def get_real_hardware_health(box_id: str = "BOX-001"):
     คำนวณค่าสุขภาพเซนเซอร์จริงจาก Database (Phase W2):
     - Runtime Hours สะสมจาก sensor_runtime
     - วันที่ผ่านไปหลังการสอบเทียบครั้งล่าสุดจาก sensor_calibrations
+    - เมื่อไม่มีข้อมูลจริงในระบบ จะแสดงสถานะ UNAVAILABLE และไม่คืน demo data ปลอม
     """
     pool = await get_pool()
     sensor_runtimes = {}
-    last_cal_days = 90
+    last_cal_days = None
     if pool:
         try:
             r_rows = await pool.fetch("SELECT sensor_id, online_seconds FROM sensor_runtime WHERE box_id = $1", box_id)
@@ -2730,12 +2810,14 @@ async def get_real_hardware_health(box_id: str = "BOX-001"):
         except Exception as e:
             print(f"[Real Health Error] {e}")
 
+    has_real_data = bool(sensor_runtimes or last_cal_days is not None)
     return {
         "box_id": box_id,
-        "runtime_hours": sensor_runtimes if sensor_runtimes else {"mq2": 450.5, "mq3": 512.0, "mq8": 230.0, "mq135": 780.0},
+        "runtime_hours": sensor_runtimes,
         "days_since_last_calibration": last_cal_days,
-        "calibration_status": "VALID" if last_cal_days < 90 else "EXPIRED",
-        "verified_hardware_clock": True
+        "calibration_status": ("VALID" if (last_cal_days is not None and last_cal_days < 90) else ("EXPIRED" if last_cal_days is not None else "UNAVAILABLE")),
+        "verified_hardware_clock": has_real_data,
+        "data_source": "REAL_DATABASE" if has_real_data else "UNAVAILABLE_NO_DATA"
     }
 
 
@@ -2768,11 +2850,10 @@ async def update_device(
     box_id: str,
     body: DeviceUpdate,
     request: Request,
-    current_user: Optional[dict] = Depends(get_current_user_optional)
+    current_user: dict = Depends(require_roles("admin", "engineer"))
 ):
-    """แก้ไข firmware / model_ver / status ของอุปกรณ์ (เฉพาะ Admin ตามสิทธิ์ Phase W1)"""
-    if current_user and current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Forbidden: Only Admin can update device configuration.")
+    """แก้ไข firmware / model_ver / status ของอุปกรณ์ (เฉพาะ Admin หรือ Engineer ประจำกล่อง)"""
+    require_box_access(current_user, box_id)
 
     ip = request.client.host if request.client else "unknown"
     pool = await get_pool()
@@ -2812,11 +2893,9 @@ async def update_device(
 async def delete_device(
     box_id: str,
     request: Request,
-    current_user: Optional[dict] = Depends(get_current_user_optional)
+    current_user: dict = Depends(require_roles("admin"))
 ):
     """ลบหรือ Deactivate อุปกรณ์ออกจากระบบ (เฉพาะ Admin ตามสิทธิ์ Phase W1)"""
-    if current_user and current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Forbidden: Only Admin can delete or deactivate devices.")
 
     ip = request.client.host if request.client else "unknown"
     pool = await get_pool()
@@ -3136,15 +3215,16 @@ async def ingest_reading(payload: IngestPayload, request: Request):
         """
         INSERT INTO sensor_readings
             (box_id, temp, rh, pm25, tvoc, eco2, mq2, mq3, mq135, mq8, mics_co, no2, nh3, session_id,
-             is_valid, validation_reason, firmware_ver, model_ver)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+             is_valid, validation_reason, firmware_ver, model_ver, seq_no, wifi_rssi, free_heap_kb, reset_reason)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
         RETURNING id
         """,
         payload.box_id,
         payload.temp, payload.rh, payload.pm25, payload.tvoc, payload.eco2,
         payload.mq2, payload.mq3, payload.mq135, payload.mq8, payload.mics_co, payload.no2, payload.nh3,
         active_session_id,
-        is_valid, val_reason_str, payload.firmware_ver or "1.0.0", getattr(payload, "model_ver", "v2.1")
+        is_valid, val_reason_str, payload.firmware_ver or "1.0.0", getattr(payload, "model_ver", "v2.1"),
+        payload.seq_no, payload.wifi_rssi, payload.free_heap_kb, payload.reset_reason
     )
     reading_id = row["id"]
 
@@ -3448,17 +3528,14 @@ async def export_csv(
     box_id: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    current_user: Optional[dict] = Depends(get_current_user_optional)
+    current_user: dict = Depends(require_roles("admin", "engineer", "viewer"))
 ):
     """
     Phase W3: Export CSV พร้อม Header Provenance & SHA-256 Hash
-    ตามกฎ W1/W3: Operator ไม่มีสิทธิ์ export รายงาน (เฉพาะ Engineer, Admin, Viewer)
+    ตามกฎ W1/W3: บังคับ Authentication เฉพาะ Engineer, Admin, Viewer
     """
-    if current_user and current_user.get("role") == "operator":
-        raise HTTPException(
-            status_code=403,
-            detail="Forbidden: Role 'operator' is not permitted to export compliance reports. Engineer, Admin, or Viewer role required."
-        )
+    if box_id:
+        require_box_access(current_user, box_id)
 
     rows = await _fetch_export_records(box_id, session_id, date_from, date_to)
     export_id = f"EXP-CSV-{int(time.time())}-{secrets.token_hex(4).upper()}"
@@ -3524,16 +3601,13 @@ async def export_xlsx(
     box_id: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    current_user: Optional[dict] = Depends(get_current_user_optional)
+    current_user: dict = Depends(require_roles("admin", "engineer", "viewer"))
 ):
     """
     Phase W3: Export XLSX (SpreadsheetML XML format) พร้อม Metadata Sheet & Integrity Hash
     """
-    if current_user and current_user.get("role") == "operator":
-        raise HTTPException(
-            status_code=403,
-            detail="Forbidden: Role 'operator' is not permitted to export compliance reports. Engineer, Admin, or Viewer role required."
-        )
+    if box_id:
+        require_box_access(current_user, box_id)
 
     rows = await _fetch_export_records(box_id, session_id, date_from, date_to)
     export_id = f"EXP-XLSX-{int(time.time())}-{secrets.token_hex(4).upper()}"
@@ -3624,16 +3698,13 @@ async def export_pdf(
     box_id: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    current_user: Optional[dict] = Depends(get_current_user_optional)
+    current_user: dict = Depends(require_roles("admin", "engineer", "viewer"))
 ):
     """
     Phase W3: Export Printable Compliance Report (ISO 17025 Format) พร้อม SHA256 Signature
     """
-    if current_user and current_user.get("role") == "operator":
-        raise HTTPException(
-            status_code=403,
-            detail="Forbidden: Role 'operator' is not permitted to export compliance reports. Engineer, Admin, or Viewer role required."
-        )
+    if box_id:
+        require_box_access(current_user, box_id)
 
     rows = await _fetch_export_records(box_id, session_id, date_from, date_to)
     export_id = f"EXP-PDF-{int(time.time())}-{secrets.token_hex(4).upper()}"
@@ -3854,21 +3925,24 @@ async def list_exhaust_stacks():
         except Exception:
             pass
 
+    if IS_PRODUCTION:
+        return []
+
     return [
         {
             "stack_id": "STACK-01",
-            "name": "Exhaust Stack 01 (Painting Booth A)",
+            "name": "Exhaust Stack 01 (Painting Booth A) [DEMO ONLY]",
             "process_type": "Automotive Primer Spraying",
             "flow_rate_m3_h": 12500.0,
             "diameter_m": 0.85,
             "temp_c": 38.0,
-            "is_verified_cems": True,
-            "cems_calibrated_at": "04/10/2026",
+            "is_verified_cems": False,
+            "cems_calibrated_at": None,
             "active": True
         },
         {
             "stack_id": "STACK-02",
-            "name": "Exhaust Stack 02 (Drying Oven Line B)",
+            "name": "Exhaust Stack 02 (Drying Oven Line B) [DEMO ONLY]",
             "process_type": "Thermal Cure Oven",
             "flow_rate_m3_h": 8200.0,
             "diameter_m": 0.65,
@@ -3891,6 +3965,9 @@ async def list_emission_permits():
                 return [dict(r) for r in rows]
         except Exception:
             pass
+
+    if IS_PRODUCTION:
+        return []
 
     return [
         {
@@ -3991,29 +4068,14 @@ async def get_yearly_emissions_report(
         except Exception as e:
             print(f"[Yearly Report Fetch Error] {e}")
 
-    # Defaults / Fallback
-    if not stack_data:
-        stack_data = {
-            "stack_id": stack_id or "STACK-01",
-            "name": "Exhaust Stack 01 (Painting Booth A)",
-            "flow_rate_m3_h": 12500.0,
-            "is_verified_cems": True if stack_id == "STACK-01" else False
-        }
-    if not permit_data:
-        permit_data = {
-            "permit_no": "PERMIT-IEAT-2026-VOC",
-            "pollutant": pollutant,
-            "max_annual_kg": 5000.0,
-            "concentration_limit_mg_m3": 150.0,
-            "authority": "Industrial Estate Authority of Thailand (IEAT)"
-        }
-    if not measurement:
-        measurement = {
-            "concentration_mg_m3": 42.50,
-            "verified_flow_m3_h": float(stack_data["flow_rate_m3_h"]),
-            "operating_hours_annual": 2400.0,
-            "lab_cert_id": "LAB-ISO17025-2026-0982",
-            "is_accredited_lab": True if stack_data.get("is_verified_cems") else False
+    # Compliance endpoints must never invent sample CEMS/lab evidence.
+    if not stack_data or not permit_data or not measurement:
+        return {
+            "year": year, "stack": stack_data, "permit": permit_data,
+            "measurement": measurement, "calculation": None,
+            "compliance_status": "INSUFFICIENT EVIDENCE", "status_color": "#d97706",
+            "evaluation_summary": "ไม่มีข้อมูลปล่อง ใบอนุญาต หรือผลตรวจ CEMS/ห้องปฏิบัติการที่ยืนยันได้ครบ จึงห้ามสรุปสถานะตามกฎหมาย",
+            "statutory_caveat": "Indoor E-Nose ไม่สามารถใช้แทนผลตรวจปล่องหรือหลักฐาน CEMS/ISO/IEC 17025 ได้",
         }
 
     # Rule Verification Check (Phase W5 Compliance)

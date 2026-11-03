@@ -549,8 +549,9 @@ void setup() {
   });
   server.begin();
   ArduinoOTA.setHostname("airmon-box-001");
+  ArduinoOTA.setPassword(OTA_PASSWORD);
   ArduinoOTA.begin();
-  Serial.println("[OTA] Web OTA ready at http://airmon.local/update and Arduino IDE Network Port");
+  Serial.println("[OTA] Web OTA ready at http://airmon.local/update and Arduino IDE Network Port (Password Protected)");
   
   Serial.println("[System] Warming up MQ sensors (30s)...");
 }
@@ -644,6 +645,11 @@ void reportOtaStatus(const char* status, int errCode, const char* errDetail) {
 
   http.begin(client, reportUrl);
   http.addHeader("Content-Type", "application/json");
+  #ifdef DEVICE_TOKEN
+  if (strlen(DEVICE_TOKEN) > 0) {
+    http.addHeader("X-Device-Token", DEVICE_TOKEN);
+  }
+  #endif
   http.setTimeout(4000);
   int code = http.POST(payload);
   Serial.printf("[OTA Report] %s (ver %s) -> HTTP %d\n", status, FIRMWARE_VER, code);
@@ -701,6 +707,11 @@ void sendData(const SensorData& d) {
     http.begin(url);
   }
   http.addHeader("Content-Type", "application/json");
+  #ifdef DEVICE_TOKEN
+  if (strlen(DEVICE_TOKEN) > 0) {
+    http.addHeader("X-Device-Token", DEVICE_TOKEN);
+  }
+  #endif
   http.setTimeout(4000);
 
   int code = http.POST(payload);

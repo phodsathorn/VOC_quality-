@@ -246,6 +246,56 @@
 ### สถานะ (Status)
 - **เสร็จสมบูรณ์ (Completed)**
 
+---
+
+## รายการบันทึกต่อเนื่อง: เวลา 15:30 น. ICT — Security Review Remediation, Default-Deny RBAC, Production Fail-Closed & Telemetry Persistence
+
+### สรุป (Summary)
+ดำเนินการแก้ไขช่องโหว่และความไม่สอดคล้องตามรายงานการตรวจประเมินความปลอดภัย (Static Security Review) ครบถ้วนในระดับซอร์สโค้ด โดยให้ความสำคัญกับหลักการความปลอดภัยสูงสุด: บังคับ Production Fail-Closed ป้องกัน Default Secrets, เปลี่ยน Endpoint ควบคุมให้เป็น Default-Deny พร้อมบังคับสิทธิ์ตาม Box ID, ตัดการใช้ Demo Data หลอกในส่วนความปลอดภัย/กฎหมาย, ป้องกัน OTA Download และบันทึก Diagnostic Telemetry ลงฐานข้อมูลจริง
+
+### สิ่งที่เปลี่ยนแปลง (Changes)
+1. **Production Configuration Fail-Closed (`vocs-website/backend/main.py`)**:
+   - เพิ่มการตรวจสอบในฟังก์ชัน `lifespan`: เมื่อรันในสภาพแวดล้อม Production (`ENVIRONMENT=production`) ระบบจะปฏิเสธการเริ่มทำงานทันที (Fail Startup) หากไม่มีการกำหนดตัวแปรสำคัญ `JWT_SECRET_KEY`, `ADMIN_API_KEY`, `OTA_SIGNING_KEY`, และ `DEFAULT_DEVICE_TOKEN`
+   - เพิ่มการตรวจจับ Insecure Default Strings หากพบว่ายังใช้รหัสผ่านหรือคีย์ตั้งต้นของระบบทดสอบ จะขัดขวางไม่ให้เซิร์ฟเวอร์เปิดให้บริการ
+   - ปรับปรุงฟังก์ชัน `_get_ota_signing_key()` ให้ Fail Closed ใน Production ทันทีหากไม่มีการตั้งค่า Secret Key
+2. **Default-Deny RBAC & Object-Level Box Authorization (`vocs-website/backend/main.py`)**:
+   - ยกเลิกการใช้ `get_current_user_optional` ใน Endpoint ปฏิบัติการและคำสั่งควบคุมทั้งหมด และเปลี่ยนเป็น `Depends(require_roles(...))` บังคับยืนยันตัวตนทุกกรณี:
+     - `POST /api/calibration/request`: บังคับสิทธิ์ Admin หรือ Engineer และตรวจสอบการกำหนดสิทธิ์ประจำกล่อง (`require_box_access`)
+     - `PATCH /api/alerts/{alert_id}/acknowledge`: บังคับสิทธิ์ Admin, Engineer หรือ Operator พร้อมตรวจสิทธิ์ประจำกล่อง
+     - `PATCH /api/alerts/{alert_id}/in-progress`: บังคับสิทธิ์ Admin, Engineer หรือ Operator พร้อมตรวจสิทธิ์ประจำกล่อง
+     - `PATCH /api/alerts/{alert_id}/resolve`: บังคับสิทธิ์ Admin, Engineer หรือ Operator พร้อมตรวจสิทธิ์ประจำกล่อง และ**บังคับระบุ Note/Evidence ทุกครั้งสำหรับการแก้ไขการแจ้งเตือนระดับ Warning/High/Critical**
+     - `POST /api/alerts/manual`: บังคับสิทธิ์ Admin, Engineer หรือ Operator พร้อมตรวจสิทธิ์ประจำกล่อง
+     - `POST /api/maintenance/work-orders`: บังคับสิทธิ์ Admin หรือ Engineer พร้อมตรวจสิทธิ์ประจำกล่อง
+     - `PATCH /api/devices/{box_id}`: บังคับสิทธิ์ Admin หรือ Engineer พร้อมตรวจสิทธิ์ประจำกล่อง
+     - `DELETE /api/devices/{box_id}`: บังคับสิทธิ์ Admin เท่านั้น
+     - `GET /api/export/csv`, `/xlsx`, `/pdf`: บังคับสิทธิ์ Admin, Engineer หรือ Viewer และตรวจสิทธิ์ประจำกล่องหากมีการระบุ `box_id`
+3. **OTA Firmware Download & Signature Protection (`vocs-website/backend/main.py`)**:
+   - เพิ่ม `_verify_ota_client_auth`: บังคับให้ไคลเอ็นต์/ESP32 ที่จะดาวน์โหลดเฟิร์มแวร์หรือตรวจสอบ Signature ต้องแนบ Header `X-Device-Token` ที่ถูกต้อง หรือ JWT Bearer Token ของ Admin/Engineer
+4. **Mock / Compliance Isolation (`vocs-website/backend/main.py`)**:
+   - `get_real_hardware_health()`: ปรับปรุงให้ไม่คืน Demo Data ปลอมเมื่อไม่มีประวัติใน Database โดยจะคืน `UNAVAILABLE_NO_DATA` และตั้งค่า `verified_hardware_clock: False`
+   - `list_exhaust_stacks()` และ `list_emission_permits()`: ในโหมด Production หากไม่มีข้อมูลปล่องไอเสียใน Database จะคืนรายการว่าง (`[]`) ไม่ส่งข้อมูลจำลอง CEMS ปลอม
+5. **Telemetry Persistence (`vocs-website/backend/main.py`, `backend/init.sql`)**:
+   - เพิ่มคอลัมน์ `seq_no`, `wifi_rssi`, `free_heap_kb`, `reset_reason` ลงในตาราง `sensor_readings` ของ `init.sql` และเพิ่มคำสั่ง Dynamic Migration ใน `_init_db_tables()`
+   - ปรับคำสั่ง `INSERT INTO sensor_readings` ใน Ingest Handler ให้บันทึกค่า Diagnostic ทั้ง 4 ค่าลงฐานข้อมูลอย่างถาวร
+6. **Credential Hygiene (`vocs-website/backend/init.sql`)**:
+   - นำข้อความระบุรหัสผ่านตัวอย่างใน Comment ออกจาก `init.sql` เพื่อป้องกันการเปิดเผยข้อมูลความลับ
+7. **Firmware Security Hardening (`vocs-website/firmware/voc_esp32/voc_esp32.ino`, `secrets.example.h`)**:
+   - เพิ่มการส่ง Header `X-Device-Token` ในฟังก์ชัน `sendData()` และ `reportOtaStatus()`
+   - เพิ่มการตั้งรหัสผ่านป้องกันใน ArduinoOTA (`ArduinoOTA.setPassword(OTA_PASSWORD)`)
+   - อัปเดต `secrets.example.h` ให้มีตัวอย่าง `DEVICE_TOKEN`, `OTA_USERNAME`, และ `OTA_PASSWORD`
+
+### การตรวจสอบและทดสอบ (Verification)
+1. **Unit Tests**:
+   - ทดสอบ `get_real_hardware_health`: คืน `data_source: UNAVAILABLE_NO_DATA` และ `verified_hardware_clock: False` ถูกต้อง
+   - ทดสอบ LINE Subscribers Management: ดึงข้อมูลและตรวจสอบสิทธิ์สำเร็จ
+2. **Compilation**:
+   - `python3 -m py_compile main.py line_adapter.py` ผ่านสมบูรณ์ (Zero errors)
+3. **Frontend Build**:
+   - `npm --prefix vocs-website/frontend run build` ผ่านสมบูรณ์ (Vite built in 384ms)
+
+### สถานะ (Status)
+- **เสร็จสมบูรณ์ระดับ Source Code (Implemented & Hardened)**
+
 
 
 

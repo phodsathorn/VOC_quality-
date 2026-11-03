@@ -36,7 +36,18 @@ CREATE TABLE IF NOT EXISTS sensor_readings (
     mics_co     INTEGER,
     no2         INTEGER,
     nh3         INTEGER,
-    session_id  BIGINT
+    session_id  BIGINT,
+
+    -- Diagnostics & Telemetry (Phase W3 / H2)
+    seq_no      BIGINT,
+    wifi_rssi   INTEGER,
+    free_heap_kb INTEGER,
+    reset_reason VARCHAR(60),
+    is_valid    BOOLEAN DEFAULT TRUE,
+    validation_reason VARCHAR(100) DEFAULT 'PASS',
+    calibration_id VARCHAR(50),
+    firmware_ver VARCHAR(20) DEFAULT '1.0.0',
+    model_ver   VARCHAR(20) DEFAULT 'v2.1'
 );
 
 -- Index สำหรับ query เร็ว (Time-series by box_id)
@@ -176,11 +187,9 @@ VALUES
     ('BOX-002', '0.9.5', 'v1.5', 'OFFLINE', NOW() - INTERVAL '2 hours', NULL)
 ON CONFLICT (box_id) DO NOTHING;
 
--- Seed default role accounts:
--- admin:    Admin@Voc2026!
--- engineer: Engineer@Voc2026!
--- operator: Operator@Voc2026!
--- viewer:   Viewer@Voc2026!
+-- Initial Development Role Accounts:
+-- In production, these sample credentials must be rotated immediately or provisioned
+-- securely via administrative CLI / environment secrets. DO NOT commit plaintext passwords.
 INSERT INTO users (username, password_hash, full_name, role, site)
 VALUES
     ('admin',    '$2b$12$R85.RR54e7FJqg1z0JZ4.Oh4wRYHhhbu517fTd34HgbxkTKiBsDHG', 'System Administrator',        'admin',    'Main Plant'),
