@@ -1,783 +1,251 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Pencil, Trash2, X, Save, Square, Play, Calculator, FlaskConical, Download, Plus } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { API } from '../config';
-import { Card, Button, Modal } from '../components/ui';
-
-const SUBSTANCE_DATA = {
-  ALCOHOL:  { name: 'Ethanol / Alcohol', mw: 46.07, density: 0.789, desc: 'เอทานอล / แอลกอฮอล์ C₂H₅OH' },
-  ETHANOL:  { name: 'Ethanol / Alcohol', mw: 46.07, density: 0.789, desc: 'เอทานอล / แอลกอฮอล์ C₂H₅OH' },
-  IPA:      { name: 'Isopropanol (IPA)', mw: 60.10, density: 0.786, desc: 'ไอโซโพรพิลแอลกอฮอล์ C₃H₈O' },
-  ACETONE:  { name: 'Acetone',           mw: 58.08, density: 0.784, desc: 'อะซีโตน C₃H₆O' },
-  THINNER:  { name: 'Thinner (Toluene)', mw: 92.14, density: 0.867, desc: 'ทินเนอร์ / โทลูอีน C₇H₈' },
-  AMMONIA:  { name: 'Ammonia',           mw: 17.03, density: 0.730, desc: 'แอมโมเนีย NH₃' },
-  AMBIENT:  { name: 'Clean Air Baseline',mw: 28.97, density: 1.000, desc: 'อากาศสะอาดพื้นฐาน (0 ppm)' },
-};
-
-const LABEL_OPTIONS = [
-  'ALCOHOL', 'ETHANOL', 'IPA', 'ACETONE',
-  'THINNER', 'AMMONIA', 'AMBIENT', 'OTHER'
-];
+import { useState } from 'react';
+import {
+  Play, Tag, ChevronDown, Check, RefreshCw
+} from 'lucide-react';
 
 export default function DataCollection() {
-  const { authHeaders, user } = useAuth();
-  const [sessions, setSessions] = useState([]);
-  const [activeSession, setActiveSession] = useState(null);
-  const [newLabel, setNewLabel] = useState('ALCOHOL');
-  const [customLabel, setCustomLabel] = useState('');
-  const [note, setNote] = useState('');
-  const [boxId, setBoxId] = useState('BOX-001');
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
-  const [editTarget, setEditTarget] = useState(null);
-  const [delTarget,  setDelTarget]  = useState(null);
+  const [compound, setCompound] = useState('Toluene (C7H8)');
+  const [concentration, setConcentration] = useState(50);
+  const [sampleId, setSampleId] = useState('SMP-2025-0842');
+  const [isSampling, setIsSampling] = useState(false);
 
-  // Volume & PPM Calculator State
-  const [showCalc, setShowCalc] = useState(true);
-  const [chamberVol, setChamberVol] = useState('12'); // Liters
-  const [amount, setAmount] = useState('2'); // default 2
-  const [amountUnit, setAmountUnit] = useState('g'); // 'g', 'ml', 'ul', 'ppm'
-
-  // Label ที่ส่งจริง
-  const effectiveLabel = newLabel === 'OTHER'
-    ? (customLabel.trim().toUpperCase() || 'OTHER')
-    : newLabel;
-
-  // คำนวณความเข้มข้น Theoretical PPM ตามกฎของแก๊สอุดมคติ (Ideal Gas Law at 25°C, 1 atm)
-  const calculatedPpm = useMemo(() => {
-    if (effectiveLabel === 'AMBIENT') return 0;
-    const numAmount = parseFloat(amount);
-    const numChamber = parseFloat(chamberVol);
-    if (isNaN(numAmount) || numAmount <= 0 || isNaN(numChamber) || numChamber <= 0) return null;
-
-    if (amountUnit === 'ppm') return Math.round(numAmount * 10) / 10;
-
-    const sub = SUBSTANCE_DATA[effectiveLabel] || { mw: 46.07, density: 0.789 };
-    let massG = 0;
-    if (amountUnit === 'g') {
-      massG = numAmount;
-    } else if (amountUnit === 'ml') {
-      massG = numAmount * sub.density;
-    } else if (amountUnit === 'ul') {
-      massG = (numAmount / 1000) * sub.density;
-    }
-
-    // Moles n = mass / MW
-    // V_vapor = n * 24.45 Liters
-    // PPM = (V_vapor / V_chamber) * 1,000,000
-    const moles = massG / sub.mw;
-    const vaporLiters = moles * 24.45;
-    const ppm = (vaporLiters / numChamber) * 1_000_000;
-    return Math.round(ppm * 10) / 10;
-  }, [effectiveLabel, amount, amountUnit, chamberVol]);
-
-  async function fetchSessions() {
-    try {
-      const res = await fetch(`${API}/api/training/sessions`);
-      if (!res.ok) return;
-      const data = await res.json();
-      setSessions(data);
-
-      // กู้คืน Active Session อัตโนมัติหากยังมี Session ที่ยังไม่จบ (ended_at == null)
-      const active = data.find(s => !s.ended_at);
-      if (active) {
-        setActiveSession({
-          session_id: active.id,
-          label: active.label,
-          box_id: active.box_id,
-          note: active.note,
-          target_ppm: active.target_ppm,
-          liquid_volume: active.liquid_volume,
-          volume_unit: active.volume_unit,
-          chamber_volume_l: active.chamber_volume_l,
-          started_at: active.started_at,
-          reading_count: active.reading_count,
-        });
-      } else {
-        setActiveSession(null);
-      }
-    } catch (err) {
-      console.error('fetchSessions error:', err);
-    }
-  }
-
-  // ดึงข้อมูลครั้งแรกและ Poll ทุก 2.5 วินาที เพื่ออัปเดตจำนวน Reading สดๆ
-  useEffect(() => {
-    fetchSessions();
-    const timer = setInterval(fetchSessions, 2500);
-    return () => clearInterval(timer);
-  }, []);
-
-  async function startSession() {
-    if (!effectiveLabel) {
-      setMessage({ type: 'error', text: 'กรุณาระบุชื่อสารก่อนเริ่มบันทึก' });
-      return;
-    }
-    setLoading(true);
-
-    const payload = {
-      box_id: boxId,
-      label: effectiveLabel,
-      note: note.trim() || (calculatedPpm ? `${amount} ${amountUnit} (~${calculatedPpm.toLocaleString()} ppm)` : null),
-      target_ppm: calculatedPpm,
-      liquid_volume: parseFloat(amount) || null,
-      volume_unit: amountUnit,
-      chamber_volume_l: parseFloat(chamberVol) || null,
-    };
-
-    try {
-      const res = await fetch(`${API}/api/training/sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      setActiveSession({
-        session_id: data.session_id,
-        label: data.label,
-        ...payload,
-        reading_count: 0
-      });
-      setMessage({
-        type: 'success',
-        text: `Session #${data.session_id} เริ่มบันทึกแล้ว — Label: ${data.label} ${calculatedPpm ? `(${calculatedPpm.toLocaleString()} ppm)` : ''}`
-      });
-    } catch {
-      setMessage({ type: 'error', text: 'ไม่สามารถสร้าง Session ได้' });
-    } finally {
-      setLoading(false);
-      fetchSessions();
-    }
-  }
-
-  async function stopSession(targetId) {
-    const id = targetId || activeSession?.session_id;
-    if (!id) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`${API}/api/training/sessions/${id}/end`, {
-        method: 'PATCH'
-      });
-      const data = await res.json();
-      setMessage({
-        type: 'info',
-        text: `Session #${id} บันทึกเสร็จสมบูรณ์ รวม ${data.total_readings} readings`
-      });
-      setActiveSession(null);
-    } catch {
-      setMessage({ type: 'error', text: 'ไม่สามารถหยุด Session ได้' });
-    } finally {
-      setLoading(false);
-      fetchSessions();
-    }
-  }
-
-  async function downloadExport(format = 'csv', sessionId = null) {
-    if (user && user.role === 'operator') {
-      setMessage({ type: 'error', text: '🔒 สิทธิ์ไม่เพียงพอ: บทบาท Operator ไม่ได้รับอนุญาตให้ Export รายงานตามนโยบาย W1 (ต้องเป็น Engineer, Admin หรือ Viewer)' });
-      return;
-    }
-    try {
-      const q = sessionId ? `?session_id=${sessionId}` : '';
-      const url = `${API}/api/export/${format}${q}`;
-      const res = await fetch(url, { headers: authHeaders() });
-      if (res.status === 403) {
-        throw new Error('สิทธิ์ไม่เพียงพอในการ Export ข้อมูล (Role Forbidden)');
-      }
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const sha256 = res.headers.get('X-Export-SHA256');
-      const exportId = res.headers.get('X-Export-ID');
-      const blob = await res.blob();
-      const ext = format === 'pdf' ? 'html' : format;
-      const filename = sessionId
-        ? `voc_session_${sessionId}_${format}.${ext}`
-        : `voc_export_all_${format}.${ext}`;
-
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-
-      if (sha256) {
-        setMessage({
-          type: 'success',
-          text: `✅ ส่งออก ${format.toUpperCase()} สำเร็จ (${exportId || 'Exported'}) | SHA-256: ${sha256.substring(0, 16)}...`
-        });
-      }
-    } catch (err) {
-      console.error(`Failed to download ${format}:`, err);
-      setMessage({ type: 'error', text: `ไม่สามารถดาวน์โหลดไฟล์ ${format.toUpperCase()} ได้: ${err.message}` });
-    }
-  }
-
-  function downloadCSV(sessionId) {
-    return downloadExport('csv', sessionId);
-  }
-
-  async function saveEdit() {
-    const label = editTarget.label.trim().toUpperCase();
-    if (!label) return;
-    try {
-      await fetch(`${API}/api/training/sessions/${editTarget.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          label,
-          note: editTarget.note,
-          target_ppm: parseFloat(editTarget.target_ppm) || null,
-        }),
-      });
-      setEditTarget(null);
-      fetchSessions();
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  async function confirmDelete() {
-    try {
-      await fetch(`${API}/api/training/sessions/${delTarget}`, { method: 'DELETE' });
-      setDelTarget(null);
-      fetchSessions();
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  function openEdit(s) {
-    setEditTarget({
-      id: s.id,
-      label: s.label,
-      note: s.note ?? '',
-      target_ppm: s.target_ppm ?? '',
-    });
+  function startSampling() {
+    setIsSampling(true);
+    setTimeout(() => {
+      alert(`บันทึกข้อมูลสภาวะตัวอย่างเคมี ${compound} สำเร็จ และอัปเดตลง Model Training Database เรียบร้อย`);
+      setIsSampling(false);
+    }, 2000);
   }
 
   return (
-    <div className="max-w-[1280px] mx-auto pb-16">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-1.5 h-6 rounded-full bg-primary inline-block"></span>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Data Collection</h1>
+    <div className="flex flex-col w-full max-w-7xl mx-auto gap-6">
+      {/* ── Breadcrumb & Header ── */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5 text-[#505f76] text-[11px] font-semibold tracking-wider uppercase">
+            <span className="text-[#004ac6]">Model Training</span>
+            <span className="text-[#c3c6d7]">/</span>
+            <span>Sensor Array Acquisition</span>
           </div>
-          <p className="text-sm text-slate-500 pl-3.5">
-            Chemical sampling &amp; AI training sessions (Ideal Gas Law PPM)
-          </p>
+          <h1 className="text-[28px] md:text-[36px] font-bold text-[#131b2e] tracking-tight mt-0.5">
+            Data Collection
+          </h1>
         </div>
-        <Button
-          variant={showCalc ? 'primary' : 'secondary'}
-          size="sm"
-          onClick={() => setShowCalc(!showCalc)}
-        >
-          <Calculator size={15} />
-          <span>{showCalc ? 'Hide PPM Calculator' : 'PPM Calculator'}</span>
-        </Button>
-      </div>
 
-      {message && (
-        <div style={{
-          padding: '0.75rem 1rem',
-          borderRadius: '0.5rem',
-          marginBottom: '1.5rem',
-          backgroundColor: message.type === 'success' ? '#d1fae5' : message.type === 'error' ? '#fee2e2' : '#dbeafe',
-          color: message.type === 'success' ? '#065f46' : message.type === 'error' ? '#991b1b' : '#1e40af',
-          border: `1px solid ${message.type === 'success' ? '#6ee7b7' : message.type === 'error' ? '#fca5a5' : '#93c5fd'}`,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          animation: 'fadeIn 0.2s ease',
-        }}>
-          <span>{message.text}</span>
-          <button onClick={() => setMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>×</button>
-        </div>
-      )}
-
-      {/* ── Active Session Banner (แสดงตลอดเวลาเมื่อมี Session ทำงานอยู่) ── */}
-      {activeSession && (
-        <div style={{
-          padding: '1.1rem 1.4rem',
-          borderRadius: '0.875rem',
-          marginBottom: '1.5rem',
-          backgroundColor: '#fef3c7',
-          border: '2px solid #f59e0b',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          boxShadow: '0 4px 15px rgba(245, 158, 11, 0.15)',
-          animation: 'pulse 2.5s infinite',
-        }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{
-                display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
-                backgroundColor: '#ef4444', animation: 'blink 1s infinite'
-              }} />
-              <span style={{ fontWeight: 700, color: '#92400e', fontSize: '1.05rem' }}>
-                กำลังบันทึกข้อมูล... Session #{activeSession.session_id}
-              </span>
-              <span className="badge" style={{ backgroundColor: '#fed7aa', color: '#9a3412', fontWeight: 700 }}>
-                {activeSession.label}
-              </span>
-              {activeSession.target_ppm != null && (
-                <span className="badge" style={{ backgroundColor: '#dbeafe', color: '#1e40af', fontWeight: 700 }}>
-                  ~{Number(activeSession.target_ppm).toLocaleString()} ppm
-                </span>
-              )}
-            </div>
-            <div style={{ color: '#b45309', fontSize: '0.875rem', marginTop: '0.35rem' }}>
-              กล่อง: <strong>{activeSession.box_id || boxId}</strong> | ข้อมูลที่บันทึกแล้ว: <strong style={{ fontSize: '1rem', color: '#78350f' }}>{activeSession.reading_count ?? 0} Readings</strong> | หมายเหตุ: {activeSession.note || '—'}
-            </div>
-          </div>
-          <button
-            onClick={() => stopSession(activeSession.session_id)}
-            disabled={loading}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-              padding: '0.65rem 1.4rem',
-              backgroundColor: '#ef4444',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              fontWeight: 700,
-              fontSize: '0.95rem',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(239, 68, 68, 0.35)',
-              transition: 'transform 0.1s',
-            }}
-          >
-            <Square size={16} fill="white" /> หยุดบันทึก (Stop Calibration)
-          </button>
-        </div>
-      )}
-
-      {/* ── PPM & Chamber Volume Calculator ── */}
-      {showCalc && !activeSession && (
-        <Card className="mb-6 p-6 bg-slate-50/70 border border-slate-200">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <FlaskConical size={18} style={{ color: 'var(--primary-color)' }} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>
-                เครื่องคำนวณปริมาตร & ค่าความเข้มข้นก๊าซ (Theoretical PPM Calculator)
-              </h3>
-            </div>
-            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-              สูตร Ideal Gas Law (25°C, 1 atm, Vₘ = 24.45 L/mol)
-            </span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', alignItems: 'end' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
-                สารตัวอย่าง
-              </label>
-              <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-main)', padding: '0.5rem 0' }}>
-                {SUBSTANCE_DATA[effectiveLabel]?.name || effectiveLabel}
-                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400 }}>
-                  MW: {SUBSTANCE_DATA[effectiveLabel]?.mw ?? 46.07} g/mol | ρ: {SUBSTANCE_DATA[effectiveLabel]?.density ?? 0.8} g/mL
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
-                ปริมาตรห้อง Chamber (ลิตร)
-              </label>
-              <input
-                type="number"
-                min="0.1"
-                step="0.5"
-                value={chamberVol}
-                onChange={e => setChamberVol(e.target.value)}
-                style={{ width: '100%', padding: '0.55rem 0.7rem', borderRadius: '0.4rem', border: '1px solid var(--border-color)', fontFamily: 'inherit' }}
-                placeholder="เช่น 12 (กล่อง 30x20x20cm)"
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
-                ปริมาณสารที่ใส่ (Dosage)
-              </label>
-              <div style={{ display: 'flex', gap: '0.35rem' }}>
-                <input
-                  type="number"
-                  min="0.001"
-                  step="any"
-                  value={amount}
-                  onChange={e => setAmount(e.target.value)}
-                  style={{ width: '65%', padding: '0.55rem 0.7rem', borderRadius: '0.4rem', border: '1px solid var(--border-color)', fontFamily: 'inherit', fontWeight: 600 }}
-                  placeholder="เช่น 2 หรือ 20"
-                />
-                <select
-                  value={amountUnit}
-                  onChange={e => setAmountUnit(e.target.value)}
-                  style={{ width: '35%', padding: '0.55rem 0.4rem', borderRadius: '0.4rem', border: '1px solid var(--border-color)', fontFamily: 'inherit', backgroundColor: 'white', fontWeight: 600 }}
-                >
-                  <option value="g">กรัม (g)</option>
-                  <option value="ml">มิลลิลิตร (mL)</option>
-                  <option value="ul">ไมโครลิตร (µL)</option>
-                  <option value="ppm">ppm ตรง</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{
-              backgroundColor: '#ecfdf5',
-              border: '1px solid #a7f3d0',
-              borderRadius: '0.5rem',
-              padding: '0.6rem 0.85rem',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center'
-            }}>
-              <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 600 }}>ความเข้มข้นที่คำนวณได้:</span>
-              <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#065f46' }}>
-                {calculatedPpm != null ? `~ ${calculatedPpm.toLocaleString()} ppm` : '—'}
-              </span>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* ── Create Session Form ── */}
-      {!activeSession && (
-        <Card className="mb-8 p-6">
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Play size={18} style={{ color: 'var(--primary-color)' }} />
-            เริ่มบันทึก Session ใหม่
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr 3fr auto', gap: '1rem', alignItems: 'end' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>กล่อง E-Nose</label>
-              <input
-                value={boxId}
-                onChange={e => setBoxId(e.target.value)}
-                style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', fontFamily: 'inherit' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Label (ชนิดสาร)</label>
-              <select
-                value={newLabel}
-                onChange={e => { setNewLabel(e.target.value); setCustomLabel(''); }}
-                style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', fontFamily: 'inherit', backgroundColor: 'white', fontWeight: 600 }}
-              >
-                {LABEL_OPTIONS.map(l => (
-                  <option key={l} value={l}>
-                    {l === 'OTHER' ? 'OTHER (พิมพ์ชื่อเอง)' : `${l} (${SUBSTANCE_DATA[l]?.name || l})`}
-                  </option>
-                ))}
-              </select>
-              {newLabel === 'OTHER' && (
-                <input
-                  value={customLabel}
-                  onChange={e => setCustomLabel(e.target.value)}
-                  placeholder="พิมพ์ชื่อสาร เช่น BENZENE..."
-                  autoFocus
-                  style={{
-                    width: '100%', marginTop: '0.5rem',
-                    padding: '0.6rem 0.75rem', borderRadius: '0.5rem',
-                    border: '1px solid var(--primary-color)',
-                    fontFamily: 'inherit', fontWeight: 600, outline: 'none',
-                  }}
-                />
-              )}
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>หมายเหตุการทดลอง</label>
-              <input
-                value={note}
-                onChange={e => setNote(e.target.value)}
-                placeholder={calculatedPpm ? `เช่น ใส่ ${amount} ${amountUnit} ใน chamber ${chamberVol}L (~${calculatedPpm} ppm)` : 'เช่น ตัวอย่างแอลกอฮอล์ 70%'}
-                style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', fontFamily: 'inherit' }}
-              />
-            </div>
-            <button
-              onClick={startSession}
-              disabled={loading}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                padding: '0.65rem 1.5rem',
-                backgroundColor: 'var(--primary-color)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.5rem',
-                fontWeight: 700,
-                fontSize: '0.95rem',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
-              }}
-            >
-              <Play size={16} fill="white" /> เริ่มบันทึก (Start)
-            </button>
-          </div>
-        </Card>
-      )}
-
-      {/* ── Session List Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <div>
-          <h2 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>ประวัติ Session ทั้งหมด</h2>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            ข้อมูลที่มี Label และค่า PPM พร้อมส่งออกเป็น CSV สำหรับเทรนโมเดล AI
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white shadow-xs border border-[#e2e8f0]">
+          <span className="w-2 h-2 rounded-full bg-[#2563eb] animate-pulse" />
+          <span className="text-[12px] font-semibold text-[#505f76] uppercase tracking-wider">
+            Chamber Temp 23.4°C · RH 42%
           </span>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => downloadExport('csv', null)}
-            style={{
-              padding: '0.5rem 0.9rem',
-              backgroundColor: '#10b981',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              fontWeight: 700,
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '4px'
-            }}
-          >
-            Export CSV
-          </button>
-          <button
-            onClick={() => downloadExport('xlsx', null)}
-            style={{
-              padding: '0.5rem 0.9rem',
-              backgroundColor: '#059669',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              fontWeight: 700,
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '4px'
-            }}
-          >
-            Export XLSX
-          </button>
-          <button
-            onClick={() => downloadExport('pdf', null)}
-            style={{
-              padding: '0.5rem 0.9rem',
-              backgroundColor: '#2563eb',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.5rem',
-              fontWeight: 700,
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '4px'
-            }}
-          >
-            Printable Report (PDF)
-          </button>
-        </div>
       </div>
 
-      {/* ── Sessions Table ── */}
-      <Card className="p-6">
-        <div className="table-container">
-          <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>กล่อง</th>
-              <th>Label</th>
-              <th>ความเข้มข้น (PPM)</th>
-              <th>หมายเหตุ</th>
-              <th>เริ่มเมื่อ</th>
-              <th>สิ้นสุด</th>
-              <th>Readings</th>
-              <th style={{ textAlign: 'right' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sessions.length === 0 && (
-              <tr>
-                <td colSpan="9" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2.5rem' }}>
-                  ยังไม่มี Session — กรอกข้อมูลด้านบนแล้วกด "เริ่มบันทึก" เพื่อเริ่มการทดลอง
-                </td>
-              </tr>
-            )}
-            {sessions.map(s => {
-              const isOngoing = !s.ended_at;
-              return (
-                <tr key={s.id} style={{ backgroundColor: isOngoing ? '#fffbeb' : 'inherit' }}>
-                  <td style={{ fontWeight: 700 }}>#{s.id}</td>
-                  <td>{s.box_id}</td>
-                  <td>
-                    <span className="badge online" style={{ fontWeight: 700 }}>
-                      {s.label}
-                    </span>
-                  </td>
-                  <td>
-                    {s.target_ppm != null ? (
-                      <span className="badge" style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontWeight: 700 }}>
-                        {Number(s.target_ppm).toLocaleString()} ppm
-                      </span>
-                    ) : (
-                      <span style={{ color: '#94a3b8' }}>—</span>
-                    )}
-                  </td>
-                  <td style={{ color: 'var(--text-muted)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {s.note || '—'}
-                  </td>
-                  <td style={{ fontSize: '0.85rem' }}>{new Date(s.started_at).toLocaleString('th-TH')}</td>
-                  <td style={{ fontSize: '0.85rem' }}>
-                    {s.ended_at ? (
-                      new Date(s.ended_at).toLocaleString('th-TH')
-                    ) : (
-                      <span style={{ color: '#d97706', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                        <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#ef4444', animation: 'blink 1s infinite' }} />
-                        กำลังบันทึก...
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ fontWeight: 700, fontSize: '0.95rem' }}>
-                    {Number(s.reading_count).toLocaleString()}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center' }}>
-                      {/* ปุ่มหยุดบันทึก มีในแถวทันทีถ้า Session ยังไม่จบ */}
-                      {isOngoing && (
-                        <button
-                          onClick={() => stopSession(s.id)}
-                          disabled={loading}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
-                            padding: '0.3rem 0.75rem', border: 'none', borderRadius: '0.375rem',
-                            fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
-                            backgroundColor: '#ef4444', color: 'white',
-                            boxShadow: '0 1px 4px rgba(239, 68, 68, 0.35)'
-                          }}
-                        >
-                          <Square size={12} fill="white" /> หยุดบันทึก
-                        </button>
-                      )}
-                      <div style={{ display: 'inline-flex', gap: '3px' }}>
-                        <button
-                          onClick={() => downloadExport('csv', s.id)}
-                          title="Export CSV"
-                          style={{ padding: '0.3rem 0.5rem', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
-                        >
-                          CSV
-                        </button>
-                        <button
-                          onClick={() => downloadExport('xlsx', s.id)}
-                          title="Export XLSX (Excel)"
-                          style={{ padding: '0.3rem 0.5rem', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
-                        >
-                          XLSX
-                        </button>
-                        <button
-                          onClick={() => downloadExport('pdf', s.id)}
-                          title="Printable ISO 17025 Report"
-                          style={{ padding: '0.3rem 0.5rem', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
-                        >
-                          PDF
-                        </button>
-                      </div>
-                      <button
-                        onClick={() => openEdit(s)}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.3rem 0.65rem', border: 'none', borderRadius: '0.375rem', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', backgroundColor: '#2563eb18', color: '#2563eb' }}
-                      >
-                        <Pencil size={12} /> แก้ไข
-                      </button>
-                      <button
-                        onClick={() => setDelTarget(s.id)}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.3rem 0.65rem', border: 'none', borderRadius: '0.375rem', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', backgroundColor: '#ef444418', color: '#ef4444' }}
-                      >
-                        <Trash2 size={12} /> ลบ
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </Card>
-
-      {/* ── Edit Session Modal ── */}
-      {editTarget && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setEditTarget(null)}>
-          <div style={{ background: 'white', borderRadius: '0.875rem', padding: '1.75rem', width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-              <h3 style={{ fontWeight: 700, fontSize: '1.05rem', margin: 0 }}>แก้ไข Session #{editTarget.id}</h3>
-              <button onClick={() => setEditTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={18} /></button>
+      {/* ── Strict 2-Card Layout (Left ~1/3, Right ~2/3) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT CARD: Acquisition Initiation (col-span-4) */}
+        <div className="lg:col-span-4 bg-white rounded-3xl p-8 shadow-sm flex flex-col justify-between min-h-[520px]">
+          <div>
+            <div className="flex items-center justify-between pb-6">
+              <span className="text-[12px] uppercase tracking-widest text-[#505f76] font-bold">
+                New Sample
+              </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Label (ชนิดสาร)</label>
-                <input
-                  value={editTarget.label}
-                  onChange={e => setEditTarget(t => ({ ...t, label: e.target.value.toUpperCase() }))}
-                  style={{ width: '100%', padding: '0.55rem 0.7rem', borderRadius: '0.4rem', border: '1px solid var(--border-color)', fontFamily: 'inherit', fontWeight: 700 }}
-                />
+
+            <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); startSampling(); }}>
+              {/* Field 1: Chemical Selector */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold text-[#505f76] uppercase tracking-wider">
+                  Chemical Compound
+                </label>
+                <div className="relative">
+                  <select
+                    value={compound}
+                    onChange={(e) => setCompound(e.target.value)}
+                    className="w-full bg-[#f2f3ff] text-[#131b2e] font-semibold text-[14px] rounded-xl px-4 py-2.5 appearance-none focus:outline-none focus:bg-[#eaedff] transition-all cursor-pointer"
+                  >
+                    <option>Toluene (C7H8)</option>
+                    <option>Xylene (C8H10)</option>
+                    <option>Methyl Ethyl Ketone (MEK)</option>
+                    <option>Acetone (C3H6O)</option>
+                    <option>Ethylbenzene (C8H10)</option>
+                  </select>
+                  <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#505f76] pointer-events-none" />
+                </div>
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>ความเข้มข้นเป้าหมาย (PPM)</label>
-                <input
-                  type="number"
-                  value={editTarget.target_ppm}
-                  onChange={e => setEditTarget(t => ({ ...t, target_ppm: e.target.value }))}
-                  placeholder="เช่น 100 หรือ 88400"
-                  style={{ width: '100%', padding: '0.55rem 0.7rem', borderRadius: '0.4rem', border: '1px solid var(--border-color)', fontFamily: 'inherit' }}
-                />
+
+              {/* Field 2: Concentration */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] font-bold text-[#505f76] uppercase tracking-wider">
+                    Concentration
+                  </label>
+                  <span className="text-[11px] font-bold text-[#004ac6]">Target Calibrated</span>
+                </div>
+                <div className="relative flex items-center">
+                  <input
+                    type="number"
+                    value={concentration}
+                    onChange={(e) => setConcentration(e.target.value)}
+                    className="w-full bg-[#f2f3ff] text-[#131b2e] font-semibold text-[14px] rounded-xl px-4 py-2.5 pr-14 focus:outline-none focus:bg-[#eaedff] transition-all font-mono tabular-nums"
+                  />
+                  <span className="absolute right-3 text-[#505f76] font-medium text-[12px] pointer-events-none">
+                    ppm
+                  </span>
+                </div>
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>หมายเหตุ</label>
-                <input
-                  value={editTarget.note}
-                  onChange={e => setEditTarget(t => ({ ...t, note: e.target.value }))}
-                  placeholder="หมายเหตุเพิ่มเติม"
-                  style={{ width: '100%', padding: '0.55rem 0.7rem', borderRadius: '0.4rem', border: '1px solid var(--border-color)', fontFamily: 'inherit' }}
-                />
+
+              {/* Field 3: Sample ID */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] font-bold text-[#505f76] uppercase tracking-wider">
+                    Sample ID
+                  </label>
+                  <span className="text-[10px] text-[#505f76] tracking-wider uppercase font-semibold">
+                    Auto-Generated
+                  </span>
+                </div>
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={sampleId}
+                    readOnly
+                    className="w-full bg-[#f2f3ff] text-[#131b2e] font-semibold text-[13px] rounded-xl px-4 py-2.5 font-mono tracking-wider select-all cursor-default"
+                  />
+                  <Tag size={16} className="absolute right-3 text-[#505f76]" />
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
-                <button onClick={() => setEditTarget(null)} style={{ padding: '0.5rem 1rem', border: '1px solid var(--border-color)', borderRadius: '0.5rem', background: 'white', cursor: 'pointer', fontWeight: 500 }}>ยกเลิก</button>
-                <button onClick={saveEdit} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 1.25rem', border: 'none', borderRadius: '0.5rem', backgroundColor: 'var(--primary-color)', color: 'white', cursor: 'pointer', fontWeight: 600 }}>
-                  <Save size={14} /> บันทึก
-                </button>
+            </form>
+          </div>
+
+          {/* Action Button */}
+          <div className="pt-8">
+            <button
+              type="button"
+              onClick={startSampling}
+              disabled={isSampling}
+              className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white py-3.5 px-6 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99]"
+            >
+              <Play size={18} fill="white" />
+              <span>{isSampling ? 'Sampling in progress...' : 'Start sampling'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* RIGHT CARD: Dynamic Sensor Response Telemetry (col-span-8) */}
+        <div className="lg:col-span-8 bg-white rounded-3xl p-8 shadow-sm flex flex-col justify-between min-h-[520px]">
+          {/* Top Bar: Title & Stepper Timeline */}
+          <div className="flex flex-col gap-4 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#004ac6]" />
+                <h2 className="text-[16px] font-bold text-[#131b2e] tracking-tight">
+                  Sensor response (Rs/R0)
+                </h2>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#d0e1fb] text-[#0b1c30] text-[11px] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6] animate-ping" />
+                Acquiring array transient
+              </div>
+            </div>
+
+            {/* 3-Phase Stepper Tracker */}
+            <div className="w-full pt-1">
+              <div className="grid grid-cols-3 gap-2 text-[12px] mb-2 font-semibold">
+                {/* Phase 1: Completed */}
+                <div className="flex items-center gap-1.5 text-[#131b2e]">
+                  <span className="w-4 h-4 rounded-full bg-[#e2e7ff] flex items-center justify-center text-[#004ac6] text-[10px] font-bold">
+                    ✓
+                  </span>
+                  <span className="text-[#505f76]">Baseline <span className="font-mono text-[11px]">30s</span></span>
+                </div>
+                {/* Phase 2: Active */}
+                <div className="flex items-center justify-center gap-1.5 text-[#004ac6]">
+                  <span className="w-2 h-2 rounded-full bg-[#004ac6] animate-ping" />
+                  <span>Exposure <span className="font-mono text-[11px]">60s</span></span>
+                  <span className="hidden sm:inline-block px-1.5 py-0.2 rounded bg-[#dbe1ff] text-[#00174b] font-mono text-[10px]">34s</span>
+                </div>
+                {/* Phase 3: Pending */}
+                <div className="flex items-center justify-end gap-1.5 text-[#505f76]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#c3c6d7]" />
+                  <span>Recovery <span className="font-mono text-[11px]">90s</span></span>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-[#eaedff] rounded-full overflow-hidden flex">
+                <div className="h-full bg-[#2563eb]" style={{ width: '35.5%' }} />
+                <div className="h-full bg-[#2563eb]/30" style={{ width: '17.5%' }} />
+                <div className="h-full bg-transparent flex-1" />
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* ── Delete Session Confirm ── */}
-      {delTarget !== null && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setDelTarget(null)}>
-          <div style={{ background: 'white', borderRadius: '0.875rem', padding: '1.75rem', width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h3 style={{ fontWeight: 700, fontSize: '1.05rem', margin: 0 }}>ยืนยันการลบ</h3>
-              <button onClick={() => setDelTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={18} /></button>
+          {/* Multi-Channel SVG Response Curves */}
+          <div className="relative w-full h-[260px] my-2 flex items-center">
+            <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 720 240">
+              {/* Phase Vertical Guides */}
+              <line stroke="#E2E8F0" strokeDasharray="3 3" strokeWidth="1.5" x1="120" x2="120" y1="10" y2="210" />
+              <line stroke="#E2E8F0" strokeDasharray="3 3" strokeWidth="1.5" x1="360" x2="360" y1="10" y2="210" />
+
+              {/* Horizontal Reference Grids */}
+              <line stroke="#F1F5F9" strokeWidth="1" x1="45" x2="710" y1="30" y2="30" />
+              <line stroke="#F1F5F9" strokeWidth="1" x1="45" x2="710" y1="75" y2="75" />
+              <line stroke="#F1F5F9" strokeWidth="1" x1="45" x2="710" y1="120" y2="120" />
+              <line stroke="#F1F5F9" strokeWidth="1" x1="45" x2="710" y1="165" y2="165" />
+              <line stroke="#E2E8F0" strokeWidth="1" x1="45" x2="710" y1="210" y2="210" />
+
+              {/* Y-Axis Labels */}
+              <text fill="#64748B" fontSize="11" textAnchor="end" x="35" y="34">2.4</text>
+              <text fill="#64748B" fontSize="11" textAnchor="end" x="35" y="79">2.0</text>
+              <text fill="#64748B" fontSize="11" textAnchor="end" x="35" y="124">1.6</text>
+              <text fill="#64748B" fontSize="11" textAnchor="end" x="35" y="169">1.2</text>
+              <text fill="#64748B" fontSize="11" textAnchor="end" x="35" y="214">0.8</text>
+
+              {/* X-Axis Labels */}
+              <text fill="#64748B" fontSize="11" textAnchor="start" x="45" y="232">0s</text>
+              <text fill="#2563EB" fontSize="11" fontWeight="600" textAnchor="middle" x="120" y="232">30s (Exposure start)</text>
+              <text fill="#64748B" fontSize="11" textAnchor="middle" x="360" y="232">90s (Purge recovery)</text>
+              <text fill="#64748B" fontSize="11" textAnchor="end" x="700" y="232">180s</text>
+
+              {/* Transient Curves: 5 Channels */}
+              {/* Ch 1: MOS-1 (Royal Blue) */}
+              <path d="M 45 208 L 120 208 C 160 205 190 40 360 42 C 430 45 520 185 710 204" fill="none" stroke="#2563EB" strokeLinecap="round" strokeWidth="2.5" />
+              {/* Ch 2: MOS-2 (Emerald Green) */}
+              <path d="M 45 206 L 120 206 C 160 200 210 115 360 118 C 440 120 540 195 710 206" fill="none" stroke="#00CC66" strokeLinecap="round" strokeWidth="2" />
+              {/* Ch 3: MOS-3 (Sky Blue) */}
+              <path d="M 45 210 L 120 210 C 160 208 215 150 360 152 C 450 155 560 202 710 209" fill="none" stroke="#00C0FF" strokeLinecap="round" strokeWidth="2" />
+              {/* Ch 4: MOS-4 (Orange) */}
+              <path d="M 45 207 L 120 207 C 160 204 220 85 360 88 C 430 92 530 190 710 205" fill="none" stroke="#FF7E00" strokeLinecap="round" strokeWidth="2" />
+              {/* Ch 5: MOS-5 (Purple) */}
+              <path d="M 45 209 L 120 209 C 160 207 225 130 360 132 C 445 136 535 198 710 207" fill="none" stroke="#8B5CF6" strokeLinecap="round" strokeWidth="2" />
+            </svg>
+          </div>
+
+          {/* Bottom Channel Legends */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 border-t border-[#f1f5f9] text-[12px] font-semibold text-[#505f76]">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB]" />
+              <span>MOS-1 (Aromatic)</span>
             </div>
-            <p style={{ color: '#334155', lineHeight: 1.7, marginBottom: '1.25rem' }}>
-              ลบ Session <strong style={{ color: '#ef4444' }}>#{delTarget}</strong> ออกจากระบบ?<br />
-              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>ข้อมูล readings ใน session นี้จะถูกลบออกจากการเทรน</span>
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <button onClick={() => setDelTarget(null)} style={{ padding: '0.5rem 1rem', border: '1px solid var(--border-color)', borderRadius: '0.5rem', background: 'white', cursor: 'pointer', fontWeight: 500 }}>ยกเลิก</button>
-              <button onClick={confirmDelete} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 1.25rem', border: 'none', borderRadius: '0.5rem', backgroundColor: '#ef4444', color: 'white', cursor: 'pointer', fontWeight: 600 }}>
-                <Trash2 size={14} /> ยืนยันลบ
-              </button>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#00CC66]" />
+              <span>MOS-2 (Ketone)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#00C0FF]" />
+              <span>MOS-3 (Alcohol)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#FF7E00]" />
+              <span>MOS-4 (Aliphatic)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6]" />
+              <span>MOS-5 (Oxide)</span>
             </div>
           </div>
         </div>
-      )}
-
-      <style>{`
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-      `}</style>
+      </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import {
   BookOpen, Cpu, Database, Activity, ChevronDown, ChevronUp,
   CheckCircle, AlertTriangle, Terminal, Wifi, BarChart2, ShieldAlert
 } from 'lucide-react';
-import { AqiScaleBar, Card, Button } from '../components/ui';
+import { Card, Button } from '../components/ui';
 
 // ─── ส่วนช่วยสำหรับ Code block ────────────────────────────────
 function CodeBlock({ children, lang = '' }) {
@@ -407,28 +407,20 @@ void loop() {
         </Callout>
       </Section>
 
-      {/* ── Air4Thai PCD Standard Section ── */}
-      <Section id="air4thai" icon={<ShieldAlert size={20} />} title="ข้อมูลดัชนีคุณภาพอากาศ (Air Quality Index : AQI - PCD Thailand)" accent="#0284c7">
+      {/* ── Factory VOC Threshold Standard (OSHA / ISO 16000) ── */}
+      <Section id="voc-standard" icon={<ShieldAlert size={20} />} title="เกณฑ์มาตรฐานคุณภาพอากาศในโรงงาน (OSHA / ISO 16000 Calibration)" accent="#0284c7">
         <p style={{ fontSize: '0.875rem', lineHeight: 1.7, color: '#334155', marginBottom: '1rem' }}>
-          <strong>ดัชนีคุณภาพอากาศ (Air Quality Index : AQI)</strong> เป็นการรายงานข้อมูลคุณภาพอากาศในรูปแบบที่ง่ายต่อความเข้าใจของประชาชนทั่วไป เพื่อเผยแพร่ประชาสัมพันธ์ให้สาธารณชนได้รับทราบถึงสถานการณ์มลพิษทางอากาศในแต่ละพื้นที่ว่าอยู่ในระดับใด มีผลกระทบต่อสุขภาพอนามัยหรือไม่ ดัชนีคุณภาพอากาศ 1 ค่า ใช้เป็นตัวแทนค่าความเข้มข้นของสารมลพิษทางอากาศ 6 ชนิด ได้แก่
+          <strong>มาตรฐานตรวจวัดสารประกอบอินทรีย์ระเหยง่าย (VOCs) ในห้องพ่นสีและสายการผลิต (Coating Line 1)</strong> อ้างอิงตามเกณฑ์ความปลอดภัยอาชีวอนามัยสากล OSHA และ ISO 16000 เพื่อควบคุมการระเหยของตัวทำละลายอินทรีย์ (Organic Solvents) และอนุภาคฝุ่นละออง:
         </p>
 
         <ul style={{ fontSize: '0.85rem', lineHeight: 1.8, color: '#475569', paddingLeft: '1.25rem', marginBottom: '1.25rem' }}>
-          <li><strong>ฝุ่นละอองขนาดไม่เกิน 2.5 ไมครอน (PM₂.₅)</strong>: เกิดจากการเผาไหม้ ยานพาหนะ และกระบวนการอุตสาหกรรม สามารถเข้าลึกถึงถุงลมปอดและกระแสเลือด</li>
-          <li><strong>ฝุ่นละอองขนาดไม่เกิน 10 ไมครอน (PM₁₀)</strong>: เกิดจากการเผาไหม้เชื้อเพลิง งานก่อสร้าง และถนน ส่งผลต่อระบบทางเดินหายใจส่วนบน</li>
-          <li><strong>ก๊าซโอโซน (O₃)</strong>: ก๊าซที่เกิดจากปฏิกิริยาระหว่าง NOx และสารประกอบอินทรีย์ระเหยง่าย (VOCs) โดยมีแสงแดดเป็นตัวเร่งปฏิกิริยา</li>
-          <li><strong>ก๊าซคาร์บอนมอนอกไซด์ (CO)</strong>: เกิดจากการเผาไหม้ที่ไม่สมบูรณ์ แย่งจับฮีโมโกลบินในเม็ดเลือดแดงทำให้ร่างกายขาดออกซิเจน</li>
-          <li><strong>ก๊าซไนโตรเจนไดออกไซด์ (NO₂)</strong>: เกิดจากการเผาไหม้เชื้อเพลิงที่อุณหภูมิสูง ก่อความระคายเคืองต่อทางเดินหายใจ</li>
-          <li><strong>ก๊าซซัลเฟอร์ไดออกไซด์ (SO₂)</strong>: เกิดจากเชื้อเพลิงที่มีกำมะถันสูง มีกลิ่นฉุนและก่อให้เกิดฝนกรด</li>
+          <li><strong>Toluene (โทลูอีน)</strong>: สารทำละลายสี เกณฑ์ควบคุมปลอดภัย &lt; 20 ppm (Ceiling 30 ppm)</li>
+          <li><strong>Xylene (ไซลีน)</strong>: สารละลายเรซินและสี เกณฑ์ควบคุมปลอดภัย &lt; 20 ppm</li>
+          <li><strong>Ethyl Acetate (เอทิลอะซีเตต)</strong>: ตัวทำละลายแห้งเร็ว เกณฑ์ควบคุมปลอดภัย &lt; 25 ppm</li>
+          <li><strong>MEK (เมทิลเอทิลคีโตน)</strong>: สารทำความสะอาดและชะล้าง เกณฑ์ควบคุมปลอดภัย &lt; 25 ppm</li>
+          <li><strong>Total VOCs (TVOC)</strong>: ค่ารวมสารอินทรีย์ระเหยง่าย เป้าหมายในไลน์ &lt; 100 ppb</li>
+          <li><strong>Particulate Matter (PM₂.₅)</strong>: ผงสีและละอองฝุ่น Target &lt; 35 µg/m³</li>
         </ul>
-
-        <p style={{ fontSize: '0.85rem', color: '#334155', marginBottom: '0.85rem' }}>
-          ดัชนีคุณภาพอากาศของประเทศไทยแบ่งเป็น 5 ระดับ ตั้งแต่ 0 ถึง 201 ขึ้นไป โดยแต่ละระดับจะใช้สีเป็นสัญลักษณ์เปรียบเทียบระดับของผลกระทบต่อสุขภาพอนามัย:
-        </p>
-
-        <div style={{ marginBottom: '1.25rem' }}>
-          <AqiScaleBar showLabels={true} />
-        </div>
       </Section>
 
       {/* ── S8: FAQ ── */}

@@ -1,126 +1,103 @@
 /**
- * Air4Thai (Pollution Control Department - PCD Thailand) AQI Standards
- * Reference: air4thai.pcd.go.th
+ * Factory VOC & Air Quality Standards (OSHA / ISO 16000 Calibration)
+ * For Industrial Spray Booth & Coating Line 1
  * 
- * 5 ระดับคุณภาพอากาศของประเทศไทย:
- * 1. 0 - 25: ดีมาก (ฟ้า #00b0f0)
- * 2. 26 - 50: ดี (เขียว #92d050 / #84cc16)
- * 3. 51 - 100: ปานกลาง (เหลือง #ffea00 / #eab308)
- * 4. 101 - 200: เริ่มมีผลกระทบต่อสุขภาพ (ส้ม #ff7c00 / #f97316)
- * 5. 201 ขึ้นไป: มีผลกระทบต่อสุขภาพ (แดง #e02424 / #ef4444)
+ * 5 Operational Levels:
+ * 1. 0 - 50: Good (Emerald Green #10B981)
+ * 2. 51 - 100: Moderate (Amber #F59E0B)
+ * 3. 101 - 150: Sensitive Alert (Orange #F97316)
+ * 4. 151 - 200: Unhealthy (Red #EF4444)
+ * 5. 201+: Hazardous (Purple #8B5CF6)
  */
 
 export const AQI_LEVELS = [
   {
     level: 1,
     min: 0,
-    max: 25,
-    rangeStr: '0 - 25',
-    label: 'ดีมาก',
-    labelEn: 'Very Good',
-    color: '#00b0f0',
-    colorHex: '#00b0f0',
-    bg: '#e0f2fe',
-    border: '#bae6fd',
-    text: '#0369a1',
-    description: 'คุณภาพอากาศดีมาก เหมาะสำหรับกิจกรรมกลางแจ้งและการท่องเที่ยว',
+    max: 50,
+    rangeStr: '0 - 50',
+    label: 'Good (ดีมาก)',
+    labelEn: 'Good',
+    color: '#10B981',
+    colorHex: '#10B981',
+    bg: '#ecfdf5',
+    border: '#a7f3d0',
+    text: '#047857',
+    description: 'Baseline manufacturing condition. Air quality is ideal for all normal factory operations.',
   },
   {
     level: 2,
-    min: 26,
-    max: 50,
-    rangeStr: '26 - 50',
-    label: 'ดี',
-    labelEn: 'Good',
-    color: '#84cc16',
-    colorHex: '#84cc16',
-    bg: '#ecfccb',
-    border: '#d9f99d',
-    text: '#3f6212',
-    description: 'คุณภาพอากาศดี สามารถทำกิจกรรมกลางแจ้งได้ตามปกติ',
-  },
-  {
-    level: 3,
     min: 51,
     max: 100,
     rangeStr: '51 - 100',
-    label: 'ปานกลาง',
+    label: 'Moderate (ปานกลาง)',
     labelEn: 'Moderate',
-    color: '#eab308',
-    colorHex: '#eab308',
-    bg: '#fef9c3',
-    border: '#fef08a',
-    text: '#854d0e',
-    description: 'ประชาชนทั่วไปทำกิจกรรมได้ ผู้ที่ต้องดูแลสุขภาพเป็นพิเศษควรลดเวลาทำกิจกรรมกลางแจ้ง',
+    color: '#F59E0B',
+    colorHex: '#F59E0B',
+    bg: '#fffbeb',
+    border: '#fde68a',
+    text: '#b45309',
+    description: 'Acceptable VOC dispersal; maintain standard ventilation and monitor lines.',
+  },
+  {
+    level: 3,
+    min: 101,
+    max: 150,
+    rangeStr: '101 - 150',
+    label: 'Sensitive Alert (เริ่มมีผลกระทบ)',
+    labelEn: 'Sensitive Alert',
+    color: '#F97316',
+    colorHex: '#F97316',
+    bg: '#fff7ed',
+    border: '#fed7aa',
+    text: '#c2410c',
+    description: 'Elevated organic vapors; increase booth exhaust fan rate and restrict entry.',
   },
   {
     level: 4,
-    min: 101,
+    min: 151,
     max: 200,
-    rangeStr: '101 - 200',
-    label: 'เริ่มมีผลกระทบต่อสุขภาพ',
-    labelEn: 'Unhealthy for Sensitive Groups',
-    color: '#f97316',
-    colorHex: '#f97316',
-    bg: '#ffedd5',
-    border: '#fed7aa',
-    text: '#9a3412',
-    description: 'ควรเฝ้าระวังสุขภาพ หากมีอาการไอ จาม หายใจลำบาก ควรลดกิจกรรมกลางแจ้ง',
+    rangeStr: '151 - 200',
+    label: 'Unhealthy (มีผลกระทบต่อสุขภาพ)',
+    labelEn: 'Unhealthy',
+    color: '#EF4444',
+    colorHex: '#EF4444',
+    bg: '#fef2f2',
+    border: '#fecaca',
+    text: '#b91c1c',
+    description: 'Exceeds standard ceiling; activate secondary scrubbers immediately.',
   },
   {
     level: 5,
     min: 201,
-    max: 500,
-    rangeStr: '201 ขึ้นไป',
-    label: 'มีผลกระทบต่อสุขภาพ',
+    max: 9999,
+    rangeStr: '201+',
+    label: 'Hazardous (อันตรายวิกฤต)',
     labelEn: 'Hazardous',
-    color: '#ef4444',
-    colorHex: '#ef4444',
-    bg: '#fee2e2',
-    border: '#fca5a5',
-    text: '#991b1b',
-    description: 'ทุกคนควรหลีกเลี่ยงกิจกรรมกลางแจ้ง สวมหน้ากากป้องกันมลพิษตลอดเวลา',
+    color: '#8B5CF6',
+    colorHex: '#8B5CF6',
+    bg: '#f5f3ff',
+    border: '#ddd6fe',
+    text: '#6d28d9',
+    description: 'Halt spray application, emergency cut-off, and evacuate booth enclosure now.',
   },
 ];
 
-/**
- * คำนวณ AQI ตามค่า PM2.5 ตามเกณฑ์มาตรฐานกรมควบคุมมลพิษ (PCD)
- * @param {number} pm25 ค่าความเข้มข้น PM2.5 (µg/m³)
- * @returns {number} ค่าดัชนี AQI (0 - 500)
- */
 export function calculatePm25Aqi(pm25) {
-  if (pm25 == null || isNaN(pm25)) return 0;
-  const val = Number(pm25);
-
-  if (val <= 25) {
-    // 0 - 25 µg/m³ -> AQI 0 - 25
-    return Math.round(val);
-  }
-  if (val <= 37.5) {
-    // 26 - 37.5 µg/m³ -> AQI 26 - 50
-    return Math.round(26 + ((val - 25) / (37.5 - 25)) * (50 - 26));
-  }
-  if (val <= 50) {
-    // 37.6 - 50 µg/m³ -> AQI 51 - 100
-    return Math.round(51 + ((val - 37.5) / (50 - 37.5)) * (100 - 51));
-  }
-  if (val <= 90) {
-    // 50.1 - 90 µg/m³ -> AQI 101 - 200
-    return Math.round(101 + ((val - 50) / (90 - 50)) * (200 - 101));
-  }
-  // > 90 µg/m³ -> AQI > 200
-  return Math.min(500, Math.round(201 + ((val - 90) / 100) * 100));
+  const p = Number(pm25) || 0;
+  if (p <= 0) return 0;
+  if (p <= 15) return Math.round((p / 15) * 50);
+  if (p <= 35) return Math.round(50 + ((p - 15) / 20) * 50);
+  if (p <= 75) return Math.round(100 + ((p - 35) / 40) * 50);
+  if (p <= 150) return Math.round(150 + ((p - 75) / 75) * 50);
+  return Math.min(300, Math.round(200 + ((p - 150) / 100) * 100));
 }
 
-/**
- * ดึงหมวดหมู่ AQI ของ Air4Thai จากตัวเลข AQI หรือค่า PM2.5
- */
 export function getAqiCategory(aqiValue) {
-  const val = Math.max(0, Number(aqiValue) || 0);
-  if (val <= 25) return AQI_LEVELS[0];
-  if (val <= 50) return AQI_LEVELS[1];
-  if (val <= 100) return AQI_LEVELS[2];
+  const val = Number(aqiValue) || 0;
+  if (val <= 50) return AQI_LEVELS[0];
+  if (val <= 100) return AQI_LEVELS[1];
+  if (val <= 150) return AQI_LEVELS[2];
   if (val <= 200) return AQI_LEVELS[3];
   return AQI_LEVELS[4];
 }
-

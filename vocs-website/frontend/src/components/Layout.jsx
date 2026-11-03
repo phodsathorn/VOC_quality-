@@ -88,17 +88,16 @@ export default function Layout({ children }) {
 
   const allNavItems = [
     { name: 'Dashboard',             path: '/',                icon: LayoutDashboard, roles: ['admin', 'engineer', 'operator', 'viewer'] },
-    { name: 'ข้อมูลดัชนีคุณภาพอากาศ', path: '/aqi-info',        icon: ShieldAlert,     roles: ['admin', 'engineer', 'operator', 'viewer'] },
-    { name: 'Kiosk หน้างาน',          path: '/kiosk',           icon: Monitor,         roles: ['admin', 'engineer', 'operator'] },
+    { name: 'Kiosk',                 path: '/kiosk',           icon: Monitor,         roles: ['admin', 'engineer', 'operator'] },
     { name: 'Alerts',                path: '/alerts',          icon: Bell,            roles: ['admin', 'engineer', 'operator'], badge: activeAlertsCount },
-    { name: 'Airflow Diagram',       path: '/airflow',         icon: Wind,            roles: ['admin', 'engineer', 'operator', 'viewer'] },
-    { name: 'ประวัติอากาศ',          path: '/history',         icon: CalendarDays,    roles: ['admin', 'engineer', 'operator', 'viewer'] },
-    { name: 'รายงานมลพิษ',           path: '/emissions',       icon: Factory,         roles: ['admin', 'engineer', 'operator', 'viewer'] },
+    { name: 'Airflow',               path: '/airflow',         icon: Wind,            roles: ['admin', 'engineer', 'operator', 'viewer'] },
+    { name: 'History',               path: '/history',         icon: CalendarDays,    roles: ['admin', 'engineer', 'operator', 'viewer'] },
+    { name: 'Air Quality Reference', path: '/air-quality-guide', icon: ShieldAlert,   roles: ['admin', 'engineer', 'operator', 'viewer'] },
+    { name: 'Emissions Report',      path: '/emissions',       icon: Factory,         roles: ['admin', 'engineer', 'operator', 'viewer'] },
     { name: 'Maintenance',           path: '/maintenance',     icon: Wrench,          roles: ['admin', 'engineer'] },
     { name: 'Devices',               path: '/devices',         icon: Box,             roles: ['admin', 'engineer'] },
     { name: 'Data Collection',       path: '/data-collection', icon: Database,        roles: ['admin', 'engineer'] },
     { name: 'Settings',              path: '/settings',        icon: Settings,        roles: ['admin'] },
-    { name: 'คู่มือการใช้งาน',        path: '/guide',           icon: BookOpen,        roles: ['admin', 'engineer', 'operator', 'viewer'] },
   ];
 
   // กรองเมนูเฉพาะบทบาทที่ได้รับอนุญาต

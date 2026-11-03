@@ -13,7 +13,7 @@ import Maintenance from './pages/Maintenance';
 import History from './pages/History';
 import Kiosk from './pages/Kiosk';
 import EmissionsReport from './pages/EmissionsReport';
-import AQIInfo from './pages/AQIInfo';
+import AirQualityGuide from './pages/AirQualityGuide';
 
 // RBAC Guard Component สำหรับป้องกันเส้นทาง URL โดยตรง
 function RoleProtectedRoute({ allowedRoles, children, fallback = "/" }) {
@@ -40,10 +40,11 @@ function AppContent() {
     <Layout>
       <Routes>
         {/* หน้าที่ทุกบทบาทเข้าถึงได้ */}
-        <Route path="/"         element={<Dashboard />} />
-        <Route path="/aqi-info" element={<AQIInfo />} />
-        <Route path="/airflow"  element={<AirflowDiagram />} />
-        <Route path="/guide"    element={<Guide />} />
+        <Route path="/"                   element={<Dashboard />} />
+        <Route path="/air-quality-guide"  element={<AirQualityGuide />} />
+        <Route path="/aqi-info"           element={<Navigate to="/air-quality-guide" replace />} />
+        <Route path="/airflow"            element={<AirflowDiagram />} />
+        <Route path="/guide"              element={<AirQualityGuide />} />
 
         {/* หน้าสำหรับ Operator, Engineer, Admin */}
         <Route path="/kiosk" element={

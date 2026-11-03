@@ -138,5 +138,32 @@
 - รันทดสอบ Build: `npm --prefix vocs-website/frontend run build` ผ่าน 100% ภายใน 201ms
 - Push ขึ้นทั้ง GitLab (`origin`) และ GitHub (`github`) เพื่ออัปเดตเว็บไซต์ Vercel ทันที
 
+## อัปเดตเวลา 23:08 ICT — กำจัดมาตรฐานมลพิษทั่วไป (Air4Thai / PCD) และปรับทุกหน้า 1:1 Pixel-Perfect ตามแบบ Stitch
+### เหตุผลและสิ่งที่เปลี่ยน
+1. **กำจัดระบบ Air4Thai PCD ที่ไม่เกี่ยวข้องออกทั้งหมด:**
+   - โครงการนี้คือระบบตรวจสอบ VOC และ E-Nose สำหรับโรงงานอุตสาหกรรม (พ่นสีและเคลือบผิว Powder Coating Booth 1) ซึ่งวัดสารละลายอินทรีย์ระเหยง่าย (Toluene, Xylene, Ethyl Acetate, MEK) ตามมาตรฐานโรงงาน **OSHA / ISO 16000 / EPA Title V** ไม่ใช่คุณภาพอากาศชุมชนภายนอกของกรมควบคุมมลพิษ (PCD)
+   - ลบไฟล์ `vocs-website/frontend/src/pages/AQIInfo.jsx` ออกทั้งหมด
+   - ปรับ `Guide.jsx`, `aqiHelper.js`, `AqiBadge.jsx`, `AqiScaleBar.jsx` ให้เป็นเกณฑ์ OSHA / ISO 16000 สำหรับห้องพ่นสี
+   - นำ `/aqi-info` ออกจาก Navigation เมนูด้านข้าง และแทนที่ด้วย `Air Quality Reference` (`/air-quality-guide`)
+2. **ปรับแต่งทุกหน้าให้ตรงตามภาพ `screen.png` และโค้ด Stitch 1:1:**
+   - **`Dashboard.jsx`:** 3 Primary Metrics (Air Quality 38 continuous slider, TVOC 64 ppb, Exhaust Fan ON), 24h curve (120 ppb threshold), Solvent Toluene 87% + 5-channel radar, 3 Recent alerts
+   - **`Kiosk.jsx`:** แบนเนอร์เขียว `บรรยากาศปกติ — ปลอดภัย`, 3 ปุ่มสัมผัสขนาดใหญ่ (Emergency, Fan 100%, Maintenance), 2 มาตรวัดทรงกลม (TVOC 64 ppb, PM2.5 14 µg/m³)
+   - **`Alerts.jsx`:** 3 Metric cards (Critical 0, Warning 1, Resolved Today 5), Incident table, แผงควบคุม Incident #204 ฝั่งขวา
+   - **`AirflowDiagram.jsx`:** ไดอะแกรมท่อลมภาพเคลื่อนไหว (Booth -> Duct 18.4 m/s -> Scrubber 94% -> Stack 14 ppb) + 3 Metrics (312 Pa, 1,420 rpm, 21.8 °C) + Telemetry Drawer
+   - **`History.jsx`:** ปุ่มเลือกช่วงเวลา (Today, 7d, 30d), ส่งออก CSV/PDF, กราฟ 7-day TVOC พร้อมเส้นประ 100 ppb และตารางประวัติย้อนหลัง
+   - **`AirQualityGuide.jsx`:** มาตรฐาน OSHA / ISO 16000, 5 การ์ดระดับความเข้มข้นสารอินทรีย์, แถบสถานะระบบ Scrubber อัตโนมัติ
+   - **`EmissionsReport.jsx`:** EPA Title V Overview · Q3 Rolling Assessment, ดาวน์โหลดรายงาน, เกณฑ์ 42% below legal threshold, กราฟแท่งการปล่อยสารรายตัว (Toluene, Xylene, Ethyl Acetate, MEK) พร้อมสลับเป็นตาราง mg/m³
+   - **`Maintenance.jsx`:** 3 ฟิลเตอร์ (HEPA 78%, Carbon 42%, UV 65%), ปุ่ม Add log พร้อม Drawer, ตารางกำหนดการสอบเทียบเซนเซอร์
+   - **`Devices.jsx`:** 3 การ์ดโหนด (ESP32 Node 01, ESP32 Node 02, Gateway Hub), ปุ่ม Reboot และลิ้นชัก Diagnostics
+   - **`DataCollection.jsx`:** ฟอร์มบันทึกตัวอย่างสาร (Toluene, Xylene, MEK, Acetone), Stepper 3 ขั้นตอน (Baseline/Exposure/Recovery), กราฟตอบสนอง 5 ช่องสัญญาณ MOS-1 ถึง MOS-5
+   - **`Settings.jsx`:** แท็บ Thresholds / Notifications / Users, ตั้งค่าขีดจำกัด ppb รายโซน (Spray Booth, Curing Tunnel, Exhaust Stack)
+   - **`LoginPage.jsx`:** การ์ดกึ่งกลางมินิมอล 400px, ป้อน Username/Password พร้อมปุ่มเปิดดูรหัสผ่าน, ปุ่ม Quick Role สำหรับ Admin, Engineer, Operator
+   - **`Layout.jsx`:** เมนูด้านข้าง 11 รายการตรงตามแบบ Stitch, Header Sticky พร้อมสถานะ Powder Coating Booth 1 • ONLINE
+
+### การตรวจสอบ
+- ตรวจสอบการคอมไพล์: `npm --prefix vocs-website/frontend run build` ผ่าน 100% สำเร็จเรียบร้อย
+- ส่งขึ้น Git repository ไปยังทั้ง GitLab (`origin`) และ GitHub (`github`) เพื่อให้ Vercel รีบิลด์เวอร์ชันล่าสุด
+
+
 
 
