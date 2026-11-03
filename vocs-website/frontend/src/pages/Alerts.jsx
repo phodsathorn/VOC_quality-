@@ -1,15 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
-import { AlertTriangle, CheckCircle, RefreshCw, Bell, ShieldAlert, Info, Volume2, VolumeX, Volume1, Clock, AlertOctagon } from 'lucide-react';
+import {
+  AlertTriangle, CheckCircle, RefreshCw, Bell, ShieldAlert, Info, Volume2, VolumeX,
+  Clock, ArrowRight, X, User, Check, ShieldCheck, CheckCircle2
+} from 'lucide-react';
 import { isSoundEnabled, toggleSoundEnabled, triggerAlertSound } from '../utils/soundAlert';
 import { useAuth } from '../context/AuthContext';
+import { Card, StatCard, Button, Drawer } from '../components/ui';
 import { API } from '../config';
-const REFRESH_INTERVAL_MS = 10000;
 
-const LEVEL_CONFIG = {
-  Critical: { color: '#991b1b', bg: '#fee2e2', border: '#fca5a5', icon: <ShieldAlert size={16} /> },
-  High:     { color: '#92400e', bg: '#fef3c7', border: '#fcd34d', icon: <AlertTriangle size={16} /> },
-  Warning:  { color: '#1e40af', bg: '#dbeafe', border: '#93c5fd', icon: <Info size={16} /> },
-};
+const REFRESH_INTERVAL_MS = 10000;
 
 export default function Alerts() {
   const { user, authHeaders } = useAuth();
@@ -20,6 +19,10 @@ export default function Alerts() {
   const [filter, setFilter] = useState('All');
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
   const [errorMsg, setErrorMsg] = useState(null);
+  const [actionSuccess, setActionSuccess] = useState(null);
+
+  // Selected Incident for Stitch Sub-state Side Drawer
+  const [selectedIncident, setSelectedIncident] = useState(null);
 
   useEffect(() => {
     const handleToggle = (e) => setSoundOn(e.detail.enabled);
@@ -31,11 +34,11 @@ export default function Alerts() {
     setLoading(true);
     try {
       const [alertsRes, summaryRes] = await Promise.all([
-        fetch(`${API}/api/alerts?limit=100`).then(r => r.json()),
-        fetch(`${API}/api/alerts/summary`).then(r => r.json()),
+        fetch(`${API}/api/alerts?limit=100`).then((r) => r.json()),
+        fetch(`${API}/api/alerts/summary`).then((r) => r.json()),
       ]);
-      setAlerts(alertsRes);
-      setSummary(summaryRes);
+      setAlerts(Array.isArray(alertsRes) ? alertsRes : []);
+      setSummary(summaryRes || {});
       setLastUpdated(new Date());
     } catch (err) {
       console.error(err);
@@ -44,7 +47,10 @@ export default function Alerts() {
     }
   }, []);
 
-  useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
+  useEffect(() => {
+    fetchAlerts();
+  }, [fetchAlerts]);
+
   useEffect(() => {
     const t = setInterval(fetchAlerts, REFRESH_INTERVAL_MS);
     return () => clearInterval(t);
@@ -60,11 +66,16 @@ export default function Alerts() {
       const res = await fetch(`${API}/api/alerts/${id}/${step}`, {
         method: 'PATCH',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ note: `Updated by ${user?.username || 'operator'}` })
+        body: JSON.stringify({ note: `Updated by ${user?.username || 'operator'}` }),
       });
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.detail || 'Failed');
+      }
+      setActionSuccess(`ดำเนินการ ${step.toUpperCase()} เรียบร้อยแล้ว`);
+      setTimeout(() => setActionSuccess(null), 4000);
+      if (selectedIncident?.id === id) {
+        setSelectedIncident(null);
       }
       fetchAlerts();
     } catch (err) {
@@ -73,295 +84,340 @@ export default function Alerts() {
     }
   }
 
-  async function resolveAlert(id, level) {
-    handleWorkflow(id, 'resolve');
-  }
-
-  const filtered = filter === 'All' ? alerts : alerts.filter(a => a.status === filter);
-  const activeCount = alerts.filter(a => a.status === 'Active').length;
+  const filtered = filter === 'All' ? alerts : alerts.filter((a) => a.status === filter);
+  const activeCount = alerts.filter((a) => a.status === 'Active').length;
+  const acknowledgedCount = alerts.filter((a) => a.status === 'Acknowledged' || a.status === 'In progress').length;
+  const resolvedCount = alerts.filter((a) => a.status === 'Resolved').length;
 
   return (
-    <div>
+    <div className="space-y-6">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Bell size={24} />
-          Alerts
-          {activeCount > 0 && (
-            <span style={{
-              fontSize: '0.75rem', fontWeight: 700, padding: '0.125rem 0.5rem',
-              borderRadius: '999px', backgroundColor: 'var(--danger-color)', color: 'white',
-            }}>{activeCount}</span>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-[24px] md:text-[28px] font-bold text-[#131b2e] tracking-tight flex items-center gap-2">
+            <Bell size={26} className="text-[#004ac6]" />
+            ศูนย์จัดการเหตุการณ์และการแจ้งเตือน (Alerts & Incident Response)
+          </h1>
+          <p className="text-[13px] text-[#64748b] mt-0.5">
+            บันทึกการแจ้งเตือนสภาวะฉุกเฉิน การตอบสนองตามกรอบเวลา SLA และประวัติการแก้ไขเหตุการณ์
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="hidden md:flex items-center gap-1.5 text-[12px] text-[#64748b]">
+              <Clock size={14} />
+              อัปเดต {lastUpdated.toLocaleTimeString('th-TH')}
+            </span>
           )}
-        </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-          {lastUpdated && <span>อัปเดต {lastUpdated.toLocaleTimeString('th-TH')}</span>}
-          <button onClick={fetchAlerts} disabled={loading} style={{
-            display: 'flex', alignItems: 'center', gap: '0.375rem',
-            padding: '0.4rem 0.875rem', border: '1px solid var(--border-color)',
-            borderRadius: '0.5rem', backgroundColor: 'white', cursor: 'pointer', fontSize: '0.875rem',
-          }}>
-            <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+          <Button
+            onClick={fetchAlerts}
+            loading={loading}
+            iconLeft={<RefreshCw size={14} />}
+            size="sm"
+          >
             รีเฟรช
-          </button>
+          </Button>
         </div>
       </div>
 
+      {/* Action Messages */}
       {errorMsg && (
-        <div style={{
-          padding: '0.75rem 1rem', borderRadius: '0.5rem', backgroundColor: '#fee2e2',
-          border: '1px solid #fca5a5', color: '#dc2626', fontSize: '0.85rem', fontWeight: 600,
-          marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'
-        }}>
-          <ShieldAlert size={18} /> {errorMsg}
+        <div className="p-3.5 rounded-2xl bg-[#ffdad6]/40 border border-[#ffdad6] text-[#ba1a1a] text-[13px] flex items-center gap-2 animate-fadeIn">
+          <AlertTriangle size={18} />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+      {actionSuccess && (
+        <div className="p-3.5 rounded-2xl bg-[#ecfdf5] border border-[#a7f3d0] text-[#059669] text-[13px] flex items-center gap-2 animate-fadeIn">
+          <CheckCircle2 size={18} />
+          <span>{actionSuccess}</span>
         </div>
       )}
 
-      {/* Sound Settings & Test Bar */}
-      <div className="card" style={{
-        marginBottom: '1.5rem',
-        padding: '0.85rem 1.25rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        backgroundColor: '#f8fafc',
-        border: '1px solid #e2e8f0',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button
-            onClick={() => {
-              const next = toggleSoundEnabled();
-              setSoundOn(next);
-            }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.4rem',
-              padding: '0.45rem 0.9rem', borderRadius: '0.5rem',
-              border: `1px solid ${soundOn ? '#86efac' : '#cbd5e1'}`,
-              backgroundColor: soundOn ? '#dcfce7' : '#f1f5f9',
-              color: soundOn ? '#166534' : '#475569',
-              fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
-            {soundOn ? 'เสียงแจ้งเตือน: เปิดอยู่' : 'เสียงแจ้งเตือน: ปิดอยู่'}
-          </button>
-          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
-            เสียงจะดังอัตโนมัติเมื่อตรวจพบ Alert ใหม่ (มี Cooldown 10 วิ ป้องกันเสียงดังรัว)
-          </span>
-        </div>
+      {/* Summary KPI Cards */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <StatCard
+          title="Active Emergencies"
+          value={activeCount}
+          valueColor={activeCount > 0 ? '#ba1a1a' : '#059669'}
+          badge={
+            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${activeCount > 0 ? 'bg-[#ffdad6] text-[#ba1a1a]' : 'bg-[#ecfdf5] text-[#059669]'}`}>
+              {activeCount > 0 ? 'Immediate Action' : 'Safe Normal'}
+            </span>
+          }
+          subtext="เหตุการณ์ที่รอดำเนินการ (SLA: Critical 5 นาที)"
+        />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>ทดสอบเสียง:</span>
-          <button
-            onClick={() => triggerAlertSound('Warning', true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.35rem',
-              padding: '0.35rem 0.75rem', borderRadius: '0.375rem',
-              border: '1px solid #93c5fd', backgroundColor: '#eff6ff',
-              color: '#1d4ed8', fontSize: '0.8rem', fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            <Volume1 size={14} /> โทน Warning
-          </button>
-          <button
-            onClick={() => triggerAlertSound('Critical', true)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.35rem',
-              padding: '0.35rem 0.75rem', borderRadius: '0.375rem',
-              border: '1px solid #fca5a5', backgroundColor: '#fef2f2',
-              color: '#b91c1c', fontSize: '0.8rem', fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            <ShieldAlert size={14} /> โทน Critical
-          </button>
-        </div>
-      </div>
+        <StatCard
+          title="In Progress (Ack)"
+          value={acknowledgedCount}
+          valueColor="#2563eb"
+          badge={
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#eaedff] text-[#004ac6]">
+              Investigating
+            </span>
+          }
+          subtext="ช่างหน้างานรับทราบและกำลังเข้าตรวจสอบ"
+        />
 
-      {/* Summary Cards */}
-      <div className="dashboard-grid" style={{ marginBottom: '2rem' }}>
-        {Object.entries(LEVEL_CONFIG).map(([level, cfg]) => (
-          <div className="card" key={level} style={{ borderColor: cfg.border, backgroundColor: cfg.bg }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: cfg.color, marginBottom: '0.5rem' }}>
-              {cfg.icon}
-              <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{level}</span>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 700, color: cfg.color }}>
-              {summary[level] ?? 0}
-            </div>
-            <div style={{ fontSize: '0.8rem', color: cfg.color, opacity: 0.8 }}>รายการที่ยังเปิดอยู่</div>
+        <StatCard
+          title="Resolved Today"
+          value={resolvedCount}
+          valueColor="#059669"
+          badge={
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#ecfdf5] text-[#059669]">
+              Closed
+            </span>
+          }
+          subtext="เหตุการณ์ที่ควบคุมและปิดงานสำเร็จ"
+        />
+      </section>
+
+      {/* Incidents Table Card */}
+      <Card
+        title="ตารางรายการเหตุการณ์ (Incident Audit Log)"
+        subtitle="คลิกที่แถวรายการเพื่อเปิดดูรายละเอียดผู้รับผิดชอบและบันทึกการแก้ไข (SLA Detail Drawer)"
+        action={
+          <div className="flex gap-1 bg-[#f8fafc] p-0.5 rounded-xl border border-[#e2e8f0]">
+            {['All', 'Active', 'Acknowledged', 'Resolved'].map((st) => (
+              <button
+                key={st}
+                type="button"
+                onClick={() => setFilter(st)}
+                className={`px-3 py-1 rounded-lg text-[12px] font-semibold transition-all ${
+                  filter === st
+                    ? 'bg-white text-[#004ac6] shadow-xs'
+                    : 'text-[#64748b] hover:text-[#131b2e]'
+                }`}
+              >
+                {st}
+              </button>
+            ))}
           </div>
-        ))}
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success-color)', marginBottom: '0.5rem' }}>
-            <CheckCircle size={16} />
-            <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Resolved</span>
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--success-color)' }}>
-            {alerts.filter(a => a.status === 'Resolved').length}
-          </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>แก้ไขแล้ว</div>
-        </div>
-      </div>
-
-      {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-        {['All', 'Active', 'Resolved'].map(f => (
-          <button key={f} onClick={() => setFilter(f)} style={{
-            padding: '0.4rem 1rem', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 500,
-            border: '1px solid var(--border-color)', fontSize: '0.875rem', transition: 'all 0.2s',
-            backgroundColor: filter === f ? 'var(--primary-color)' : 'white',
-            color: filter === f ? 'white' : 'var(--text-muted)',
-          }}>{f} {f === 'Active' && activeCount > 0 ? `(${activeCount})` : ''}</button>
-        ))}
-      </div>
-
-      {/* Alerts Table */}
-      <div className="card table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>เวลา</th>
-              <th>ระดับ</th>
-              <th>ข้อความแจ้งเตือน</th>
-              <th>กำหนดเวลา SLA</th>
-              <th>สถานะขั้นตอน (5-Step)</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
+        }
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-[13px]">
+            <thead className="bg-[#f8fafc] border-b border-[#e2e8f0] text-[#64748b] font-semibold uppercase text-[11px] tracking-wider">
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2.5rem' }}>
-                  ไม่มีการแจ้งเตือนในขณะนี้
-                </td>
+                <th className="py-3 px-4">เวลา (Time)</th>
+                <th className="py-3 px-4">ระดับ (Level)</th>
+                <th className="py-3 px-4">เหตุการณ์ (Condition)</th>
+                <th className="py-3 px-4">สถานะ (Status)</th>
+                <th className="py-3 px-4 text-right">คำสั่ง (Action)</th>
               </tr>
-            ) : (
-              filtered.map(a => {
-                const cfg = LEVEL_CONFIG[a.level] || LEVEL_CONFIG['Warning'];
-                const isOverdue = (a.remaining_sla_seconds <= 0 || a.is_sla_breached) && a.status === 'Active';
-                const remMin = Math.floor(Math.max(0, a.remaining_sla_seconds || 0) / 60);
-                const remSec = Math.max(0, a.remaining_sla_seconds || 0) % 60;
-                const formattedRem = `${String(remMin).padStart(2, '0')}:${String(remSec).padStart(2, '0')}`;
-
-                return (
-                  <tr key={a.id}>
-                    <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>#{a.id}</td>
-                    <td style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{a.time}</td>
-                    <td>
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
-                        padding: '0.2rem 0.65rem', borderRadius: '999px', fontSize: '0.72rem',
-                        fontWeight: 700, backgroundColor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
-                      }}>
-                        {cfg.icon} {a.level}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: '0.85rem' }}>{a.message}</td>
-                    <td>
-                      {a.status === 'Active' ? (
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                          padding: '0.2rem 0.55rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700,
-                          backgroundColor: isOverdue ? '#fee2e2' : '#fef3c7',
-                          color: isOverdue ? '#dc2626' : '#b45309',
-                          fontFamily: 'monospace'
-                        }}>
-                          {isOverdue ? <AlertOctagon size={13} /> : <Clock size={13} />}
-                          <span>{isOverdue ? 'เกินกำหนด SLA' : formattedRem}</span>
+            </thead>
+            <tbody className="divide-y divide-[#f1f5f9]">
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="text-center py-8 text-[#64748b]">
+                    ไม่พบรายการแจ้งเตือนในสถานะที่เลือก
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((a) => {
+                  const isCrit = a.level === 'Critical';
+                  const isWarn = a.level === 'High' || a.level === 'Warning';
+                  return (
+                    <tr
+                      key={a.id}
+                      onClick={() => setSelectedIncident(a)}
+                      className="hover:bg-[#f8fafc] cursor-pointer transition-colors group"
+                    >
+                      <td className="py-3 px-4 font-medium text-[#64748b] tabular-nums whitespace-nowrap">
+                        {a.time || a.created_at || 'เมื่อสักครู่'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                            isCrit
+                              ? 'bg-[#ffdad6] text-[#ba1a1a]'
+                              : isWarn
+                              ? 'bg-[#ffede6] text-[#943700]'
+                              : 'bg-[#eaedff] text-[#004ac6]'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isCrit ? 'bg-[#ba1a1a]' : isWarn ? 'bg-[#FF7E00]' : '#2563eb'
+                            }`}
+                          />
+                          {a.level}
                         </span>
-                      ) : (
-                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                          รับทราบแล้ว
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-[#131b2e]">
+                        {a.message}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                            a.status === 'Active'
+                              ? 'bg-[#fee2e2] text-[#991b1b]'
+                              : a.status === 'Acknowledged'
+                              ? 'bg-[#eff6ff] text-[#1d4ed8]'
+                              : 'bg-[#f1f5f9] text-[#64748b]'
+                          }`}
+                        >
+                          {a.status}
                         </span>
-                      )}
-                    </td>
-                    <td>
-                      <span style={{
-                        padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700,
-                        backgroundColor: a.status === 'Active' ? '#fee2e2' :
-                                         a.status === 'Acknowledged' ? '#fef3c7' :
-                                         a.status === 'In progress' ? '#eff6ff' :
-                                         a.status === 'Resolved' ? '#ccfbf1' : '#dcfce7',
-                        color: a.status === 'Active' ? '#dc2626' :
-                               a.status === 'Acknowledged' ? '#b45309' :
-                               a.status === 'In progress' ? '#2563eb' :
-                               a.status === 'Resolved' ? '#0f766e' : '#15803d',
-                      }}>
-                        {a.status}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                        {a.status === 'Active' && (
-                          <button
-                            onClick={() => handleWorkflow(a.id, 'acknowledge')}
-                            style={{
-                              padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer',
-                              border: '1px solid #f59e0b', fontSize: '0.75rem', fontWeight: 600,
-                              backgroundColor: '#fffbeb', color: '#b45309'
-                            }}
-                          >
-                            รับทราบ
-                          </button>
-                        )}
-                        {(a.status === 'Active' || a.status === 'Acknowledged') && (
-                          <button
-                            onClick={() => handleWorkflow(a.id, 'in-progress')}
-                            style={{
-                              padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer',
-                              border: '1px solid #3b82f6', fontSize: '0.75rem', fontWeight: 600,
-                              backgroundColor: '#eff6ff', color: '#1d4ed8'
-                            }}
-                          >
-                            เริ่มตรวจ
-                          </button>
-                        )}
-                        {a.status !== 'Resolved' && a.status !== 'Verified' && (
-                          <button
-                            onClick={() => handleWorkflow(a.id, 'resolve')}
-                            style={{
-                              padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer',
-                              border: '1px solid #10b981', fontSize: '0.75rem', fontWeight: 600,
-                              backgroundColor: '#ecfdf5', color: '#047857'
-                            }}
-                          >
-                            แก้ไขแล้ว
-                          </button>
-                        )}
-                        {a.status === 'Resolved' && (
-                          <button
-                            onClick={() => handleWorkflow(a.id, 'verify')}
-                            style={{
-                              padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer',
-                              border: '1px solid #8b5cf6', fontSize: '0.75rem', fontWeight: 700,
-                              backgroundColor: '#f5f3ff', color: '#6d28d9'
-                            }}
-                          >
-                            วิศวกรยืนยัน
-                          </button>
-                        )}
-                        {a.status === 'Verified' && (
-                          <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600 }}>
-                            ✓ ปิดสมบูรณ์
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                      </td>
+                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-2">
+                          {a.status === 'Active' && (
+                            <button
+                              type="button"
+                              onClick={() => handleWorkflow(a.id, 'ack')}
+                              className="px-2.5 py-1 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-[11px] font-semibold"
+                            >
+                              รับเรื่อง (Ack)
+                            </button>
+                          )}
+                          {(a.status === 'Active' || a.status === 'Acknowledged') && (
+                            <button
+                              type="button"
+                              onClick={() => handleWorkflow(a.id, 'resolve')}
+                              className="px-2.5 py-1 rounded-lg bg-[#00CC66] hover:bg-[#00b359] text-white text-[11px] font-semibold"
+                            >
+                              ปิดงาน (Resolve)
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      {/* ── Stitch Sub-state: Incident Detail & SLA Owner Drawer (480px) ── */}
+      <Drawer
+        isOpen={Boolean(selectedIncident)}
+        onClose={() => setSelectedIncident(null)}
+        title={selectedIncident ? `Incident #${selectedIncident.id}: ${selectedIncident.level}` : 'รายละเอียดเหตุการณ์'}
+        subtitle="กรอบเวลา SLA และบันทึกการแก้ไขปัญหา"
+        footer={
+          selectedIncident && (
+            <div className="flex items-center gap-2">
+              {selectedIncident.status === 'Active' && (
+                <button
+                  type="button"
+                  onClick={() => handleWorkflow(selectedIncident.id, 'ack')}
+                  className="px-4 py-2 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-[13px] font-semibold"
+                >
+                  รับเรื่องเข้าตรวจสอบ (Ack)
+                </button>
+              )}
+              {selectedIncident.status !== 'Resolved' && (
+                <button
+                  type="button"
+                  onClick={() => handleWorkflow(selectedIncident.id, 'resolve')}
+                  className="px-4 py-2 rounded-xl bg-[#00CC66] hover:bg-[#00b359] text-white text-[13px] font-semibold"
+                >
+                  บันทึกปิดงาน (Resolve)
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setSelectedIncident(null)}
+                className="px-4 py-2 rounded-xl bg-[#f1f5f9] text-[#64748b] text-[13px] font-semibold"
+              >
+                ปิดหน้าต่าง
+              </button>
+            </div>
+          )
+        }
+      >
+        {selectedIncident && (
+          <div className="space-y-5">
+            {/* Incident Alert Callout */}
+            <div className="p-4 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-semibold text-[#64748b]">
+                  {selectedIncident.time || 'เมื่อสักครู่'}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#eaedff] text-[#004ac6]">
+                  Status: {selectedIncident.status}
+                </span>
+              </div>
+              <p className="text-[15px] font-bold text-[#131b2e] leading-snug">
+                {selectedIncident.message}
+              </p>
+            </div>
+
+            {/* SLA Timer Info */}
+            <div className="p-4 rounded-2xl bg-[#fffbeb] border border-[#fef3c7] space-y-1.5">
+              <div className="flex items-center gap-2 text-[#92400e] text-[13px] font-bold">
+                <Clock size={16} />
+                <span>ข้อกำหนด SLA การตอบสนอง</span>
+              </div>
+              <p className="text-[12px] text-[#92400e]">
+                {selectedIncident.level === 'Critical'
+                  ? 'ระดับ Critical: ต้องรับเรื่องภายใน 5 นาที และแก้ไขเสร็จสิ้นใน 15 นาที'
+                  : 'ระดับ Warning: ต้องรับเรื่องภายใน 10 นาที และแก้ไขเสร็จสิ้นใน 30 นาที'}
+              </p>
+            </div>
+
+            {/* Incident Owner Card */}
+            <div className="p-4 rounded-2xl border border-[#e2e8f0] bg-white space-y-2">
+              <span className="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">
+                ผู้รับผิดชอบปัจจุบัน (Incident Owner)
+              </span>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#004ac6] text-white flex items-center justify-center font-bold text-[14px]">
+                  {user?.username ? user.username.charAt(0).toUpperCase() : 'OP'}
+                </div>
+                <div>
+                  <div className="text-[14px] font-bold text-[#131b2e]">
+                    {user?.full_name || user?.username || 'Operator On-duty'}
+                  </div>
+                  <div className="text-[12px] text-[#64748b]">
+                    {user?.role ? `${user.role.toUpperCase()} · ${user.site || 'Main Plant'}` : 'Site Safety Team'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SLA Mitigation Timeline */}
+            <div className="space-y-3 pt-2">
+              <span className="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider">
+                บันทึกขั้นตอนการแก้ไข (Mitigation Steps)
+              </span>
+              <div className="space-y-2 text-[12px]">
+                <div className="p-3 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-[#2563eb] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                    1
+                  </span>
+                  <div>
+                    <strong>เซนเซอร์ตรวจพบสารเคมีเกินเกณฑ์:</strong> ระบบส่งสัญญาณเตือนผ่าน LINE Notify และเริ่มนับเวลา SLA
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-[#2563eb] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                    2
+                  </span>
+                  <div>
+                    <strong>ตรวจสอบตู้ดูดระบายอากาศ Scrubber:</strong> ตรวจสอบกำลังพัดลมและไส้กรองถ่านกัมมันต์
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-[#2563eb] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                    3
+                  </span>
+                  <div>
+                    <strong>บันทึกรายงานการแก้ไข:</strong> บันทึกสาเหตุและกด Resolve เพื่อยุติการนับเวลา SLA
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

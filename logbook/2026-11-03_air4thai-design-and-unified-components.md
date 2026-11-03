@@ -38,3 +38,4 @@
 - [x] อัปเดตหน้า Dashboard, Kiosk, History, Guide เรียบร้อย
 - [x] ทดสอบการ Build ผ่าน
 - [x] Commit และ Push สู่ GitLab และ GitHub
+

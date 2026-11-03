@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Pencil, Trash2, X, Save, Square, Play, Calculator, FlaskConical } from 'lucide-react';
+import { Pencil, Trash2, X, Save, Square, Play, Calculator, FlaskConical, Download, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API } from '../config';
+import { Card, Button, Modal } from '../components/ui';
 
 const SUBSTANCE_DATA = {
   ALCOHOL:  { name: 'Ethanol / Alcohol', mw: 46.07, density: 0.789, desc: 'เอทานอล / แอลกอฮอล์ C₂H₅OH' },
@@ -259,28 +260,25 @@ export default function DataCollection() {
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+    <div className="max-w-[1280px] mx-auto pb-16">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
         <div>
-          <h1 className="page-title" style={{ margin: 0 }}>Data Collection & Calibration</h1>
-          <p style={{ margin: '0.25rem 0 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            เก็บข้อมูลเซนเซอร์พร้อมกำหนดปริมาตรสารและคำนวณค่าความเข้มข้นก๊าซ (ppm) สำหรับเทรน AI
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-1.5 h-6 rounded-full bg-primary inline-block"></span>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Data Collection</h1>
+          </div>
+          <p className="text-sm text-slate-500 pl-3.5">
+            Chemical sampling &amp; AI training sessions (Ideal Gas Law PPM)
           </p>
         </div>
-        <button
+        <Button
+          variant={showCalc ? 'primary' : 'secondary'}
+          size="sm"
           onClick={() => setShowCalc(!showCalc)}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-            padding: '0.45rem 0.85rem', borderRadius: '0.5rem',
-            backgroundColor: showCalc ? '#eff6ff' : '#f1f5f9',
-            color: showCalc ? 'var(--primary-color)' : 'var(--text-main)',
-            border: `1px solid ${showCalc ? '#bfdbfe' : 'var(--border-color)'}`,
-            fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
-          }}
         >
           <Calculator size={15} />
-          {showCalc ? 'ซ่อนเครื่องคำนวณ PPM' : 'เปิดเครื่องคำนวณ PPM'}
-        </button>
+          <span>{showCalc ? 'Hide PPM Calculator' : 'PPM Calculator'}</span>
+        </Button>
       </div>
 
       {message && (
@@ -361,12 +359,7 @@ export default function DataCollection() {
 
       {/* ── PPM & Chamber Volume Calculator ── */}
       {showCalc && !activeSession && (
-        <div className="card" style={{
-          marginBottom: '1.5rem',
-          backgroundColor: '#f8fafc',
-          border: '1px solid #cbd5e1',
-          padding: '1.25rem'
-        }}>
+        <Card className="mb-6 p-6 bg-slate-50/70 border border-slate-200">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <FlaskConical size={18} style={{ color: 'var(--primary-color)' }} />
@@ -449,12 +442,12 @@ export default function DataCollection() {
               </span>
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* ── Create Session Form ── */}
       {!activeSession && (
-        <div className="card" style={{ marginBottom: '2rem' }}>
+        <Card className="mb-8 p-6">
           <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Play size={18} style={{ color: 'var(--primary-color)' }} />
             เริ่มบันทึก Session ใหม่
@@ -525,7 +518,7 @@ export default function DataCollection() {
               <Play size={16} fill="white" /> เริ่มบันทึก (Start)
             </button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* ── Session List Header ── */}
@@ -589,8 +582,9 @@ export default function DataCollection() {
       </div>
 
       {/* ── Sessions Table ── */}
-      <div className="card table-container">
-        <table>
+      <Card className="p-6">
+        <div className="table-container">
+          <table>
           <thead>
             <tr>
               <th>ID</th>
@@ -710,6 +704,7 @@ export default function DataCollection() {
           </tbody>
         </table>
       </div>
+    </Card>
 
       {/* ── Edit Session Modal ── */}
       {editTarget && (

@@ -33,3 +33,4 @@
 - [x] เชื่อมต่อ Route ใน `App.jsx` และ Sidebar ใน `Layout.jsx`
 - [x] ทดสอบการ Build ผ่าน
 - [x] Commit และ Push สู่ GitLab และ GitHub
+

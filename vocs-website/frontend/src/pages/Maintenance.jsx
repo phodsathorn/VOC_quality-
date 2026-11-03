@@ -16,10 +16,11 @@ import {
   Activity, AlertTriangle, CheckCircle2, Clock, Cpu, Filter,
   RefreshCw, Wrench, Zap, ChevronRight,
   BarChart3, Gauge, FileText,
-  Printer, Check, Play, ClipboardList, CheckSquare, PlusCircle
+  Printer, Check, Play, ClipboardList, CheckSquare, PlusCircle, Plus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API } from '../config';
+import { Card, Button, Drawer } from '../components/ui';
 
 /* ─────────────────────────────────────────────────────────────
    SENSOR DEFINITIONS WITH MAINTENANCE PARAMS
@@ -1099,6 +1100,13 @@ export default function Maintenance() {
   const [realHealth, setRealHealth] = useState(null);
   const [workOrders, setWorkOrders] = useState([]);
   const [showWorkOrderModal, setShowWorkOrderModal] = useState(false);
+  const [showAddLogDrawer, setShowAddLogDrawer] = useState(false);
+  const [logForm, setLogForm] = useState({
+    type: 'sensor-calibration',
+    date: new Date().toISOString().split('T')[0],
+    technician: 'E. Mitchell',
+    note: ''
+  });
   const [selected, setSelected] = useState(null);
   const [calibratingSensor, setCalibratingSensor] = useState(null);
   const [showDiagModal, setShowDiagModal] = useState(false);
@@ -1259,58 +1267,119 @@ export default function Maintenance() {
   });
 
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', maxWidth: 1160, margin: '0 auto', padding: '24px 28px' }}>
-
+    <div className="max-w-[1280px] mx-auto pb-16">
       {/* ── Page Header ── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: 12,
-              background: 'linear-gradient(135deg,#3b82f6,#6366f1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}><Wrench size={19} color="white" /></div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#0f172a' }}>
-              Sensor Maintenance & Quality Assurance
-            </h1>
-            <span style={{
-              fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999,
-              background: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe',
-            }}>IEEE RUL Engine</span>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-1.5 h-6 rounded-full bg-primary inline-block"></span>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Maintenance</h1>
           </div>
-          <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>
-            ระบบตรวจเช็คคุณภาพเซนเซอร์, ชดเชย Drift Baseline, คาดการณ์อายุ RUL และจัดการเปลี่ยนอะไหล่
+          <p className="text-sm text-slate-500 pl-3.5">
+            Filter life &amp; sensor calibration
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => setShowReportModal(true)} style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '9px 15px', borderRadius: 10, border: '1px solid #cbd5e1',
-            background: 'white', color: '#334155', cursor: 'pointer',
-            fontSize: 13, fontWeight: 600, transition: 'all 0.2s',
-          }}>
-            <FileText size={15} color="#2563eb" /> ออกใบรายงาน
-          </button>
-          <button onClick={load} style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '9px 14px', borderRadius: 10, border: '1px solid #e2e8f0',
-            background: 'white', color: '#475569', cursor: 'pointer',
-            fontSize: 13, fontWeight: 600, transition: 'all 0.2s',
-          }}>
-            <RefreshCw size={15} /> Refresh
-          </button>
-          <button onClick={() => setShowDiagModal(true)} style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            padding: '9px 18px', borderRadius: 10, border: 'none',
-            background: 'linear-gradient(135deg,#3b82f6,#2563eb)',
-            color: 'white', cursor: 'pointer',
-            fontSize: 13, fontWeight: 700, boxShadow: '0 4px 16px rgba(59,130,246,0.35)',
-            transition: 'all 0.2s',
-          }}>
-            <Activity size={15} /> Run Diagnostics
-          </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Button
+            variant="primary"
+            onClick={() => setShowAddLogDrawer(true)}
+            className="shadow-sm"
+          >
+            <Plus size={16} />
+            <span>Add log</span>
+          </Button>
+          <Button variant="secondary" onClick={() => setShowReportModal(true)}>
+            <FileText size={15} className="text-primary" />
+            <span>ออกใบรายงาน</span>
+          </Button>
+          <Button variant="secondary" onClick={load}>
+            <RefreshCw size={14} />
+            <span>Refresh</span>
+          </Button>
+          <Button variant="primary" onClick={() => setShowDiagModal(true)}>
+            <Activity size={15} />
+            <span>Run Diagnostics</span>
+          </Button>
         </div>
+      </div>
+
+      {/* ── Stitch Top 3 Filter Life Cards ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Card 1: HEPA Filter */}
+        <Card className="flex flex-col justify-between h-[210px] p-6 hover:shadow-lg transition-all">
+          <div className="flex flex-col gap-3">
+            <span className="text-xs uppercase tracking-wider font-semibold text-slate-500">HEPA filter</span>
+            <div className="text-5xl font-bold tracking-tight text-slate-900 tnum leading-none">
+              {data.filter.hi || 78}<span className="text-2xl font-normal text-slate-400 ml-1">%</span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden mt-2">
+              <div
+                className="bg-primary h-2 rounded-full transition-all duration-500"
+                style={{ width: `${data.filter.hi || 78}%` }}
+              ></div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
+            <span>RUL: <strong className="text-slate-800">{data.filter.rul} days</strong></span>
+            <button
+              onClick={() => setShowDiagModal(true)}
+              className="text-primary font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+            >
+              View details →
+            </button>
+          </div>
+        </Card>
+
+        {/* Card 2: Carbon Filter */}
+        <Card className="flex flex-col justify-between h-[210px] p-6 hover:shadow-lg transition-all">
+          <div className="flex flex-col gap-3">
+            <span className="text-xs uppercase tracking-wider font-semibold text-slate-500">Carbon filter</span>
+            <div className="text-5xl font-bold tracking-tight text-slate-900 tnum leading-none">
+              42<span className="text-2xl font-normal text-slate-400 ml-1">%</span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden mt-2">
+              <div
+                className="bg-amber-500 h-2 rounded-full transition-all duration-500"
+                style={{ width: '42%' }}
+              ></div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
+            <span>Adsorption: <strong className="text-slate-800">184 days left</strong></span>
+            <button
+              onClick={() => setShowDiagModal(true)}
+              className="text-primary font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+            >
+              View details →
+            </button>
+          </div>
+        </Card>
+
+        {/* Card 3: UV Lamp */}
+        <Card className="flex flex-col justify-between h-[210px] p-6 hover:shadow-lg transition-all">
+          <div className="flex flex-col gap-3">
+            <span className="text-xs uppercase tracking-wider font-semibold text-slate-500">UV lamp</span>
+            <div className="text-5xl font-bold tracking-tight text-slate-900 tnum leading-none">
+              65<span className="text-2xl font-normal text-slate-400 ml-1">%</span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden mt-2">
+              <div
+                className="bg-primary h-2 rounded-full transition-all duration-500"
+                style={{ width: '65%' }}
+              ></div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
+            <span>Radiation: <strong className="text-slate-800">Active</strong></span>
+            <button
+              onClick={() => setShowDiagModal(true)}
+              className="text-primary font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+            >
+              View details →
+            </button>
+          </div>
+        </Card>
       </div>
 
       {/* ── Demo / Simulation Data Warning Banner (W0 Compliance) ── */}
@@ -1767,6 +1836,91 @@ export default function Maintenance() {
           onClose={() => setShowReportModal(false)}
         />
       )}
+
+      {/* ── Sub-state: Add Maintenance Log Drawer (Stitch sub_states/maintenance_table_columns_add_log_drawer) ── */}
+      <Drawer
+        isOpen={showAddLogDrawer}
+        onClose={() => setShowAddLogDrawer(false)}
+        title="Add Maintenance Log"
+        subtitle="Record calibration or replacement"
+        width={440}
+        footer={
+          <Button
+            variant="primary"
+            className="w-full"
+            onClick={async () => {
+              try {
+                await fetch(`${API}/api/maintenance/logs`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(logForm),
+                });
+              } catch {}
+              setShowAddLogDrawer(false);
+              setToastMsg('✅ บันทึกประวัติการบำรุงรักษาเรียบร้อยแล้ว');
+              load();
+            }}
+          >
+            Save Log
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs uppercase tracking-wider font-semibold text-slate-500">
+              Maintenance Type
+            </label>
+            <select
+              value={logForm.type}
+              onChange={e => setLogForm(f => ({ ...f, type: e.target.value }))}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl py-2.5 px-3.5 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm font-medium"
+            >
+              <option value="sensor-calibration">Sensor Calibration</option>
+              <option value="filter-replacement">Filter Replacement</option>
+              <option value="uv-lamp-inspection">UV Lamp Inspection</option>
+              <option value="zero-drift">Zero-Point Drift Check</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs uppercase tracking-wider font-semibold text-slate-500">
+              Date
+            </label>
+            <input
+              type="date"
+              value={logForm.date}
+              onChange={e => setLogForm(f => ({ ...f, date: e.target.value }))}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl py-2.5 px-3.5 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm font-medium"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs uppercase tracking-wider font-semibold text-slate-500">
+              Technician
+            </label>
+            <input
+              type="text"
+              value={logForm.technician}
+              onChange={e => setLogForm(f => ({ ...f, technician: e.target.value }))}
+              placeholder="Technician name"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl py-2.5 px-3.5 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm font-medium"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs uppercase tracking-wider font-semibold text-slate-500">
+              Note
+            </label>
+            <textarea
+              rows={4}
+              value={logForm.note}
+              onChange={e => setLogForm(f => ({ ...f, note: e.target.value }))}
+              placeholder="Add maintenance notes or calibration details..."
+              className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-3.5 focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm font-medium resize-none"
+            />
+          </div>
+        </div>
+      </Drawer>
 
       <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
     </div>

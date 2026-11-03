@@ -29,3 +29,4 @@
 - [x] สิทธิ์ RBAC ของ `operator` ได้รับการเปิดใช้งาน
 - [x] Frontend Build สำเร็จ
 - [x] บันทึก Logbook และพร้อม Commit/Push สู่ GitLab และ GitHub
+

@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import {
   Settings as SettingsIcon, Save, RotateCcw, CheckCircle, Info, RefreshCw,
   Cpu, Volume2, VolumeX, ShieldAlert, Volume1, Users, UserPlus, FileText,
-  Download, Shield, Search, Lock, UserX, MessageSquare, Bell, Trash2
+  Download, Shield, Search, Lock, UserX, MessageSquare, Bell, Trash2, Check
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Card, Button, Modal } from '../components/ui';
 import {
   getThresholds, saveThresholds, DEFAULT_THRESHOLDS,
   getGeneral,    saveGeneral,    DEFAULT_GENERAL,
@@ -38,6 +39,7 @@ const SENSOR_META = {
 };
 
 export default function Settings() {
+  const [activeTab,  setActiveTab]  = useState('thresholds'); // 'thresholds' | 'notifications' | 'users'
   const [thresholds, setThresholds] = useState(() => getThresholds());
   const [general,    setGeneral]    = useState(() => getGeneral());
   const [baseline,   setBaseline]   = useState(() => getBaseline());
@@ -454,53 +456,88 @@ export default function Settings() {
 
   // ─── render ──────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 960 }}>
+    <div className="max-w-[1280px] mx-auto pb-16">
+      {/* ── Page Header & Stitch Pill Tabs ── */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+        <div>
+          <span className="text-xs font-semibold uppercase text-primary tracking-widest block mb-1">
+            Configuration
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-6 rounded-full bg-primary inline-block"></span>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
+          </div>
+        </div>
 
-      {/* Page header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <SettingsIcon size={22} /> Settings
-        </h1>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          {/* Saved badge */}
+        {/* Tab Switcher matching sub_states/settings/settings_notifications_users_tabs */}
+        <nav aria-label="Settings Tabs" className="inline-flex p-1 rounded-full bg-slate-100 border border-slate-200 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setActiveTab('thresholds')}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
+              activeTab === 'thresholds'
+                ? 'bg-white text-primary shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Thresholds
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('notifications')}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
+              activeTab === 'notifications'
+                ? 'bg-white text-primary shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Notifications
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
+              activeTab === 'users'
+                ? 'bg-white text-primary shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Users &amp; RBAC
+          </button>
+        </nav>
+
+        <div className="flex items-center gap-2">
           {saved && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#10b981', fontSize: '0.875rem', fontWeight: 600 }}>
-              <CheckCircle size={15} /> บันทึกแล้ว!
+            <span className="flex items-center gap-1 text-emerald-600 text-xs font-semibold">
+              <CheckCircle size={14} /> บันทึกแล้ว!
             </span>
           )}
-          {/* Backend sync status */}
           {syncStatus === 'syncing' && (
-            <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> Syncing...
+            <span className="text-xs text-slate-500 flex items-center gap-1">
+              <RefreshCw size={12} className="animate-spin" /> Syncing...
             </span>
           )}
           {syncStatus === 'ok' && (
-            <span style={{ fontSize: '0.8rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <CheckCircle size={13} /> Synced กับ Backend
+            <span className="text-xs text-emerald-600 flex items-center gap-1">
+              <CheckCircle size={12} /> Synced
             </span>
           )}
-          {syncStatus === 'error' && (
-            <span style={{ fontSize: '0.8rem', color: '#ef4444' }}>⚠ Sync ไม่ได้ (Backend offline?)</span>
-          )}
-          <button onClick={handleReset} style={{
-            display: 'flex', alignItems: 'center', gap: '0.375rem',
-            padding: '0.5rem 1rem', border: '1px solid var(--border-color)',
-            borderRadius: '0.5rem', backgroundColor: 'white', cursor: 'pointer',
-            fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-muted)',
-          }}>
-            <RotateCcw size={13} /> รีเซ็ตค่าเริ่มต้น
-          </button>
-          <button onClick={handleSave} style={{
-            display: 'flex', alignItems: 'center', gap: '0.375rem',
-            padding: '0.5rem 1.25rem', border: 'none', borderRadius: '0.5rem',
-            backgroundColor: saved ? '#10b981' : 'var(--primary-color)',
-            cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600, color: 'white',
-            transition: 'background-color 0.3s',
-          }}>
-            <Save size={13} /> บันทึก
-          </button>
+          <Button variant="secondary" size="sm" onClick={handleReset}>
+            <RotateCcw size={13} />
+            <span>รีเซ็ต</span>
+          </Button>
+          <Button variant="primary" size="sm" onClick={handleSave}>
+            <Save size={14} />
+            <span>{saved ? 'บันทึกแล้ว' : 'Save'}</span>
+          </Button>
         </div>
       </div>
+
+      {/* ══════════════════════════════════════════════════════
+          TAB 1: THRESHOLDS & HARDWARE CONFIG
+          ══════════════════════════════════════════════════════ */}
+      {activeTab === 'thresholds' && (
+        <>
 
       {/* ── Section 1: General ──────────────────────────────── */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
@@ -761,7 +798,14 @@ export default function Settings() {
           </div>
         </div>
       )}
+        </>
+      )}
 
+      {/* ══════════════════════════════════════════════════════
+          TAB 3: USERS & RBAC ACCESS CONTROL
+          ══════════════════════════════════════════════════════ */}
+      {activeTab === 'users' && (
+        <>
       {/* ── Section: Admin Security Key (Phase W0) ─────────── */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.35rem' }}>
@@ -1064,7 +1108,14 @@ export default function Settings() {
           </>
         )}
       </div>
+        </>
+      )}
 
+      {/* ══════════════════════════════════════════════════════
+          TAB 2: NOTIFICATIONS (SOUND, LINE BOT, TELEGRAM, DISPATCH)
+          ══════════════════════════════════════════════════════ */}
+      {activeTab === 'notifications' && (
+        <>
       {/* ── Section: LINE Bot Alerts & Subscriber Pairing ───── */}
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
@@ -1225,9 +1276,11 @@ export default function Settings() {
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* ── Section 4: System Info ──────────────────────────── */}
-      <div className="card">
+      <div className="card" style={{ marginTop: '1.5rem' }}>
         <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>ℹ️ ข้อมูลระบบ</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
           {[

@@ -4,7 +4,7 @@ import {
   BookOpen, Cpu, Database, Activity, ChevronDown, ChevronUp,
   CheckCircle, AlertTriangle, Terminal, Wifi, BarChart2, ShieldAlert
 } from 'lucide-react';
-import { AqiScaleBar } from '../components/ui';
+import { AqiScaleBar, Card, Button } from '../components/ui';
 
 // ─── ส่วนช่วยสำหรับ Code block ────────────────────────────────
 function CodeBlock({ children, lang = '' }) {
@@ -104,13 +104,13 @@ function FaqItem({ q, children }) {
 // ─── Section card ─────────────────────────────────────────────
 function Section({ id, icon, title, children, accent = '#2563eb' }) {
   return (
-    <div id={id} className="card" style={{ marginBottom: '1.5rem', borderLeft: `4px solid ${accent}` }}>
+    <Card id={id} className="mb-6 p-6 border-l-4 hover:shadow-md transition-shadow" style={{ borderLeftColor: accent }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1.25rem' }}>
         <div style={{ color: accent }}>{icon}</div>
         <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>{title}</h2>
       </div>
       {children}
-    </div>
+    </Card>
   );
 }
 
@@ -128,13 +128,10 @@ export default function Guide() {
   ];
 
   return (
-    <div style={{ maxWidth: 860 }}>
+    <div className="max-w-[1000px] mx-auto pb-16">
 
       {/* ── Hero ── */}
-      <div style={{
-        background: 'linear-gradient(135deg, #1e40af 0%, #7c3aed 100%)',
-        borderRadius: '1rem', padding: '2rem', marginBottom: '1.5rem', color: 'white',
-      }}>
+      <div className="rounded-3xl p-8 mb-6 text-white shadow-lg bg-gradient-to-br from-blue-700 via-indigo-700 to-purple-800">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
           <BookOpen size={28} />
           <h1 style={{ fontSize: '1.75rem', fontWeight: 700 }}>คู่มือการใช้งาน VOC / E-Nose</h1>
@@ -149,7 +146,7 @@ export default function Guide() {
           {sections.map(s => (
             <a key={s.id} href={`#${s.id}`} style={{
               fontSize: '0.75rem', fontWeight: 600,
-              padding: '0.3rem 0.75rem', borderRadius: '999px',
+              padding: '0.35rem 0.85rem', borderRadius: '999px',
               backgroundColor: 'rgba(255,255,255,0.18)', color: 'white',
               textDecoration: 'none', backdropFilter: 'blur(4px)',
               border: '1px solid rgba(255,255,255,0.25)',

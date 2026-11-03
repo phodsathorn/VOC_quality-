@@ -1,20 +1,81 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
 :root {
-  --primary-color: #2563eb;
-  --primary-hover: #1d4ed8;
+  /* Core Surfaces & Canvas */
   --bg-color: #f8fafc;
   --surface-color: #ffffff;
   --text-main: #0f172a;
   --text-muted: #64748b;
   --border-color: #e2e8f0;
-  
-  --success-color: #10b981;
-  --warning-color: #f59e0b;
-  --danger-color: #ef4444;
 
-  --sidebar-width: 260px;
-  --header-height: 70px;
+  /* Atmospheric Intelligence Material Design Tokens */
+  --color-surface: #faf8ff;
+  --color-surface-dim: #d2d9f4;
+  --color-surface-bright: #faf8ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f2f3ff;
+  --color-surface-container: #eaedff;
+  --color-surface-container-high: #e2e7ff;
+  --color-surface-container-highest: #dae2fd;
+  --color-on-surface: #131b2e;
+  --color-on-surface-variant: #434655;
+  --color-inverse-surface: #283044;
+  --color-inverse-on-surface: #eef0ff;
+  --color-outline: #737686;
+  --color-outline-variant: #c3c6d7;
+  --color-surface-tint: #0053db;
+
+  --color-primary: #004ac6;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #2563eb;
+  --color-on-primary-container: #eeefff;
+  --color-inverse-primary: #b4c5ff;
+
+  --color-secondary: #505f76;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #d0e1fb;
+  --color-on-secondary-container: #54647a;
+
+  --color-tertiary: #943700;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #bc4800;
+  --color-on-tertiary-container: #ffede6;
+
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  /* Air4Thai PCD 5-Level Telemetry Colors */
+  --telemetry-very-good: #00C0FF;
+  --telemetry-good: #00CC66;
+  --telemetry-moderate: #FFD100;
+  --telemetry-unhealthy: #FF7E00;
+  --telemetry-hazardous: #FF0000;
+
+  /* Legacy aliases for backward compatibility */
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --success-color: #00CC66;
+  --warning-color: #FFD100;
+  --danger-color: #FF0000;
+
+  /* Elevation Shadows */
+  --shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.03), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+  --shadow-flyout: 0 12px 32px -4px rgba(15, 23, 42, 0.06), 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+  --shadow-sidebar: 0 1px 8px rgba(0, 0, 0, 0.04);
+
+  /* Radius */
+  --radius-sm: 0.5rem;
+  --radius-default: 1rem;
+  --radius-md: 1.5rem;
+  --radius-lg: 2rem;
+  --radius-xl: 3rem;
+  --radius-full: 9999px;
+
+  --sidebar-width: 240px;
+  --header-height: 64px;
 }
 
 * {
@@ -24,10 +85,16 @@
 }
 
 body {
-  font-family: 'Inter', sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-main);
+  font-family: 'Inter', 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular numbers for telemetry metrics */
+.tabular-nums, .font-display-metric, .font-metric-large {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' on;
 }
 
 /* Layout */

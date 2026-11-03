@@ -17,9 +17,9 @@ export default function Button({
   ...props
 }) {
   const sizeStyles = {
-    sm: { padding: '5px 10px', fontSize: '0.8rem', borderRadius: 6, gap: 5 },
-    md: { padding: '8px 14px', fontSize: '0.875rem', borderRadius: 8, gap: 6 },
-    lg: { padding: '12px 20px', fontSize: '1rem', borderRadius: 10, gap: 8 },
+    sm: { padding: '6px 12px', fontSize: '0.8rem', borderRadius: 10, gap: 6 },
+    md: { padding: '9px 16px', fontSize: '0.875rem', borderRadius: 12, gap: 8 },
+    lg: { padding: '12px 24px', fontSize: '1rem', borderRadius: 14, gap: 10 },
   };
 
   const variantStyles = {
@@ -27,36 +27,36 @@ export default function Button({
       backgroundColor: '#2563eb',
       color: '#ffffff',
       border: '1px solid #1d4ed8',
-      boxShadow: '0 1px 2px rgba(37,99,235,0.2)',
+      boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
     },
     secondary: {
       backgroundColor: '#ffffff',
-      color: '#334155',
-      border: '1px solid #cbd5e1',
-      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+      color: '#131b2e',
+      border: '1px solid #e2e8f0',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
     },
     outline: {
       backgroundColor: 'transparent',
       color: '#2563eb',
-      border: '1px solid #93c5fd',
+      border: '1px solid #2563eb',
     },
     danger: {
-      backgroundColor: '#dc2626',
+      backgroundColor: '#ba1a1a',
       color: '#ffffff',
-      border: '1px solid #b91c1c',
-      boxShadow: '0 1px 2px rgba(220,38,38,0.2)',
+      border: '1px solid #93000a',
+      boxShadow: '0 2px 8px rgba(186,26,26,0.25)',
     },
     success: {
-      backgroundColor: '#16a34a',
+      backgroundColor: '#00CC66',
       color: '#ffffff',
-      border: '1px solid #15803d',
-      boxShadow: '0 1px 2px rgba(22,163,74,0.2)',
+      border: '1px solid #00b359',
+      boxShadow: '0 2px 8px rgba(0,204,102,0.25)',
     },
     warning: {
-      backgroundColor: '#f59e0b',
-      color: '#ffffff',
-      border: '1px solid #d97706',
-      boxShadow: '0 1px 2px rgba(245,158,11,0.2)',
+      backgroundColor: '#FFD100',
+      color: '#131b2e',
+      border: '1px solid #e6bc00',
+      boxShadow: '0 2px 8px rgba(255,209,0,0.25)',
     },
     ghost: {
       backgroundColor: 'transparent',

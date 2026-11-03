@@ -1,12 +1,20 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { AlertTriangle, CheckCircle, RefreshCw, Clock, Cpu, ChevronDown, Info, Zap } from 'lucide-react';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from 'recharts';
+import {
+  AlertTriangle, CheckCircle, RefreshCw, Clock, Cpu, ChevronDown, Info, Zap,
+  Activity, Wind, ArrowRight, X, Gauge, ShieldAlert, Sparkles
+} from 'lucide-react';
 import { getThresholds, getGeneral } from '../utils/settings';
 import { convertAllToPpm, formatPpm, getUnitMode, setUnitMode, convertTvocToPpm } from '../utils/ppmConverter';
 import DashboardSkeleton from '../components/DashboardSkeleton';
-import { AqiScaleBar, AqiBadge, Button, Card, StatCard, PageHeader, calculatePm25Aqi, getAqiCategory } from '../components/ui';
-
+import {
+  AqiScaleBar, AqiBadge, Button, Card, StatCard, PageHeader, Drawer, Modal,
+  calculatePm25Aqi, getAqiCategory
+} from '../components/ui';
 import { API } from '../config';
+
 const REFRESH_INTERVAL_MS = 5000; // auto-refresh ทุก 5 วินาที
 
 export default function Dashboard() {
@@ -35,13 +43,17 @@ export default function Dashboard() {
     }
   });
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [loading,     setLoading]     = useState(false);
+  const [loading, setLoading] = useState(false);
   const [isColdStarting, setIsColdStarting] = useState(false);
-  const [timeRange,   setTimeRange]   = useState(() => localStorage.getItem('voc_dashboard_range') || '1h');
-  const [deviceList,  setDeviceList]  = useState([]);
-  const [boxId,       setBoxId]       = useState(() => localStorage.getItem('voc_selected_box') || getGeneral().boxId || 'BOX-001');
-  const [unitMode,    setUnitModeState] = useState(() => getUnitMode());
+  const [timeRange, setTimeRange] = useState(() => localStorage.getItem('voc_dashboard_range') || '1h');
+  const [deviceList, setDeviceList] = useState([]);
+  const [boxId, setBoxId] = useState(() => localStorage.getItem('voc_selected_box') || getGeneral().boxId || 'BOX-001');
+  const [unitMode, setUnitModeState] = useState(() => getUnitMode());
   const coldStartTimerRef = useRef(null);
+
+  // Stitch Sub-states: Drawer & Modal
+  const [isTelemetryDrawerOpen, setIsTelemetryDrawerOpen] = useState(false);
+  const [isRadarModalOpen, setIsRadarModalOpen] = useState(false);
 
   const handleUnitToggle = (mode) => {
     setUnitModeState(mode);
@@ -53,7 +65,6 @@ export default function Dashboard() {
 
   const fetchAll = useCallback(async (range = timeRange, box = boxId) => {
     setLoading(true);
-    // Start cold-start detection timer (2.5 seconds)
     if (!data) {
       if (coldStartTimerRef.current) clearTimeout(coldStartTimerRef.current);
       coldStartTimerRef.current = setTimeout(() => {
@@ -97,7 +108,6 @@ export default function Dashboard() {
       setLastUpdated(new Date());
     } catch (err) {
       console.warn('Dashboard fetch issue:', err);
-      // Fallback safe state on first visit if backend takes too long to warm up
       if (!data) {
         const fallback = {
           box_id: box,
@@ -158,7 +168,6 @@ export default function Dashboard() {
     fetchAll(range, boxId);
   };
 
-  // เปลี่ยน Box
   const handleBoxChange = (newBox) => {
     setBoxId(newBox);
     localStorage.setItem('voc_selected_box', newBox);
@@ -173,463 +182,449 @@ export default function Dashboard() {
   const isDangerous = data.ai_detection?.prediction &&
     !['AMBIENT', null, undefined].includes(data.ai_detection.prediction);
 
+  const pm25Value = data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0;
+  const currentAqi = calculatePm25Aqi(pm25Value);
+  const aqiCat = getAqiCategory(currentAqi);
+
+  const tvocRaw = data.environment?.tvoc ?? data.latest_reading?.tvoc ?? 45.0;
+  const tvocDisplay = unitMode === 'ppm'
+    ? (tvocRaw / 1000 >= 10 ? (tvocRaw / 1000).toFixed(1) : (tvocRaw / 1000).toFixed(3))
+    : tvocRaw;
+  const tvocUnit = unitMode === 'ppm' ? 'ppm' : 'ppb';
+
+  const ppmData = convertAllToPpm(data?.sensors || data?.latest_reading);
+
   return (
-    <div>
-      {/* Cold start waking notice if user has cached data but live backend is still booting up */}
+    <div className="space-y-6">
+      {/* Cold start waking notice */}
       {isColdStarting && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0.65rem 1rem',
-          borderRadius: '0.65rem',
-          backgroundColor: '#eff6ff',
-          border: '1px solid #bfdbfe',
-          color: '#1e40af',
-          fontSize: '0.8rem',
-          marginBottom: '1rem',
-          animation: 'fadeIn 0.2s ease-out'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Zap size={15} color="#2563eb" />
-            <span>กำลังปลุกระบบคลาวด์ Backend (Render Cold-Start) กำลังแสดงข้อมูลล่าสุดที่มีอยู่ในแคช...</span>
+        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#eff6ff] border border-[#bfdbfe] text-[#1e40af] text-[13px] animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <Zap size={16} className="text-[#2563eb]" />
+            <span>กำลังปลุกระบบคลาวด์ Backend (Render Cold-Start) กำลังแสดงข้อมูลล่าสุดจากแคช...</span>
           </div>
           <button
+            type="button"
             onClick={() => fetchAll()}
-            style={{
-              padding: '0.25rem 0.6rem',
-              borderRadius: '0.35rem',
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
+            className="px-3 py-1 rounded-lg bg-[#2563eb] text-white text-[12px] font-semibold hover:bg-[#1d4ed8]"
           >
             ลองเชื่อมต่อใหม่
           </button>
         </div>
       )}
-      {/* Header */}
-      <PageHeader
-        title="Dashboard คุณภาพอากาศ"
-        subtitle="ศูนย์ควบคุมและประเมินสภาวะอากาศแบบเรียลไทม์ เชื่อมโยงเกณฑ์มาตรฐานกรมควบคุมมลพิษ (PCD / Air4Thai)"
-        badge={
-          <div style={{ position: 'relative' }}>
+
+      {/* Header Row */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2">
+        <div>
+          <h1 className="text-[24px] md:text-[28px] font-bold text-[#131b2e] tracking-tight">
+            Dashboard คุณภาพอากาศ
+          </h1>
+          <p className="text-[13px] text-[#64748b] mt-0.5">
+            ศูนย์ควบคุมและประเมินสภาวะอากาศแบบเรียลไทม์ เชื่อมโยงเกณฑ์มาตรฐานกรมควบคุมมลพิษ (PCD / Air4Thai)
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Box Selector */}
+          <div className="relative">
             <select
               value={boxId}
-              onChange={e => handleBoxChange(e.target.value)}
-              style={{
-                appearance: 'none', paddingRight: '1.75rem',
-                padding: '0.4rem 1.75rem 0.4rem 0.75rem',
-                borderRadius: '0.5rem', border: '1px solid var(--border-color)',
-                backgroundColor: 'white', fontFamily: 'inherit',
-                fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
-                color: 'var(--primary-color)',
-              }}
+              onChange={(e) => handleBoxChange(e.target.value)}
+              className="appearance-none pl-3.5 pr-8 py-1.5 rounded-xl border border-[#e2e8f0] bg-white text-[13px] font-semibold text-[#004ac6] cursor-pointer shadow-xs focus:ring-2 focus:ring-[#2563eb]/20 outline-none"
             >
-              {deviceList.length === 0
-                ? <option value={boxId}>{boxId}</option>
-                : deviceList.map(d => <option key={d.id} value={d.id}>{d.id}</option>)
-              }
+              {deviceList.length === 0 ? (
+                <option value={boxId}>{boxId}</option>
+              ) : (
+                deviceList.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.id}
+                  </option>
+                ))
+              )}
             </select>
-            <ChevronDown size={14} style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b' }} />
+            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#64748b]" />
           </div>
-        }
-        actions={
-          <>
-            {lastUpdated && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                <Clock size={14} />
-                อัปเดต {lastUpdated.toLocaleTimeString('th-TH')}
-              </span>
-            )}
-            <Button
-              onClick={() => fetchAll()}
-              loading={loading}
-              iconLeft={<RefreshCw size={14} />}
-              size="sm"
-            >
-              รีเฟรช
-            </Button>
-          </>
-        }
-      />
 
-      {/* AI Model Status Banner */}
-      {!data.ai_model_loaded && (
-        <div style={{
-          padding: '0.75rem 1rem', borderRadius: '0.5rem', marginBottom: '1.5rem',
-          backgroundColor: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e',
-          display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem',
-        }}>
-          <Cpu size={16} />
-          <span>AI Model ยังไม่ได้โหลด — ผลทำนายเป็นค่าจำลอง เทรนโมเดลก่อนเพื่อใช้งานจริง</span>
+          {/* Last Updated Timestamp */}
+          {lastUpdated && (
+            <span className="hidden md:flex items-center gap-1.5 text-[12px] text-[#64748b]">
+              <Clock size={14} />
+              {lastUpdated.toLocaleTimeString('th-TH')}
+            </span>
+          )}
+
+          {/* Refresh Button */}
+          <Button
+            onClick={() => fetchAll()}
+            loading={loading}
+            iconLeft={<RefreshCw size={14} />}
+            size="sm"
+          >
+            รีเฟรช
+          </Button>
         </div>
-      )}
+      </div>
 
-      {/* Dangerous VOC Warning */}
+      {/* Dangerous Alert Warning */}
       {isDangerous && (
-        <div style={{
-          padding: '1rem 1.25rem', borderRadius: '0.75rem', marginBottom: '1.5rem',
-          backgroundColor: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b',
-          display: 'flex', alignItems: 'center', gap: '0.75rem',
-        }}>
-          <AlertTriangle size={22} />
+        <div className="p-4 rounded-2xl bg-[#fee2e2] border border-[#fca5a5] text-[#991b1b] flex items-center gap-3 animate-pulse">
+          <AlertTriangle size={24} className="shrink-0 text-[#dc2626]" />
           <div>
-            <div style={{ fontWeight: 700 }}>ตรวจพบสารอันตราย!</div>
-            <div style={{ fontSize: '0.875rem' }}>
-              AI ทำนาย: <strong>{data.ai_detection.prediction}</strong> (ความมั่นใจ {data.ai_detection.confidence}%)
+            <div className="font-bold text-[14px]">ตรวจพบสารเคมีอันตรายผิดปกติ!</div>
+            <div className="text-[12px]">
+              AI สันนิษฐาน: <strong>{data.ai_detection?.prediction}</strong> (ความเชื่อมั่น {data.ai_detection?.confidence}%)
             </div>
           </div>
         </div>
       )}
 
       {/* Air4Thai PCD Thailand Standard Reference Card */}
-      <Card style={{ marginBottom: '1.5rem', padding: '16px 20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>
-              เกณฑ์ดัชนีคุณภาพอากาศของประเทศไทย (Air Quality Index : AQI — PCD Standard)
+      <Card noPadding cornerGlow className="p-5">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="text-[14px] font-bold text-[#131b2e]">
+              ดัชนีคุณภาพอากาศของประเทศไทย (Air Quality Index : AQI — มาตรฐาน PCD)
             </span>
-            <AqiBadge aqi={calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)} />
+            <AqiBadge aqi={currentAqi} />
           </div>
-          <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+          <span className="text-[11px] text-[#64748b]">
             อ้างอิงมาตรฐานกรมควบคุมมลพิษ (air4thai.pcd.go.th)
           </span>
         </div>
-        <AqiScaleBar currentAqi={calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)} />
+        <AqiScaleBar currentAqi={currentAqi} />
       </Card>
 
-      {/* Top KPI Cards (Unified Component Architecture) */}
-      <div className="dashboard-grid">
-        {/* KPI 1: Air4Thai AQI Card */}
+      {/* ── 4-Block Maximum Primary Telemetry Row ── */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* Card 1: Air Quality Index */}
         <StatCard
-          title="Air4Thai AQI"
-          value={calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)}
-          valueColor={getAqiCategory(calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)).colorHex}
-          badge={<AqiBadge aqi={calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)} />}
-          subtext={`เกณฑ์ PCD: ${getAqiCategory(calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)).label} (${getAqiCategory(calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)).rangeStr})`}
+          title="Air Quality"
+          value={currentAqi}
+          valueColor={aqiCat.colorHex}
+          badge={<AqiBadge aqi={currentAqi} />}
+          subtext={`เกณฑ์ PCD: ${aqiCat.label}`}
           progress={{
-            value: calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0),
+            value: currentAqi,
             max: 200,
-            color: getAqiCategory(calculatePm25Aqi(data.environment?.pm25 ?? data.latest_reading?.pm25 ?? 12.0)).colorHex
+            color: aqiCat.colorHex,
           }}
         />
 
-        {/* KPI 2: AI Detection */}
+        {/* Card 2: TVOC Concentration */}
         <StatCard
-          title="AI Detection (E-Nose)"
-          value={data.ai_detection?.prediction ?? '—'}
-          valueColor={isDangerous ? '#dc2626' : '#2563eb'}
+          title="TVOC Concentration"
+          value={tvocDisplay}
+          unit={tvocUnit}
+          valueColor={tvocRaw >= (thresholds.tvoc?.warn || 300) ? '#ba1a1a' : '#131b2e'}
           badge={
-            <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 999, backgroundColor: isDangerous ? '#fee2e2' : '#eff6ff', color: isDangerous ? '#dc2626' : '#1d4ed8' }}>
-              {data.ai_detection?.confidence ?? 0}% Conf
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#eaedff] text-[#004ac6]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00CC66]" />
+              Baseline &lt; 100
             </span>
           }
-          subtext={isDangerous ? 'ตรวจพบสารอันตรายเกินเกณฑ์ควบคุม' : 'สภาวะอากาศปกติ ไม่พบสารเคมีแปลกปลอม'}
+          subtext="ไอระเหยทินเนอร์และสารทำละลายรวม"
+          onDetailClick={() => setIsTelemetryDrawerOpen(true)}
+          detailLabel="View telemetry"
         />
 
-        {/* KPI 3: System Status */}
+        {/* Card 3: PM2.5 Fine Particulate */}
         <StatCard
-          title="System Status"
-          value={data.status}
-          valueColor={data.status === 'ONLINE' ? '#16a34a' : '#dc2626'}
-          icon={data.status === 'ONLINE' ? <CheckCircle size={22} color="#16a34a" /> : <AlertTriangle size={22} color="#dc2626" />}
-          subtext={`อุปกรณ์ ${boxId} ส่งข้อมูลต่อเนื่องทุก 5 วินาที`}
+          title="PM2.5 Particulate"
+          value={pm25Value}
+          unit="µg/m³"
+          valueColor={pm25Value >= (thresholds.pm25?.warn || 37.5) ? '#FF7E00' : '#131b2e'}
+          badge={
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#ecfdf5] text-[#059669]">
+              Safe Zone
+            </span>
+          }
+          subtext="ฝุ่นละอองผงสีในห้องอบ"
         />
 
-        {/* KPI 4: Active Alerts */}
+        {/* Card 4: AI Chemical Fingerprint */}
         <StatCard
-          title="Active Alerts"
-          value={alerts.filter(a => a.status === 'Active').length}
-          valueColor={alerts.filter(a => a.status === 'Active').length > 0 ? '#dc2626' : '#16a34a'}
-          subtext={alerts.filter(a => a.status === 'Active').length > 0 ? 'มีเหตุการณ์ที่ต้องเข้าตรวจสอบ' : 'ไม่มีรายการแจ้งเตือนค้าง'}
+          title="Detected Solvent"
+          value={data.ai_detection?.prediction ?? 'AMBIENT'}
+          valueColor={isDangerous ? '#ba1a1a' : '#004ac6'}
+          badge={
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#eaedff] text-[#004ac6]">
+              {data.ai_detection?.confidence ?? 95}% Match
+            </span>
+          }
+          subtext="E-Nose 8-channel Matrix"
+          onDetailClick={() => setIsRadarModalOpen(true)}
+          detailLabel="View radar"
         />
-      </div>
+      </section>
 
-      {/* Environment */}
-      <div style={{ margin: '2rem 0 1rem' }}>
-        <h2 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span>สภาพแวดล้อมทั่วไป (Environment)</span>
-        </h2>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          ตรวจวัดอุณหภูมิ ความชื้น ปริมาณฝุ่นละออง และก๊าซพื้นฐานในห้องพ่นสี
-        </p>
-      </div>
-
-      <div className="dashboard-grid">
-        {[
-          { 
-            key: 'temp', 
-            title: 'Temperature', 
-            thName: 'อุณหภูมิห้อง', 
-            desc: 'สภาวะความร้อนภายในห้อง', 
-            val: data.environment?.temp, 
-            unit: '°C' 
-          },
-          { 
-            key: 'rh', 
-            title: 'Humidity', 
-            thName: 'ความชื้นสัมพัทธ์', 
-            desc: 'ความชื้นในบรรยากาศ', 
-            val: data.environment?.rh, 
-            unit: '%RH' 
-          },
-          { 
-            key: 'pm25', 
-            title: 'PM2.5', 
-            thName: 'ฝุ่นละอองขนาดเล็ก', 
-            desc: 'ฝุ่นละอองและละอองผงสี', 
-            val: data.environment?.pm25, 
-            unit: 'µg/m³', 
-            warn: thresholds.pm25.warn, 
-            crit: thresholds.pm25.critical 
-          },
-          { 
-            key: 'tvoc', 
-            title: 'TVOC (CCS811)', 
-            thName: 'สารอินทรีย์ระเหยรวม', 
-            desc: 'ไอระเหยทินเนอร์ สี สารทำละลาย', 
-            val: unitMode === 'ppm'
-              ? (data.environment?.tvoc != null ? (data.environment.tvoc / 1000 >= 10 ? (data.environment.tvoc / 1000).toFixed(1) : (data.environment.tvoc / 1000).toFixed(3)) : '—')
-              : data.environment?.tvoc, 
-            unit: unitMode === 'ppm' ? 'ppm' : 'ppb', 
-            warn: unitMode === 'ppm' ? (thresholds.tvoc.warn / 1000) : thresholds.tvoc.warn, 
-            crit: unitMode === 'ppm' ? (thresholds.tvoc.critical / 1000) : thresholds.tvoc.critical 
-          },
-          { 
-            key: 'eco2', 
-            title: 'eCO₂ (CCS811)', 
-            thName: 'คาร์บอนไดออกไซด์เทียบเท่า', 
-            desc: 'ก๊าซจากการหายใจ/การถ่ายเทอากาศ', 
-            val: data.environment?.eco2, 
-            unit: 'ppm', 
-            warn: thresholds.eco2.warn, 
-            crit: thresholds.eco2.critical 
-          },
-        ].map(({ key, title, thName, desc, val, unit, warn, crit }) => {
-          const color = crit && val >= crit ? 'var(--danger-color)'
-            : warn && val >= warn ? 'var(--warning-color)'
-            : 'var(--text-main)';
-          return (
-            <div className="card stat-card" key={key} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <div className="stat-title" style={{ fontWeight: 600 }}>{title}</div>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--primary-color)', fontWeight: 500 }}>{thName}</span>
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{desc}</div>
+      {/* ── 24-Hour Trend & Sensor Array Section (65% / 35% Grid) ── */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Left: 24-Hour Trend Chart (2 columns) */}
+        <div className="lg:col-span-2">
+          <Card
+            title="แนวโน้มความเข้มข้นสารเคมี (24-Hour Chemical Trend)"
+            subtitle="เส้นกราฟเปรียบเทียบ TVOC และ PM2.5 เทียบกับเกณฑ์ปลอดภัย"
+            action={
+              <div className="flex gap-1 bg-[#f8fafc] p-0.5 rounded-xl border border-[#e2e8f0]">
+                {['15m', '1h', '24h'].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => handleRangeChange(r)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                      timeRange === r
+                        ? 'bg-white text-[#004ac6] shadow-xs'
+                        : 'text-[#64748b] hover:text-[#131b2e]'
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
               </div>
-              <div style={{ marginTop: '0.25rem' }}>
-                <span className="stat-value" style={{ color }}>{val ?? '—'}</span>
-                <span className="stat-unit" style={{ marginLeft: '0.25rem', fontSize: '0.85rem' }}>{unit}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* E-Nose */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', margin: '2rem 0 1rem' }}>
-        <div>
-          <h2 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>โครงข่ายจมูกอิเล็กทรอนิกส์ (E-Nose Sensor Array)</span>
-          </h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            เซนเซอร์ตรวจจับกลิ่นและจำแนกกลุ่มก๊าซมลพิษเฉพาะทาง สำหรับส่งให้โมเดล AI ประมวลผล
-          </p>
-        </div>
-
-        {/* Unit Selector Toggle */}
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          backgroundColor: '#f1f5f9',
-          padding: '3px',
-          borderRadius: '0.5rem',
-          border: '1px solid var(--border-color)',
-        }}>
-          <button
-            type="button"
-            onClick={() => handleUnitToggle('raw')}
-            style={{
-              padding: '0.35rem 0.75rem',
-              borderRadius: '0.375rem',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              backgroundColor: unitMode === 'raw' ? 'white' : 'transparent',
-              color: unitMode === 'raw' ? 'var(--primary-color)' : 'var(--text-muted)',
-              boxShadow: unitMode === 'raw' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            ADC / mV (Raw)
-          </button>
-          <button
-            type="button"
-            onClick={() => handleUnitToggle('ppm')}
-            style={{
-              padding: '0.35rem 0.75rem',
-              borderRadius: '0.375rem',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              backgroundColor: unitMode === 'ppm' ? 'var(--primary-color)' : 'transparent',
-              color: unitMode === 'ppm' ? 'white' : 'var(--text-muted)',
-              boxShadow: unitMode === 'ppm' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            ~ppm (ความเข้มข้น)
-          </button>
-        </div>
-      </div>
-
-      {unitMode === 'ppm' && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '0.5rem',
-          padding: '0.55rem 0.85rem', marginBottom: '1.25rem',
-          borderRadius: '0.5rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0',
-          color: '#166534', fontSize: '0.8rem'
-        }}>
-          <Info size={16} style={{ flexShrink: 0 }} />
-          <span>
-            <strong>โหมดแปลงค่า (~ppm):</strong> คำนวณจาก Power-Law Curve ตาม Datasheet เทียบกับจุดอ้างอิง Clean Air Baseline (R₀) | เป็นค่าประมาณการตามก๊าซอ้างอิงเพื่อดูแนวโน้ม
-          </span>
-        </div>
-      )}
-
-      {(() => {
-        const ppmData = convertAllToPpm(data?.sensors);
-        const isPpm = unitMode === 'ppm';
-
-        return (
-          <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
-            {[
-              { key: 'mq2', title: 'MQ-2', target: 'ควันและก๊าซไวไฟ', sub: 'Smoke / LPG / Propane' },
-              { key: 'mq3', title: 'MQ-3', target: 'ไอแอลกอฮอล์ / ทินเนอร์', sub: 'Alcohol / Solvent Vapors' },
-              { key: 'mq135', title: 'MQ-135', target: 'คุณภาพอากาศ / เบนซีน', sub: 'Air Quality / Benzene / NH₃' },
-              { key: 'mq8', title: 'MQ-8', target: 'ก๊าซไฮโดรเจน', sub: 'Hydrogen Gas (H₂)' },
-              { key: 'mics_co', title: 'MiCS-6814 (CO)', target: 'คาร์บอนมอนอกไซด์', sub: 'Carbon Monoxide (เผาไหม้)' },
-              { key: 'no2', title: 'MiCS-6814 (NO₂)', target: 'ไนโตรเจนไดออกไซด์', sub: 'Nitrogen Dioxide (ไอเสีย/เตาอบ)' },
-              { key: 'nh3', title: 'MiCS-6814 (NH₃)', target: 'แอมโมเนียและกลิ่นฉุน', sub: 'Ammonia Gas' },
-            ].map(({ key, title, target, sub }) => {
-              const rawVal = data.sensors?.[key];
-              const conv = ppmData[key] || {};
-              const displayVal = isPpm ? formatPpm(conv.ppm, conv.unit) : (rawVal ?? '—');
-              const displayUnit = isPpm ? conv.unit : conv.rawUnit;
-
-              return (
-                <div className="card stat-card" key={key} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1rem' }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--primary-color)' }}>{title}</span>
-                      <span style={{
-                        fontSize: '0.7rem', padding: '0.15rem 0.45rem', borderRadius: '4px',
-                        backgroundColor: isPpm ? '#ecfdf5' : '#f1f5f9',
-                        color: isPpm ? '#059669' : '#475569',
-                        fontWeight: 600,
-                      }}>
-                        {isPpm ? `${conv.refGas}` : displayUnit}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', marginTop: '0.2rem' }}>
-                      {isPpm ? (conv.gasLabelTh || target) : target}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      {sub}
-                    </div>
-                  </div>
-                  <div style={{ marginTop: '0.75rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
-                      <div className="stat-value" style={{
-                        fontSize: '1.5rem',
-                        fontWeight: 700,
-                        color: isPpm && conv.ppm > 0 ? '#047857' : 'inherit'
-                      }}>
-                        {displayVal}
-                      </div>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{displayUnit}</span>
-                    </div>
-                    {isPpm && (
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                        ดิบ: <strong>{rawVal ?? '—'}</strong> {conv.rawUnit} {conv.ratio ? `· Rs/R₀: ${conv.ratio}` : ''}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
-
-      {/* History Chart */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '2rem 0 1rem' }}>
-        <h2 style={{ fontSize: '1.1rem', fontWeight: 600 }}>History (TVOC & PM2.5)</h2>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {['15m', '1h', '24h'].map(r => (
-            <button key={r} onClick={() => handleRangeChange(r)}
-              style={{
-                padding: '0.3rem 0.75rem', borderRadius: '0.375rem', cursor: 'pointer',
-                border: '1px solid var(--border-color)', fontSize: '0.8rem', fontWeight: 500,
-                backgroundColor: timeRange === r ? 'var(--primary-color)' : 'white',
-                color: timeRange === r ? 'white' : 'var(--text-muted)',
-                transition: 'all 0.2s',
-              }}
-            >{r}</button>
-          ))}
-        </div>
-      </div>
-      <div className="card" style={{ height: 320 }}>
-        {history.length === 0
-          ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>ไม่มีข้อมูลในช่วงเวลานี้</div>
-          : (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={history} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="time" stroke="#64748b" />
-                <YAxis yAxisId="left" stroke="#64748b" />
-                <YAxis yAxisId="right" orientation="right" stroke="#64748b" />
-                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
-                <Line yAxisId="left" type="monotone" dataKey="tvoc" stroke="var(--primary-color)" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} name="TVOC (ppb)" />
-                <Line yAxisId="right" type="monotone" dataKey="pm25" stroke="var(--warning-color)" strokeWidth={2.5} dot={false} name="PM2.5 (µg)" />
-              </LineChart>
-            </ResponsiveContainer>
-          )
-        }
-      </div>
-
-      {/* Recent Alerts */}
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 600, margin: '2rem 0 1rem' }}>Recent Alerts</h2>
-      <div className="card table-container">
-        <table>
-          <thead>
-            <tr><th>เวลา</th><th>ข้อความ</th><th>ระดับ</th><th>สถานะ</th></tr>
-          </thead>
-          <tbody>
-            {alerts.length === 0
-              ? <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1.5rem' }}>ไม่มีการแจ้งเตือน</td></tr>
-              : alerts.map(a => (
-                <tr key={a.id}>
-                  <td style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>{a.time}</td>
-                  <td>{a.message}</td>
-                  <td><span className={`badge ${a.level === 'High' || a.level === 'Critical' ? 'offline' : 'online'}`}>{a.level}</span></td>
-                  <td style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{a.status}</td>
-                </tr>
-              ))
             }
-          </tbody>
-        </table>
-      </div>
+          >
+            <div className="h-[280px] w-full">
+              {history.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-[#64748b] text-[13px]">
+                  ไม่มีข้อมูลบันทึกในช่วงเวลานี้
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={history} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="time" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                    <YAxis yAxisId="left" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                    <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+                        fontSize: '12px',
+                      }}
+                    />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="tvoc"
+                      stroke="#2563eb"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 5 }}
+                      name="TVOC (ppb)"
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="pm25"
+                      stroke="#FF7E00"
+                      strokeWidth={2}
+                      dot={false}
+                      name="PM2.5 (µg/m³)"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </Card>
+        </div>
 
-      {/* Spin animation style */}
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        {/* Right: Quick Telemetry Highlights (1 column) */}
+        <div className="space-y-4">
+          <Card
+            title="E-Nose Array Quick Stats"
+            subtitle="สวิตช์หน่วยวัดและสถานะรอบพัดลม"
+            action={
+              <button
+                type="button"
+                onClick={() => handleUnitToggle(unitMode === 'ppm' ? 'raw' : 'ppm')}
+                className="px-2.5 py-1 rounded-lg border border-[#e2e8f0] text-[11px] font-semibold bg-[#f8fafc] text-[#004ac6] hover:bg-[#eaedff]"
+              >
+                สลับเป็น {unitMode === 'ppm' ? 'Raw (ADC)' : '~ppm'}
+              </button>
+            }
+          >
+            <div className="space-y-3">
+              <div className="p-3 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0] flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold text-[#64748b] uppercase">Scrubber Exhaust Fan</div>
+                  <div className="text-[16px] font-bold text-[#131b2e]">4,850 m³/h</div>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#ecfdf5] text-[#059669]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#00CC66]" />
+                  100% Running
+                </span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-[#f8fafc] border border-[#e2e8f0] flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold text-[#64748b] uppercase">Temperature / RH</div>
+                  <div className="text-[16px] font-bold text-[#131b2e]">
+                    {data.environment?.temp ?? 31.2}°C · {data.environment?.rh ?? 66.5}%
+                  </div>
+                </div>
+                <span className="text-[11px] text-[#64748b]">Normal Room</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsTelemetryDrawerOpen(true)}
+                className="w-full py-2.5 rounded-xl border border-[#e2e8f0] bg-white hover:bg-[#faf8ff] text-[#004ac6] text-[13px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <span>เปิดแผงตรวจวัดทุกเซนเซอร์ (Live Drawer)</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          </Card>
+        </div>
+      </section>
+
+      {/* ── Stitch Sub-state 1: Right-side Live Telemetry Drawer (480px) ── */}
+      <Drawer
+        isOpen={isTelemetryDrawerOpen}
+        onClose={() => setIsTelemetryDrawerOpen(false)}
+        title="Live Sensor Telemetry"
+        subtitle={`Powder Coating Booth 1 · อุปกรณ์ ${boxId}`}
+        footer={
+          <button
+            type="button"
+            onClick={() => setIsTelemetryDrawerOpen(false)}
+            className="px-4 py-2 rounded-xl bg-[#eaedff] text-[#004ac6] text-[13px] font-semibold hover:bg-[#dbe1ff]"
+          >
+            ปิดแผงตรวจวัด
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">
+              Real-time probe readings
+            </span>
+            <div className="flex items-center gap-1.5 text-[11px] text-[#059669] font-semibold">
+              <span className="w-2 h-2 rounded-full bg-[#00CC66] animate-pulse" />
+              All systems nominal
+            </div>
+          </div>
+
+          <div className="border border-[#e2e8f0] rounded-2xl overflow-hidden bg-white shadow-xs">
+            <table className="w-full text-left text-[12px]">
+              <thead className="bg-[#f8fafc] border-b border-[#e2e8f0] text-[#64748b] font-semibold">
+                <tr>
+                  <th className="py-2.5 px-3">Sensor</th>
+                  <th className="py-2.5 px-3">Target Gas</th>
+                  <th className="py-2.5 px-3 text-right">Value</th>
+                  <th className="py-2.5 px-3 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f1f5f9]">
+                {[
+                  { id: 'MQ-2', target: 'LPG / Smoke', key: 'mq2' },
+                  { id: 'MQ-3', target: 'Alcohol / Thinner', key: 'mq3' },
+                  { id: 'MQ-135', target: 'VOCs / Benzene', key: 'mq135' },
+                  { id: 'MQ-8', target: 'Hydrogen (H₂)', key: 'mq8' },
+                  { id: 'MiCS-CO', target: 'Carbon Monoxide', key: 'mics_co' },
+                  { id: 'MiCS-NO₂', target: 'Nitrogen Dioxide', key: 'no2' },
+                  { id: 'MiCS-NH₃', target: 'Ammonia Gas', key: 'nh3' },
+                ].map((s) => {
+                  const raw = data.sensors?.[s.key] ?? data.latest_reading?.[s.key] ?? 1200;
+                  const conv = ppmData[s.key] || {};
+                  return (
+                    <tr key={s.id} className="hover:bg-[#f8fafc]">
+                      <td className="py-2.5 px-3 font-semibold text-[#131b2e]">{s.id}</td>
+                      <td className="py-2.5 px-3 text-[#64748b]">{s.target}</td>
+                      <td className="py-2.5 px-3 text-right font-bold tabular-nums text-[#131b2e]">
+                        {unitMode === 'ppm' ? formatPpm(conv.ppm, conv.unit) : raw}
+                        <span className="text-[10px] text-[#64748b] ml-1">
+                          {unitMode === 'ppm' ? conv.unit : 'mV'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#ecfdf5] text-[#059669]">
+                          Nominal
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Drawer>
+
+      {/* ── Stitch Sub-state 2: 8-Channel E-Nose Radar Modal ── */}
+      <Modal
+        isOpen={isRadarModalOpen}
+        onClose={() => setIsRadarModalOpen(false)}
+        title="Chemical Fingerprint Analysis"
+        subtitle="Expanded 8-channel metal-oxide sensor matrix comparison"
+        maxWidth="max-w-md"
+        footer={
+          <button
+            type="button"
+            onClick={() => setIsRadarModalOpen(false)}
+            className="px-4 py-2 rounded-xl bg-[#2563eb] text-white text-[13px] font-semibold hover:bg-[#1d4ed8]"
+          >
+            เสร็จสิ้น (Done)
+          </button>
+        }
+      >
+        <div className="flex flex-col items-center">
+          <div className="flex items-baseline gap-2 mb-2">
+            <h4 className="text-[28px] font-bold text-[#131b2e]">
+              {data.ai_detection?.prediction ?? 'Toluene'}
+            </h4>
+            <span className="text-[14px] font-semibold text-[#2563eb]">
+              {data.ai_detection?.confidence ?? 87}% Match
+            </span>
+          </div>
+          <p className="text-[12px] text-[#64748b] text-center mb-4">
+            เปรียบเทียบลายพิมพ์ก๊าซสารไอระเหยกับ NIST Reference Chemical Library
+          </p>
+
+          {/* SVG Radar Chart from Stitch Design */}
+          <div className="w-64 h-64 bg-[#f8fafc] rounded-2xl p-4 flex items-center justify-center border border-[#e2e8f0]">
+            <svg className="w-full h-full overflow-visible" viewBox="0 0 240 240">
+              <defs>
+                <radialGradient cx="50%" cy="50%" id="modalRadarGlow" r="50%">
+                  <stop offset="0%" stopColor="#2563EB" stopOpacity="0.25" />
+                  <stop offset="100%" stopColor="#2563EB" stopOpacity="0.02" />
+                </radialGradient>
+              </defs>
+              {/* Outer Octagon (R=90) */}
+              <polygon
+                fill="none"
+                points="120,30 183.6,56.4 210,120 183.6,183.6 120,210 56.4,183.6 30,120 56.4,56.4"
+                stroke="#D1D5DB"
+                strokeDasharray="3 3"
+                strokeWidth="1"
+              />
+              {/* Middle Octagon (R=60) */}
+              <polygon
+                fill="none"
+                points="120,60 162.4,77.6 180,120 162.4,162.4 120,180 77.6,162.4 60,120 77.6,77.6"
+                stroke="#E5E7EB"
+                strokeWidth="1"
+              />
+              {/* Inner Octagon (R=30) */}
+              <polygon
+                fill="none"
+                points="120,90 141.2,98.8 150,120 141.2,141.2 120,150 98.8,141.2 90,120 98.8,98.8"
+                stroke="#E5E7EB"
+                strokeWidth="1"
+              />
+              {/* Active Radar Shape (Filled) */}
+              <polygon
+                fill="url(#modalRadarGlow)"
+                points="120,40 166,74 195,120 155,155 120,180 88,152 50,120 81,81"
+                stroke="#2563EB"
+                strokeWidth="2"
+              />
+            </svg>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

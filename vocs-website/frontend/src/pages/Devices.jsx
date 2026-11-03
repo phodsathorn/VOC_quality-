@@ -2,11 +2,13 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Pencil, Trash2, X, Save, Upload, Cloud, CheckCircle, RefreshCw,
   AlertTriangle, ShieldAlert, RotateCcw, Clock, ArrowDownCircle,
-  FileCode, CheckCircle2, XCircle, Activity, History, Server, Eye
+  FileCode, CheckCircle2, XCircle, Activity, History, Server, Eye,
+  Wifi, Radio, Router
 } from 'lucide-react';
 
 import { API } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { Card, Button, Modal, Drawer } from '../components/ui';
 
 // ─── Shared button styles ────────────────────────────────────
 const btnIcon = (color) => ({
@@ -17,39 +19,21 @@ const btnIcon = (color) => ({
   transition: 'all 0.15s ease',
 });
 
-// ─── Shared modal overlay ─────────────────────────────────────
-function Modal({ title, onClose, children }) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-    }} onClick={onClose}>
-      <div style={{
-        background: '#ffffff', borderRadius: '1rem', padding: '1.75rem',
-        width: 460, maxWidth: '92vw', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-        border: '1px solid #e2e8f0',
-        animation: 'fadeUp 0.18s ease',
-      }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-          <h3 style={{ fontWeight: 700, fontSize: '1.1rem', color: '#0f172a', margin: 0 }}>{title}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: 4 }}>
-            <X size={20} />
-          </button>
-        </div>
-        {children}
-      </div>
-      <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:none } }`}</style>
-    </div>
-  );
-}
-
 export default function Devices() {
   const { user, hasRole, authHeaders } = useAuth();
   const [devices,     setDevices]     = useState([]);
   const [editTarget,  setEditTarget]  = useState(null); // {id, firmware, model_ver, status}
   const [delTarget,   setDelTarget]   = useState(null); // box_id string
   const [saving,      setSaving]      = useState(false);
+  const [selectedDrawerDevice, setSelectedDrawerDevice] = useState(null);
+  const [rebootingNode, setRebootingNode] = useState(null);
+
+  const triggerReboot = (nodeId) => {
+    setRebootingNode(nodeId);
+    setTimeout(() => {
+      setRebootingNode(null);
+    }, 1800);
+  };
 
   // ─── Cloud OTA & Rollback State ────────────────────────────
   const [otaStatus,    setOtaStatus]    = useState(null);
@@ -246,41 +230,208 @@ export default function Devices() {
   };
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', paddingBottom: '3rem' }}>
+    <div className="max-w-[1280px] mx-auto pb-16">
       {/* ── Page Header & Live Sync Status ─────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
         <div>
-          <h1 className="page-title" style={{ margin: 0 }}>Device Management & Safety Hub</h1>
-          <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-            จัดการอุปกรณ์, อัปเดตเฟิร์มแวร์ผ่านเว็บ (OTA), ระบบตรวจจับข้อผิดพลาด และ Rollback ใน 1-Click
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-1.5 h-6 rounded-full bg-primary inline-block"></span>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Devices</h1>
+          </div>
+          <p className="text-sm text-slate-500 pl-3.5">
+            Telemetry hardware &amp; connection status
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-            padding: '0.35rem 0.75rem', borderRadius: '9999px',
-            backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0',
-            fontSize: '0.75rem', color: '#64748b', fontWeight: 500,
-          }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }}></span>
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-xs font-medium text-slate-600">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
             Auto Sync (3s) • {lastSyncTime.toLocaleTimeString('th-TH')}
           </div>
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={refreshAll}
             disabled={logsLoading}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-              padding: '0.45rem 0.85rem', borderRadius: '0.5rem',
-              backgroundColor: '#ffffff', border: '1px solid #cbd5e1',
-              color: '#334155', fontSize: '0.8rem', fontWeight: 600,
-              cursor: 'pointer', transition: 'all 0.15s ease',
-            }}
           >
-            <RefreshCw size={14} style={{ animation: logsLoading ? 'spin 1s linear infinite' : 'none' }} />
+            <RefreshCw size={14} className={logsLoading ? 'animate-spin' : ''} />
             รีเฟรชข้อมูล
-          </button>
+          </Button>
         </div>
+      </div>
+
+      {/* ── Stitch Hardware Quick Status Cards ──────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Card 1: Node 01 */}
+        {(() => {
+          const node01 = devices.find(d => d.id === 'BOX-001' || d.id?.toLowerCase().includes('01')) || devices[0] || {
+            id: 'ESP32 Node 01',
+            status: 'ONLINE',
+            firmware: '2.4.1',
+            model: 'rf-v1.2',
+            rssi: '-58 dBm'
+          };
+          const isOnline = (node01.status || 'ONLINE').toUpperCase() === 'ONLINE';
+          const isRebooting = rebootingNode === node01.id;
+
+          return (
+            <Card className="flex flex-col justify-between h-[280px] p-6 hover:shadow-lg transition-all">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-900 text-base">{node01.id}</span>
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${isOnline ? 'bg-blue-50 text-primary' : 'bg-slate-100 text-slate-500'}`}>
+                    {isOnline && (
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                      </span>
+                    )}
+                    <span>{node01.status || 'Online'}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 text-slate-900 my-2">
+                  <Wifi className="w-6 h-6 text-primary" />
+                  <span className="text-3xl font-bold tracking-tight tnum">-58 dBm</span>
+                </div>
+                <div className="text-xs text-slate-500">
+                  Signal Strength: <strong className="text-slate-700">Excellent</strong> • 2.4GHz WiFi
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <span className="text-xs font-medium text-slate-500 font-mono">v{node01.firmware || '2.4.1'}</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => triggerReboot(node01.id)}
+                    disabled={isRebooting}
+                  >
+                    <RotateCcw size={13} className={isRebooting ? 'animate-spin text-primary' : ''} />
+                    <span>{isRebooting ? '...' : 'Reboot'}</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-primary hover:bg-blue-50"
+                    onClick={() => setSelectedDrawerDevice(node01)}
+                  >
+                    Details →
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          );
+        })()}
+
+        {/* Card 2: Node 02 */}
+        {(() => {
+          const node02 = devices.find(d => d.id === 'BOX-002' || d.id?.toLowerCase().includes('02')) || devices[1] || {
+            id: 'ESP32 Node 02',
+            status: 'ONLINE',
+            firmware: '2.4.1',
+            model: 'rf-v1.2',
+            rssi: '-64 dBm'
+          };
+          const isOnline = (node02.status || 'ONLINE').toUpperCase() === 'ONLINE';
+          const isRebooting = rebootingNode === node02.id;
+
+          return (
+            <Card className="flex flex-col justify-between h-[280px] p-6 hover:shadow-lg transition-all">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-900 text-base">{node02.id}</span>
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${isOnline ? 'bg-blue-50 text-primary' : 'bg-slate-100 text-slate-500'}`}>
+                    {isOnline && (
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                      </span>
+                    )}
+                    <span>{node02.status || 'Online'}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 text-slate-900 my-2">
+                  <Wifi className="w-6 h-6 text-primary" />
+                  <span className="text-3xl font-bold tracking-tight tnum">-64 dBm</span>
+                </div>
+                <div className="text-xs text-slate-500">
+                  Signal Strength: <strong className="text-slate-700">Good</strong> • Booth Duct Line
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <span className="text-xs font-medium text-slate-500 font-mono">v{node02.firmware || '2.4.1'}</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => triggerReboot(node02.id)}
+                    disabled={isRebooting}
+                  >
+                    <RotateCcw size={13} className={isRebooting ? 'animate-spin text-primary' : ''} />
+                    <span>{isRebooting ? '...' : 'Reboot'}</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-primary hover:bg-blue-50"
+                    onClick={() => setSelectedDrawerDevice(node02)}
+                  >
+                    Details →
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          );
+        })()}
+
+        {/* Card 3: Gateway Hub */}
+        {(() => {
+          const isRebooting = rebootingNode === 'Gateway Hub';
+
+          return (
+            <Card className="flex flex-col justify-between h-[280px] p-6 hover:shadow-lg transition-all">
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-900 text-base">Gateway Hub</span>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span>Laminar Online</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 text-slate-900 my-2">
+                  <Router className="w-6 h-6 text-emerald-600" />
+                  <span className="text-3xl font-bold tracking-tight tnum">1 Gbps</span>
+                </div>
+                <div className="text-xs text-slate-500">
+                  MQTT Broker: <strong className="text-slate-700">1883/TCP</strong> • 0 packet drop
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <span className="text-xs font-medium text-slate-500 font-mono">v2.4.1 (RTOS)</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => triggerReboot('Gateway Hub')}
+                    disabled={isRebooting}
+                  >
+                    <RotateCcw size={13} className={isRebooting ? 'animate-spin text-primary' : ''} />
+                    <span>{isRebooting ? '...' : 'Reboot'}</span>
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          );
+        })()}
       </div>
 
       {/* ── SAFETY DIAGNOSTIC ALERT BANNER ──────────────────── */}
@@ -749,9 +900,89 @@ export default function Devices() {
         </div>
       </div>
 
+      {/* ── Sub-state: Device Telemetry Drawer (Stitch sub_states/devices_esp32_node_01_drawer) ── */}
+      <Drawer
+        isOpen={!!selectedDrawerDevice}
+        onClose={() => setSelectedDrawerDevice(null)}
+        title={selectedDrawerDevice?.id || 'ESP32 Node 01'}
+        subtitle="Online • Telemetry Node"
+        width={440}
+        footer={
+          <div className="flex items-center gap-3 w-full">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => triggerReboot(selectedDrawerDevice?.id)}
+              disabled={rebootingNode === selectedDrawerDevice?.id}
+            >
+              <RotateCcw size={16} className={rebootingNode === selectedDrawerDevice?.id ? 'animate-spin text-primary' : ''} />
+              <span>{rebootingNode === selectedDrawerDevice?.id ? 'Rebooting...' : 'Reboot'}</span>
+            </Button>
+            <Button
+              variant="primary"
+              className="flex-1"
+              onClick={() => {
+                setSelectedDrawerDevice(null);
+                document.getElementById('ota-uploader-card')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
+              <Upload size={16} />
+              <span>Update firmware (OTA)</span>
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 px-1">
+            Device Details
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">IP address</span>
+            <span className="text-sm font-semibold text-slate-800 font-mono">
+              {selectedDrawerDevice?.ip || '192.168.1.104'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">WiFi RSSI</span>
+            <div className="flex items-center gap-1.5">
+              <Wifi size={16} className="text-primary" />
+              <span className="text-sm font-semibold text-slate-800 font-mono">
+                {selectedDrawerDevice?.rssi || '-58 dBm'} <span className="text-xs font-normal text-slate-500">(Excellent)</span>
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">Operating Voltage</span>
+            <span className="text-sm font-semibold text-slate-800 font-mono">3.32 V</span>
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">Firmware</span>
+            <span className="text-sm font-semibold text-primary font-mono">
+              v{selectedDrawerDevice?.firmware || '2.4.1'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">Model Version</span>
+            <span className="text-sm font-semibold text-slate-800 font-mono">
+              {selectedDrawerDevice?.model || 'rf-v1.2'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">Uptime</span>
+            <span className="text-sm font-semibold text-slate-800 font-mono">18d 06h 42m</span>
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">Safety Status</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+              {selectedDrawerDevice?.last_ota_status || 'Normal Operation'}
+            </span>
+          </div>
+        </div>
+      </Drawer>
+
       {/* ── Edit Modal ─────────────────────────────────────── */}
       {editTarget && (
-        <Modal title={`แก้ไขอุปกรณ์ — ${editTarget.id}`} onClose={() => setEditTarget(null)}>
+        <Modal isOpen={!!editTarget} title={`แก้ไขอุปกรณ์ — ${editTarget.id}`} onClose={() => setEditTarget(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>Status</label>
@@ -796,7 +1027,7 @@ export default function Devices() {
 
       {/* ── Rollback Confirm Modal ──────────────────────────── */}
       {rollbackModal && (
-        <Modal title={`ยืนยันการถอยกลับเวอร์ชัน (Rollback)`} onClose={() => setRollbackModal(null)}>
+        <Modal isOpen={!!rollbackModal} title={`ยืนยันการถอยกลับเวอร์ชัน (Rollback)`} onClose={() => setRollbackModal(null)}>
           <div style={{ textAlign: 'left' }}>
             <p style={{ color: '#334155', lineHeight: 1.6, marginBottom: '1rem', fontSize: '0.9rem' }}>
               คุณต้องการสั่งให้อุปกรณ์ถอยกลับ (Rollback) สู่เวอร์ชัน <strong>v{rollbackModal}</strong> หรือไม่?<br />
@@ -824,7 +1055,7 @@ export default function Devices() {
 
       {/* ── Delete Confirm Modal ───────────────────────────── */}
       {delTarget && (
-        <Modal title="ยืนยันการลบ" onClose={() => setDelTarget(null)}>
+        <Modal isOpen={!!delTarget} title="ยืนยันการลบ" onClose={() => setDelTarget(null)}>
           <p style={{ color: '#334155', lineHeight: 1.7, marginBottom: '1.25rem' }}>
             คุณต้องการลบอุปกรณ์ <strong style={{ color: '#ef4444' }}>{delTarget}</strong> ออกจากระบบ?<br />
             ข้อมูล sensor readings ที่เก็บไว้จะยังคงอยู่

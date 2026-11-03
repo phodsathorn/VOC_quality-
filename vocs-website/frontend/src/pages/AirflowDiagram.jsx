@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, AlertTriangle, CheckCircle, Wind, Cpu, Filter, Box, Compass, BookOpen } from 'lucide-react';
+import { RefreshCw, AlertTriangle, CheckCircle, Wind, Cpu, Filter, Box, Compass, BookOpen, Activity, Gauge, Droplets, Thermometer } from 'lucide-react';
 import { getThresholds } from '../utils/settings';
 import { convertAllToPpm, formatPpm, getUnitMode, setUnitMode, convertTvocToPpm } from '../utils/ppmConverter';
+import { Card, Button, Drawer } from '../components/ui';
 
 import { API } from '../config';
 const REFRESH_INTERVAL_MS = 3000;
@@ -122,6 +123,7 @@ export default function AirflowDiagram() {
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [unitMode, setUnitModeState] = useState(() => getUnitMode());
+  const [isScrubberDrawerOpen, setIsScrubberDrawerOpen] = useState(false);
 
   const handleUnitToggle = (mode) => {
     setUnitModeState(mode);
@@ -186,92 +188,142 @@ export default function AirflowDiagram() {
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+    <div className="max-w-[1280px] mx-auto pb-16">
+      {/* ── Page Header & Sync ─────────────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
         <div>
-          <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>Airflow Diagram</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            โฟลว์อากาศจากภายนอกสู่ระบบเซนเซอร์ — realtime update ทุก 3 วินาที
-          </p>
+          <div className="flex items-center gap-1.5 text-slate-400 text-xs uppercase tracking-widest font-semibold mb-1">
+            <span>Booth 01</span>
+            <span>/</span>
+            <span>Aero Exhaust</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-6 rounded-full bg-primary inline-block"></span>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Airflow Telemetry</h1>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-xs font-medium text-slate-700 shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+            </span>
+            <span>Laminar Sync Active</span>
+          </div>
+
           {/* Unit Toggle */}
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            backgroundColor: '#f1f5f9',
-            padding: '3px',
-            borderRadius: '0.5rem',
-            border: '1px solid var(--border-color)',
-          }}>
+          <div className="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
               type="button"
               onClick={() => handleUnitToggle('raw')}
-              style={{
-                padding: '0.35rem 0.65rem',
-                borderRadius: '0.375rem',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                backgroundColor: unitMode === 'raw' ? 'white' : 'transparent',
-                color: unitMode === 'raw' ? 'var(--primary-color)' : 'var(--text-muted)',
-                boxShadow: unitMode === 'raw' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${unitMode === 'raw' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
             >
               Raw (ADC/mV)
             </button>
             <button
               type="button"
               onClick={() => handleUnitToggle('ppm')}
-              style={{
-                padding: '0.35rem 0.65rem',
-                borderRadius: '0.375rem',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                backgroundColor: unitMode === 'ppm' ? 'var(--primary-color)' : 'transparent',
-                color: unitMode === 'ppm' ? 'white' : 'var(--text-muted)',
-                boxShadow: unitMode === 'ppm' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${unitMode === 'ppm' ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
             >
               ~ppm
             </button>
           </div>
 
           {lastUpdated && (
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              อัปเดต {lastUpdated.toLocaleTimeString('th-TH')}
+            <span className="text-xs text-slate-500">
+              {lastUpdated.toLocaleTimeString('th-TH')}
             </span>
           )}
-          <button
-            onClick={fetchData}
-            disabled={loading}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.375rem',
-              padding: '0.4rem 0.875rem', border: '1px solid var(--border-color)',
-              borderRadius: '0.5rem', backgroundColor: 'white', cursor: 'pointer',
-              fontSize: '0.875rem', color: 'var(--text-muted)',
-            }}
-          >
-            <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-            รีเฟรช
-          </button>
+
+          <Button variant="secondary" size="sm" onClick={fetchData} disabled={loading}>
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            <span>รีเฟรช</span>
+          </Button>
         </div>
       </div>
 
+      {/* ── Stitch 4-Stage Pathway Overview Cards ───────────── */}
+      <Card className="mb-6 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <span className="text-xs uppercase tracking-wider font-semibold text-slate-500">
+            Airstream Pathway &amp; Scrubber Telemetry
+          </span>
+          <div className="inline-flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+            <Wind size={15} className="text-primary" />
+            <span>1,850 m³/h volumetric mass</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
+          {/* Stage 1: Spray Booth */}
+          <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 flex flex-col items-center text-center justify-between transition-all hover:bg-slate-100/70">
+            <div className="w-11 h-11 rounded-full bg-blue-100 text-primary flex items-center justify-center mb-2">
+              <Box size={22} />
+            </div>
+            <div className="font-semibold text-slate-800 text-sm">Spray Booth</div>
+            <div className="text-[11px] text-slate-500">Source Intake</div>
+            <div className="mt-3">
+              <div className="text-xl font-bold text-slate-900 tnum">100%</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-wide">Inflow capture</div>
+            </div>
+          </div>
+
+          {/* Stage 2: Duct Line */}
+          <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 flex flex-col items-center text-center justify-between transition-all hover:bg-slate-100/70">
+            <div className="w-11 h-11 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center mb-2">
+              <Wind size={22} />
+            </div>
+            <div className="font-semibold text-slate-800 text-sm">Duct Transit</div>
+            <div className="text-[11px] text-slate-500">Transit Line A</div>
+            <div className="mt-3">
+              <div className="text-xl font-bold text-slate-900 tnum">18.4 <span className="text-xs font-normal text-slate-500">m/s</span></div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-wide">Airflow velocity</div>
+            </div>
+          </div>
+
+          {/* Stage 3: Carbon Scrubber (Clickable trigger for Drawer) */}
+          <button
+            type="button"
+            onClick={() => setIsScrubberDrawerOpen(true)}
+            className="rounded-2xl bg-blue-50/60 border-2 border-primary/40 hover:border-primary p-4 flex flex-col items-center text-center justify-between transition-all hover:shadow-md cursor-pointer group text-left relative"
+          >
+            <div className="w-11 h-11 rounded-full bg-primary text-white flex items-center justify-center mb-2 shadow-sm group-hover:scale-105 transition-transform">
+              <Filter size={22} />
+            </div>
+            <div className="font-semibold text-slate-900 text-sm">Carbon Scrubber</div>
+            <div className="inline-flex items-center gap-1 text-[11px] text-primary font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
+              Active Inspection →
+            </div>
+            <div className="mt-3">
+              <div className="text-xl font-bold text-slate-900 tnum">94%</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-wide">Adsorption Efficiency</div>
+            </div>
+          </button>
+
+          {/* Stage 4: Exhaust Stack */}
+          <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 flex flex-col items-center text-center justify-between transition-all hover:bg-slate-100/70">
+            <div className="w-11 h-11 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mb-2">
+              <CheckCircle size={22} />
+            </div>
+            <div className="font-semibold text-slate-800 text-sm">Exhaust Stack</div>
+            <div className="text-[11px] text-slate-500">Atmospheric Port</div>
+            <div className="mt-3">
+              <div className="text-xl font-bold text-slate-900 tnum">14 <span className="text-xs font-normal text-slate-500">ppb</span></div>
+              <div className="text-[10px] text-emerald-600 font-medium uppercase tracking-wide">Residual VOC</div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {/* Overall Status Banner */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '0.75rem',
-        padding: '0.875rem 1.25rem', borderRadius: '0.75rem', marginBottom: '1.5rem',
-        background: `${overallColor}18`,
-        border: `1.5px solid ${overallColor}66`,
-        transition: 'all 0.5s ease',
-      }}>
+      <div className="flex items-center gap-3 p-4 rounded-2xl mb-6 transition-all border"
+        style={{
+          background: `${overallColor}14`,
+          borderColor: `${overallColor}44`,
+        }}
+      >
         {hasCritical
           ? <AlertTriangle size={20} color={overallColor} />
           : hasWarning
@@ -279,28 +331,28 @@ export default function AirflowDiagram() {
           : <CheckCircle size={20} color={overallColor} />
         }
         <div>
-          <span style={{ fontWeight: 700, color: overallColor, fontSize: '1rem' }}>{overallLabel}</span>
-          <span style={{ color: '#64748b', marginLeft: '0.75rem', fontSize: '0.875rem' }}>
+          <span className="font-bold text-sm" style={{ color: overallColor }}>{overallLabel}</span>
+          <span className="text-slate-600 text-xs ml-3">
             {hasCritical
               ? 'ตรวจพบค่าเกินวิกฤต — ตรวจสอบแหล่งที่มาของก๊าซทันที'
               : hasWarning
               ? 'ค่าบางตัวสูงกว่าปกติ — กรุณาติดตามอย่างใกล้ชิด'
-              : 'คุณภาพอากาศอยู่ในเกณฑ์ปกติ'}
+              : 'คุณภาพอากาศและทิศทางการไหลเวียนอยู่ในเกณฑ์ปกติ'}
           </span>
         </div>
         {ai && (
-          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>AI Detection</div>
-            <div style={{ fontWeight: 700, color: overallColor }}>{ai.prediction}</div>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{ai.confidence}% confidence</div>
+          <div className="ml-auto text-right">
+            <div className="text-[11px] text-slate-500">AI Detection</div>
+            <div className="font-bold text-sm" style={{ color: overallColor }}>{ai.prediction}</div>
+            <div className="text-[10px] text-slate-400">{ai.confidence}% confidence</div>
           </div>
         )}
       </div>
 
       {/* ===== MAIN SVG FLOW DIAGRAM ===== */}
-      <div className="card" style={{ marginBottom: '1.5rem', padding: '2rem', overflow: 'hidden' }}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.5rem', color: '#334155' }}>
-          แผนผังโฟลว์อากาศ (Air Flow Path)
+      <Card className="mb-6 p-6 overflow-hidden">
+        <h2 className="text-base font-semibold mb-6 text-slate-800 flex items-center gap-2">
+          <span>แผนผังโฟลว์อากาศ (Air Flow Path)</span>
         </h2>
         <div style={{ overflowX: 'auto' }}>
           <svg
@@ -500,66 +552,68 @@ export default function AirflowDiagram() {
             </text>
           </svg>
         </div>
-      </div>
+      </Card>
 
       {/* ===== SENSOR DETAIL GRID ===== */}
-      <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: '#334155' }}>
-        ค่าเซนเซอร์แบบละเอียด (Sensor Detail)
-      </h2>
+      <Card className="mb-6 p-6">
+        <h2 className="text-base font-semibold mb-4 text-slate-800">
+          ค่าเซนเซอร์แบบละเอียด (Sensor Detail)
+        </h2>
 
-      {/* Environment Row */}
-      <div style={{ marginBottom: '0.75rem' }}>
-        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
-          🌡 ENVIRONMENT
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          {/* Temp & RH special cards */}
-          <div style={{
-            background: 'white', border: '2px solid #38bdf8', borderRadius: '12px',
-            padding: '10px 14px', minWidth: 130,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-          }}>
-            <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: 2 }}>Temperature</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0369a1' }}>
-              {env.temp != null ? env.temp : '—'}
-            </div>
-            <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>°C</div>
+        {/* Environment Row */}
+        <div style={{ marginBottom: '0.75rem' }}>
+          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
+            🌡 ENVIRONMENT
           </div>
-          <div style={{
-            background: 'white', border: '2px solid #34d399', borderRadius: '12px',
-            padding: '10px 14px', minWidth: 130,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-          }}>
-            <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: 2 }}>Humidity</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#047857' }}>
-              {env.rh != null ? env.rh : '—'}
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            {/* Temp & RH special cards */}
+            <div style={{
+              background: 'white', border: '2px solid #38bdf8', borderRadius: '12px',
+              padding: '10px 14px', minWidth: 130,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+            }}>
+              <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: 2 }}>Temperature</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0369a1' }}>
+                {env.temp != null ? env.temp : '—'}
+              </div>
+              <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>°C</div>
             </div>
-            <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>%RH</div>
+            <div style={{
+              background: 'white', border: '2px solid #34d399', borderRadius: '12px',
+              padding: '10px 14px', minWidth: 130,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+            }}>
+              <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: 2 }}>Humidity</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#047857' }}>
+                {env.rh != null ? env.rh : '—'}
+              </div>
+              <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>%RH</div>
+            </div>
+            <SensorBadge sensorKey="pm25" value={env.pm25} />
+            <SensorBadge sensorKey="tvoc" value={env.tvoc} isPpm={isPpm} ppmData={ppmData} />
+            <SensorBadge sensorKey="eco2" value={env.eco2} isPpm={isPpm} ppmData={ppmData} />
           </div>
-          <SensorBadge sensorKey="pm25" value={env.pm25} />
-          <SensorBadge sensorKey="tvoc" value={env.tvoc} isPpm={isPpm} ppmData={ppmData} />
-          <SensorBadge sensorKey="eco2" value={env.eco2} isPpm={isPpm} ppmData={ppmData} />
         </div>
-      </div>
 
-      {/* E-Nose Row */}
-      <div>
-        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
-          🔬 E-NOSE SENSORS {isPpm ? '(~PPM CONCENTRATION)' : '(RAW ADC/mV)'}
+        {/* E-Nose Row */}
+        <div>
+          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', letterSpacing: '0.05em', marginBottom: '0.6rem' }}>
+            🔬 E-NOSE SENSORS {isPpm ? '(~PPM CONCENTRATION)' : '(RAW ADC/mV)'}
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <SensorBadge sensorKey="mq2"     value={sensors.mq2 != null ? sensors.mq2 : null} isPpm={isPpm} ppmData={ppmData} />
+            <SensorBadge sensorKey="mq3"     value={sensors.mq3 != null ? sensors.mq3 : null} isPpm={isPpm} ppmData={ppmData} />
+            <SensorBadge sensorKey="mq135"   value={sensors.mq135 != null ? sensors.mq135 : null} isPpm={isPpm} ppmData={ppmData} />
+            <SensorBadge sensorKey="mq8"     value={sensors.mq8 != null ? sensors.mq8 : null} isPpm={isPpm} ppmData={ppmData} />
+            <SensorBadge sensorKey="mics_co" value={sensors.mics_co != null ? sensors.mics_co : null} isPpm={isPpm} ppmData={ppmData} />
+            <SensorBadge sensorKey="no2"     value={sensors.no2 != null ? sensors.no2 : null} isPpm={isPpm} ppmData={ppmData} />
+            <SensorBadge sensorKey="nh3"     value={sensors.nh3 != null ? sensors.nh3 : null} isPpm={isPpm} ppmData={ppmData} />
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <SensorBadge sensorKey="mq2"     value={sensors.mq2 != null ? sensors.mq2 : null} isPpm={isPpm} ppmData={ppmData} />
-          <SensorBadge sensorKey="mq3"     value={sensors.mq3 != null ? sensors.mq3 : null} isPpm={isPpm} ppmData={ppmData} />
-          <SensorBadge sensorKey="mq135"   value={sensors.mq135 != null ? sensors.mq135 : null} isPpm={isPpm} ppmData={ppmData} />
-          <SensorBadge sensorKey="mq8"     value={sensors.mq8 != null ? sensors.mq8 : null} isPpm={isPpm} ppmData={ppmData} />
-          <SensorBadge sensorKey="mics_co" value={sensors.mics_co != null ? sensors.mics_co : null} isPpm={isPpm} ppmData={ppmData} />
-          <SensorBadge sensorKey="no2"     value={sensors.no2 != null ? sensors.no2 : null} isPpm={isPpm} ppmData={ppmData} />
-          <SensorBadge sensorKey="nh3"     value={sensors.nh3 != null ? sensors.nh3 : null} isPpm={isPpm} ppmData={ppmData} />
-        </div>
-      </div>
+      </Card>
 
       {/* Flow speed legend */}
-      <div className="card" style={{ marginTop: '1.5rem', background: '#f8fafc' }}>
+      <Card className="mt-6 p-6 bg-slate-50/70 border border-slate-100">
         <h3 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
           <BookOpen size={16} color="#2563eb" />
           <span>คำอธิบายระบบและการไหลเวียนอากาศ (Airflow Architecture)</span>
@@ -589,7 +643,51 @@ export default function AirflowDiagram() {
             </div>
           ))}
         </div>
-      </div>
+      </Card>
+
+      {/* ── Sub-state: Carbon Scrubber Telemetry Drawer (Stitch sub_states/airflow_telemetry_drawer_pathway_details) ── */}
+      <Drawer
+        isOpen={isScrubberDrawerOpen}
+        onClose={() => setIsScrubberDrawerOpen(false)}
+        title="Carbon Scrubber"
+        subtitle="Adsorption Bed • Diagnostic Telemetry"
+        width={440}
+        footer={
+          <Button variant="primary" className="w-full" onClick={() => setIsScrubberDrawerOpen(false)}>
+            Close Inspection
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 px-1">
+            Scrubber Bed Dynamics
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">Adsorption Efficiency</span>
+            <span className="text-sm font-bold text-primary tnum">94.2%</span>
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">Differential Pressure (ΔP)</span>
+            <span className="text-sm font-semibold text-slate-800 font-mono">142 Pa <span className="text-xs font-normal text-slate-500">(Normal)</span></span>
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">Bed Core Temperature</span>
+            <span className="text-sm font-semibold text-slate-800 font-mono">24.8 °C</span>
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">Filter Media</span>
+            <span className="text-sm font-semibold text-slate-800">Activated Carbon (4mm Pellets)</span>
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">Remaining Useful Life (RUL)</span>
+            <span className="text-sm font-semibold text-emerald-600 font-mono">184 days</span>
+          </div>
+          <div className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-slate-50 border border-slate-100">
+            <span className="text-sm text-slate-500">Volumetric Air Mass</span>
+            <span className="text-sm font-semibold text-slate-800 font-mono">1,850 m³/h</span>
+          </div>
+        </div>
+      </Drawer>
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

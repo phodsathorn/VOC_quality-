@@ -1,5 +1,15 @@
 import React from 'react';
+import { ArrowRight } from 'lucide-react';
 
+/**
+ * Stitch AI Standard Telemetry Metric Card Component
+ * Conforms to Atmospheric Intelligence:
+ * - 24px radius, pure white #FFFFFF
+ * - Slate-500 uppercase header (14px, +0.05em tracking)
+ * - 44px–56px bold tabular figures (display-metric, tnum)
+ * - Air4Thai status pip (6px–8px)
+ * - Optional bottom "View details →" link
+ */
 export default function StatCard({
   title,
   value,
@@ -9,79 +19,93 @@ export default function StatCard({
   subtext = null,
   progress = null, // { value: 45, max: 100, color: '#2563eb' }
   valueColor = '#0f172a',
+  onDetailClick = null,
+  detailLabel = 'View details',
+  className = '',
   style = {},
   onClick = null,
 }) {
   return (
     <div
       onClick={onClick}
+      className={`relative overflow-hidden bg-white rounded-3xl p-6 border border-[#e2e8f0] flex flex-col justify-between transition-all duration-200 ${
+        onClick ? 'cursor-pointer hover:border-blue-300 hover:shadow-md' : ''
+      } ${className}`}
       style={{
-        backgroundColor: '#ffffff',
-        borderRadius: 12,
-        padding: '18px 20px',
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        cursor: onClick ? 'pointer' : 'default',
-        transition: 'all 0.15s ease',
+        boxShadow: '0 4px 20px -2px rgba(15, 23, 42, 0.03), 0 2px 6px -1px rgba(15, 23, 42, 0.02)',
+        minHeight: '190px',
         ...style,
       }}
     >
-      <div>
-        {/* Top Header: Title + Icon / Badge */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>
-            {title}
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {badge}
-            {icon && <div style={{ color: '#94a3b8' }}>{icon}</div>}
-          </div>
-        </div>
+      {/* Top Ambient Glow */}
+      <div
+        className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-blue-500/5 blur-2xl pointer-events-none"
+        aria-hidden="true"
+      />
 
-        {/* Value + Unit */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, margin: '4px 0' }}>
-          <span style={{
-            fontSize: '1.9rem',
-            fontWeight: 800,
-            color: valueColor,
-            letterSpacing: '-0.02em',
-            lineHeight: 1.1,
-            fontFamily: 'Inter, system-ui, sans-serif',
-          }}>
-            {value != null ? value : '—'}
-          </span>
-          {unit && (
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>
-              {unit}
-            </span>
-          )}
+      {/* Top Header Row */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[13px] font-semibold text-[#64748b] uppercase tracking-wider">
+          {title}
+        </span>
+        <div className="flex items-center gap-2">
+          {badge}
+          {icon && <div className="text-[#64748b]">{icon}</div>}
         </div>
       </div>
 
-      {/* Progress Bar (Optional) */}
+      {/* Main Metric Figure (Tabular Numbers) */}
+      <div className="flex items-baseline gap-2 my-2">
+        <span
+          className="text-[44px] md:text-[50px] font-bold text-[#0f172a] leading-none tracking-tight tabular-nums"
+          style={{ color: valueColor }}
+        >
+          {value != null ? value : '—'}
+        </span>
+        {unit && (
+          <span className="text-[14px] font-medium text-[#64748b]">
+            {unit}
+          </span>
+        )}
+      </div>
+
+      {/* Middle Optional Bar */}
       {progress && (
-        <div style={{ margin: '8px 0 4px' }}>
-          <div style={{ height: 6, width: '100%', backgroundColor: '#f1f5f9', borderRadius: 999, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%',
-              width: `${Math.min(100, Math.max(0, (progress.value / (progress.max || 100)) * 100))}%`,
-              backgroundColor: progress.color || '#2563eb',
-              borderRadius: 999,
-            }} />
+        <div className="my-1.5">
+          <div className="h-1.5 w-full bg-[#f1f5f9] rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${Math.min(100, Math.max(0, (progress.value / (progress.max || 100)) * 100))}%`,
+                backgroundColor: progress.color || '#2563eb',
+              }}
+            />
           </div>
         </div>
       )}
 
-      {/* Subtext */}
-      {subtext && (
-        <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: 6, lineHeight: 1.3 }}>
-          {subtext}
-        </div>
-      )}
+      {/* Bottom Row: Subtext or "View details →" */}
+      <div className="flex items-center justify-between mt-auto pt-2 text-[13px]">
+        {subtext ? (
+          <span className="text-[#64748b] text-[12px] leading-tight">
+            {subtext}
+          </span>
+        ) : <span />}
+
+        {onDetailClick && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDetailClick();
+            }}
+            className="inline-flex items-center gap-1 text-[13px] font-medium text-[#2563eb] hover:text-[#1d4ed8] transition-colors group"
+          >
+            <span>{detailLabel}</span>
+            <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
-

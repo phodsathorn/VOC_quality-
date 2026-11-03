@@ -30,3 +30,4 @@
 - [x] ปรับแก้ไอคอนใน `Alerts.jsx`, `AirflowDiagram.jsx`, `Settings.jsx`
 - [x] ทดสอบการ Build ผ่านเรียบร้อย
 - [x] เตรียม Commit และ Push ขึ้นทั้ง GitLab และ GitHub
+

@@ -25,3 +25,4 @@
 - [x] แก้ไข JavaScript Runtime Error ทั้ง 2 จุดสมบูรณ์
 - [x] ทดสอบการ Build เรียบร้อย
 - [x] Commit และ Push สู่ GitLab และ GitHub
+
