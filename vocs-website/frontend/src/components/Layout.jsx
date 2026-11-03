@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Activity, Bell, Settings, LayoutDashboard, Box, Database, Wind, BookOpen, CalendarDays,
-  X, AlertCircle, Volume2, VolumeX, ShieldAlert, AlertTriangle, Info, Wrench,
-  User, LogOut, Key, ShieldCheck, CheckCircle, Monitor, Factory, Menu
+  X, Volume2, VolumeX, ShieldAlert, AlertTriangle, Info, Wrench,
+  User, LogOut, Monitor, Factory, Menu, ShieldCheck, HardHat, FileSearch
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -11,19 +11,15 @@ import {
 } from '../utils/soundAlert';
 
 import { API } from '../config';
-import LoginModal from './LoginModal';
 
 export default function Layout({ children }) {
   const location = useLocation();
-  const { user, token, login, logout, isAuthenticated, hasRole } = useAuth();
+  const { user, logout, login } = useAuth();
   const [soundActive, setSoundActive] = useState(() => isSoundEnabled());
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
   const [toastAlert, setToastAlert] = useState(null);
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [loginError, setLoginError] = useState('');
 
   const seenAlertIds = useRef(new Set());
   const isFirstRun = useRef(true);
@@ -33,32 +29,6 @@ export default function Layout({ children }) {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  async function handleLoginSubmit(e) {
-    if (e) e.preventDefault();
-    setLoginLoading(true);
-    setLoginError('');
-    const res = await login(loginUsername, loginPassword);
-    setLoginLoading(false);
-    if (res.success) {
-      setShowLoginModal(false);
-    } else {
-      setLoginError(res.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
-    }
-  }
-
-  function handleQuickLogin(role) {
-    const passwords = {
-      admin: 'Admin@Voc2026!',
-      engineer: 'Engineer@Voc2026!',
-      operator: 'Operator@Voc2026!',
-      viewer: 'Viewer@Voc2026!'
-    };
-    login(role, passwords[role]).then(() => {
-      setShowLoginModal(false);
-      setShowUserMenu(false);
-    });
-  }
-
   // ซิงค์สถานะเสียงเมื่อมีการเปิด/ปิดจากหน้าอื่น
   useEffect(() => {
     const handleSoundToggle = (e) => {
@@ -67,6 +37,19 @@ export default function Layout({ children }) {
     window.addEventListener('voc_sound_toggle', handleSoundToggle);
     return () => window.removeEventListener('voc_sound_toggle', handleSoundToggle);
   }, []);
+
+  // Quick switch role สำหรับทดสอบในแถบโปรไฟล์
+  function handleQuickLogin(role) {
+    const passwords = {
+      admin: 'Admin@Voc2026!',
+      engineer: 'Engineer@Voc2026!',
+      operator: 'Operator@Voc2026!',
+      viewer: 'Viewer@Voc2026!'
+    };
+    login(role, passwords[role]).then(() => {
+      setShowUserMenu(false);
+    });
+  }
 
   // Background Poller ตรวจสอบ Alert ใหม่และเล่นเสียงแจ้งเตือน
   useEffect(() => {
@@ -82,14 +65,11 @@ export default function Layout({ children }) {
         setActiveAlertsCount(activeList.length);
 
         if (isFirstRun.current) {
-          // โหลดรอบแรก: บันทึก id ที่มีอยู่เดิมไว้เพื่อไม่ให้ส่งเสียงดังรบกวนตอนเปิดหน้าเว็บ
           activeList.forEach(a => seenAlertIds.current.add(a.id));
           isFirstRun.current = false;
         } else {
-          // ตรวจหา Alert ใหม่ที่ยังไม่เคยพบ
           const newAlerts = activeList.filter(a => !seenAlertIds.current.has(a.id));
           if (newAlerts.length > 0) {
-            // เลือก Alert ระดับสูงสุดเพื่อเล่นเสียงและแสดง Pop-up Toast
             const priorityAlert = newAlerts.find(a => a.level === 'Critical')
               || newAlerts.find(a => a.level === 'High')
               || newAlerts[0];
@@ -116,19 +96,35 @@ export default function Layout({ children }) {
     return () => clearTimeout(t);
   }, [toastAlert]);
 
-  const navItems = [
-    { name: 'Dashboard',       path: '/',               icon: <LayoutDashboard size={20} /> },
-    { name: 'ประวัติอากาศ',    path: '/history',         icon: <CalendarDays size={20} /> },
-    { name: 'Devices',         path: '/devices',        icon: <Box size={20} /> },
-    { name: 'Data Collection', path: '/data-collection',icon: <Database size={20} /> },
-    { name: 'Airflow Diagram', path: '/airflow',        icon: <Wind size={20} /> },
-    { name: 'Maintenance',     path: '/maintenance',    icon: <Wrench size={20} /> },
-    { name: 'Kiosk หน้างาน',    path: '/kiosk',          icon: <Monitor size={20} /> },
-    { name: 'รายงานมลพิษ',      path: '/emissions',      icon: <Factory size={20} /> },
-    { name: 'Alerts',          path: '/alerts',         icon: <Bell size={20} /> },
-    { name: 'คู่มือการใช้งาน',  path: '/guide',          icon: <BookOpen size={20} /> },
-    { name: 'Settings',        path: '/settings',       icon: <Settings size={20} /> },
+  // สิทธิ์การเข้าถึงแต่ละเมนูตามบทบาท (RBAC Phase W1)
+  const userRole = user?.role || 'operator';
+
+  const allNavItems = [
+    { name: 'Dashboard',       path: '/',                icon: <LayoutDashboard size={20} />, roles: ['admin', 'engineer', 'operator', 'viewer'] },
+    { name: 'Kiosk หน้างาน',    path: '/kiosk',           icon: <Monitor size={20} />,         roles: ['admin', 'engineer', 'operator'] },
+    { name: 'Alerts',          path: '/alerts',          icon: <Bell size={20} />,            roles: ['admin', 'engineer', 'operator'] },
+    { name: 'Airflow Diagram', path: '/airflow',         icon: <Wind size={20} />,            roles: ['admin', 'engineer', 'operator', 'viewer'] },
+    { name: 'ประวัติอากาศ',    path: '/history',         icon: <CalendarDays size={20} />,    roles: ['admin', 'engineer', 'viewer'] },
+    { name: 'รายงานมลพิษ',      path: '/emissions',       icon: <Factory size={20} />,         roles: ['admin', 'engineer', 'viewer'] },
+    { name: 'Maintenance',     path: '/maintenance',     icon: <Wrench size={20} />,          roles: ['admin', 'engineer'] },
+    { name: 'Devices',         path: '/devices',         icon: <Box size={20} />,             roles: ['admin', 'engineer'] },
+    { name: 'Data Collection', path: '/data-collection', icon: <Database size={20} />,        roles: ['admin', 'engineer'] },
+    { name: 'Settings',        path: '/settings',        icon: <Settings size={20} />,        roles: ['admin'] },
+    { name: 'คู่มือการใช้งาน',  path: '/guide',           icon: <BookOpen size={20} />,        roles: ['admin', 'engineer', 'operator', 'viewer'] },
   ];
+
+  // กรองเมนูเฉพาะบทบาทที่ได้รับอนุญาต
+  const navItems = allNavItems.filter(item => item.roles.includes(userRole));
+
+  // ข้อมูลสไตล์บทบาทปัจจุบัน
+  const roleBadges = {
+    admin:    { label: 'ADMIN VIEW',    bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe', icon: ShieldCheck },
+    engineer: { label: 'ENGINEER VIEW', bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe', icon: Wrench },
+    operator: { label: 'OPERATOR VIEW', bg: '#ecfdf5', color: '#059669', border: '#a7f3d0', icon: HardHat },
+    viewer:   { label: 'VIEWER VIEW',   bg: '#f8fafc', color: '#475569', border: '#e2e8f0', icon: FileSearch },
+  };
+  const activeRoleBadge = roleBadges[userRole] || roleBadges.operator;
+  const RoleIcon = activeRoleBadge.icon;
 
   return (
     <div className="app-container">
@@ -142,20 +138,46 @@ export default function Layout({ children }) {
       )}
 
       <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
-        <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Activity size={24} />
-            VOC / E-Nose
+        <div className="sidebar-logo" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '1.25rem 1.25rem 1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 800, fontSize: '1.15rem', color: '#0f172a' }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: '8px',
+                background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 4px 10px rgba(37,99,235,0.25)'
+              }}>
+                <Activity size={18} color="#ffffff" />
+              </div>
+              <span>VOC / E-Nose</span>
+            </div>
+            {mobileMenuOpen && (
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }}
+                aria-label="ปิดเมนู"
+              >
+                <X size={20} />
+              </button>
+            )}
           </div>
-          {mobileMenuOpen && (
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }}
-            >
-              <X size={20} />
-            </button>
-          )}
+
+          {/* Active Role Indicator under Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.15rem' }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+              fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.04em', padding: '0.2rem 0.55rem', borderRadius: '999px',
+              backgroundColor: activeRoleBadge.bg,
+              color: activeRoleBadge.color,
+              border: `1px solid ${activeRoleBadge.border}`
+            }}>
+              <RoleIcon size={12} />
+              {activeRoleBadge.label}
+            </span>
+          </div>
         </div>
+
         <nav className="nav-links">
           {navItems.map(item => (
             <Link
@@ -168,6 +190,41 @@ export default function Layout({ children }) {
             </Link>
           ))}
         </nav>
+
+        {/* Sidebar Footer with current user summary */}
+        {user && (
+          <div style={{
+            marginTop: 'auto',
+            padding: '0.85rem 1rem',
+            borderTop: '1px solid var(--border-color)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '0.75rem',
+            color: '#64748b'
+          }}>
+            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <strong style={{ color: '#0f172a', display: 'block' }}>{user.full_name || user.username}</strong>
+              <span>{user.site || 'Main Plant'}</span>
+            </div>
+            <button
+              onClick={() => logout()}
+              title="ออกจากระบบ"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#dc2626',
+                cursor: 'pointer',
+                padding: '0.35rem',
+                borderRadius: '0.35rem',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        )}
       </aside>
 
       <main className="main-content">
@@ -230,8 +287,8 @@ export default function Layout({ children }) {
               )}
             </Link>
 
-            {/* User Profile & Role Indicator (Phase W1) */}
-            {isAuthenticated ? (
+            {/* User Profile & Role Indicator */}
+            {user && (
               <div style={{ position: 'relative' }}>
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
@@ -244,9 +301,7 @@ export default function Layout({ children }) {
                 >
                   <div style={{
                     width: 28, height: 28, borderRadius: '50%',
-                    backgroundColor: user.role === 'admin' ? '#7c3aed' :
-                                     user.role === 'engineer' ? '#2563eb' :
-                                     user.role === 'operator' ? '#059669' : '#64748b',
+                    backgroundColor: activeRoleBadge.color,
                     color: 'white', display: 'flex', alignItems: 'center',
                     justifyContent: 'center', fontWeight: 'bold', fontSize: '0.8rem'
                   }}>
@@ -257,12 +312,8 @@ export default function Layout({ children }) {
                     <span style={{
                       display: 'inline-block', fontSize: '0.65rem', fontWeight: 700,
                       textTransform: 'uppercase', padding: '0.05rem 0.35rem', borderRadius: '4px',
-                      backgroundColor: user.role === 'admin' ? '#f5f3ff' :
-                                       user.role === 'engineer' ? '#eff6ff' :
-                                       user.role === 'operator' ? '#ecfdf5' : '#f1f5f9',
-                      color: user.role === 'admin' ? '#7c3aed' :
-                             user.role === 'engineer' ? '#2563eb' :
-                             user.role === 'operator' ? '#059669' : '#64748b',
+                      backgroundColor: activeRoleBadge.bg,
+                      color: activeRoleBadge.color,
                     }}>
                       {user.role}
                     </span>
@@ -323,9 +374,9 @@ export default function Layout({ children }) {
                         onClick={() => handleQuickLogin('viewer')}
                         style={{
                           padding: '0.3rem', fontSize: '0.72rem', borderRadius: '4px',
-                          border: user.role === 'viewer' ? '1.5px solid #64748b' : '1px solid #e2e8f0',
-                          backgroundColor: user.role === 'viewer' ? '#f1f5f9' : '#fafafa',
-                          fontWeight: 600, color: '#64748b', cursor: 'pointer',
+                          border: user.role === 'viewer' ? '1.5px solid #475569' : '1px solid #e2e8f0',
+                          backgroundColor: user.role === 'viewer' ? '#f8fafc' : '#fafafa',
+                          fontWeight: 600, color: '#475569', cursor: 'pointer',
                         }}
                       >
                         Viewer
@@ -346,45 +397,9 @@ export default function Layout({ children }) {
                   </div>
                 )}
               </div>
-            ) : (
-              <button
-                onClick={() => setShowLoginModal(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.4rem',
-                  padding: '0.42rem 0.9rem', borderRadius: '0.5rem',
-                  backgroundColor: '#0f172a', color: 'white',
-                  border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
-                }}
-              >
-                <User size={15} /> เข้าสู่ระบบ
-              </button>
             )}
           </div>
         </header>
-
-        {/* ── High-Security Professional Login Modal (Phase W1) ── */}
-        <LoginModal
-          isOpen={showLoginModal}
-          onClose={() => {
-            setShowLoginModal(false);
-            setLoginError('');
-          }}
-          onLogin={async (uname, pword) => {
-            setLoginLoading(true);
-            setLoginError('');
-            const res = await login(uname, pword);
-            setLoginLoading(false);
-            if (res.success) {
-              setShowLoginModal(false);
-            } else {
-              setLoginError(res.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
-            }
-          }}
-          loading={loginLoading}
-          error={loginError}
-          clearError={() => setLoginError('')}
-        />
-
 
         {/* ── Floating Toast Alert Notification ── */}
         {toastAlert && (

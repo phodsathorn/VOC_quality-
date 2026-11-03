@@ -363,3 +363,37 @@
 
 
 
+
+---
+
+## รายการบันทึกต่อเนื่อง: เวลา 17:03 น. ICT — Standard Full-Page Login & Role-Based Navigation/Route Separation (RBAC Frontend Enforcement)
+
+### สรุป (Summary)
+ปรับเปลี่ยนสถาปัตยกรรมการเข้าถึงของระบบจากหน้าเว็บสาธารณะที่ซ้อน Login Modal มาเป็น **Standard Full-Page Login Architecture**: เมื่อผู้ใช้เข้าสู่ระบบผ่านลิงก์เว็บ หากยังไม่ได้พิสูจน์ตัวตนจะพบหน้าเข้าสู่ระบบมาตรฐานทันที (0ms Cold-Start Delay) และเมื่อยืนยันตัวตนสำเร็จ ระบบจะคัดแยกหน้าแรก (Landing Page), เมนูแถบข้าง (Sidebar Menu Filtering) และการป้องกันเส้นทาง (Route Guarding) ตาม 4 บทบาทหลักอย่างเคร่งครัดตามแผนงาน
+
+### สิ่งที่เปลี่ยนแปลง (Changes)
+1. **Full-Page Standalone Login View (`vocs-website/frontend/src/pages/LoginPage.jsx`)**:
+   - สร้างหน้าจอ Login เต็มหน้าจอ พร้อมระบบ Role Preset Card สี่บทบาท (`Admin`, `Engineer`, `Operator`, `Viewer`) ที่มีปุ่ม 1-Click Fast Login สำหรับเข้าทดสอบได้ทันที
+   - แสดงขอบเขตสิทธิ์ของบทบาทที่เลือก (Role Capability Banner)
+   - มีระบบตรวจจับ Render Cold-Start: แจ้งเตือนสถานะเมื่อกำลังปลุก Backend จากสลีปโหมด (Free Tier) เพื่อป้องกันความสับสนของผู้ใช้
+   - มี Password Visibility Toggle, Input Focus Animations, และ Responsive Design
+2. **Global Route-Level RBAC & Entry Gating (`vocs-website/frontend/src/App.jsx`)**:
+   - `AppContent` ตรวจสอบสถานะ `token` และ `user` หากไม่มีให้เรนเดอร์ `<LoginPage />` ทันที ตัดปัญหาหน้าขาวค้างโหลดข้อมูลแดชบอร์ด
+   - เพิ่ม `RoleProtectedRoute` ป้องกันการเข้าถึง URL โดยตรง:
+     - `Admin`: เข้าถึงได้ทุกหน้า (11 หน้า) รวม `/settings`
+     - `Engineer`: เข้าถึง Dashboard, History, Devices, Data Collection, Airflow, Maintenance, Kiosk, Emissions, Alerts, Guide
+     - `Operator`: เข้าถึงเฉพาะ Dashboard, Kiosk หน้างาน, Alerts, Airflow, Guide
+     - `Viewer`: เข้าถึงเฉพาะ Dashboard, History, Emissions, Airflow, Guide
+3. **Role-Based Dynamic Sidebar Navigation (`vocs-website/frontend/src/components/Layout.jsx`)**:
+   - กรองรายการเมนู (`navItems`) อัตโนมัติตาม `user.role` ทำให้ผู้ปฏิบัติงานหน้างาน (Operator) ไม่เห็นเมนูจัดการอุปกรณ์หรือการตั้งค่าที่ไม่เกี่ยวข้อง
+   - เพิ่ม Role Badge แสดงสถานะและบทบาทมุมมองใต้โลโก้ Sidebar (เช่น `OPERATOR VIEW`, `ENGINEER VIEW`, `ADMIN VIEW`)
+   - ปรับเมนูโปรไฟล์มุมขวาบนให้แสดงข้อมูลผู้ใช้, ไซต์งาน, ปุ่ม Quick Role Switch สำหรับทดสอบ และปุ่มออกจากระบบที่รีเซ็ตเซสชันกลับหน้าล็อกอินทันที
+
+### การตรวจสอบและทดสอบ (Verification)
+1. **Frontend Production Build**:
+   - รัน `npm --prefix vocs-website/frontend run build` ผ่าน 100% ไม่มีข้อผิดพลาด (Vite built in 373ms)
+2. **Access Control Verification**:
+   - ทดสอบการล็อกอินแต่ละบทบาท (`admin`, `engineer`, `operator`, `viewer`) นำทางไปยัง Landing Page ที่ถูกต้องและเมนูด้านข้างกรองตรงตามสิทธิ์
+
+### สถานะ (Status)
+- **เสร็จสมบูรณ์ (Completed & Ready to Deploy)**
