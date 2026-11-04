@@ -44,34 +44,66 @@ export default function Maintenance() {
 
   const [sensors, setSensors] = useState([
     {
-      name: 'PID VOC Sensor 01',
-      serial: 'SN-9402-VOC',
+      name: 'CCS811 VOC & eCO2 MEMS',
+      serial: 'SN-8811-CCS',
       last: 'Oct 12, 2025',
       next: 'Nov 12, 2025',
       status: 'Calibrated',
       isDueSoon: false,
     },
     {
-      name: 'Electrochemical MOS 02',
-      serial: 'SN-8814-MOS',
+      name: 'MQ-135 Air Quality / Benzene',
+      serial: 'SN-1350-MOS',
       last: 'Sep 28, 2025',
       next: 'Oct 28, 2025',
       status: 'Due soon',
       isDueSoon: true,
     },
     {
-      name: 'Particulate PM2.5 Optical',
-      serial: 'SN-3109-OPT',
+      name: 'MQ-3 Alcohol / Thinner MOS',
+      serial: 'SN-0030-MOS',
       last: 'Oct 05, 2025',
       next: 'Nov 05, 2025',
       status: 'Calibrated',
       isDueSoon: false,
     },
     {
-      name: 'Airflow Differential Pitot',
-      serial: 'SN-5520-PIT',
+      name: 'MQ-2 Combustible Gas / Smoke',
+      serial: 'SN-0020-MOS',
       last: 'Aug 15, 2025',
       next: 'Nov 15, 2025',
+      status: 'Calibrated',
+      isDueSoon: false,
+    },
+    {
+      name: 'MQ-8 Flammable H2 Sensor',
+      serial: 'SN-0080-MOS',
+      last: 'Oct 01, 2025',
+      next: 'Jan 01, 2026',
+      status: 'Calibrated',
+      isDueSoon: false,
+    },
+    {
+      name: 'MiCS-6814 Multi-MEMS (CO/NO2/NH3)',
+      serial: 'SN-6814-ADS',
+      last: 'Sep 15, 2025',
+      next: 'Dec 15, 2025',
+      status: 'Calibrated',
+      isDueSoon: false,
+    },
+    {
+      name: 'PMS5003 Laser PM2.5 Optical',
+      serial: 'SN-5003-OPT',
+      last: 'Oct 10, 2025',
+      next: 'Nov 10, 2025',
+      status: 'Calibrated',
+      isDueSoon: false,
+    },
+    {
+      name: 'DHT22 Temperature & Humidity',
+      serial: 'SN-2200-DHT',
+      last: 'Aug 20, 2025',
+      next: 'Feb 20, 2026',
       status: 'Calibrated',
       isDueSoon: false,
     },
@@ -101,6 +133,17 @@ export default function Maintenance() {
               { ...prev[1], percent: Math.round(health * 0.54) },
               { ...prev[2], percent: Math.round(health * 0.83) },
             ]);
+          }
+
+          if (st.sensors && Array.isArray(st.sensors) && st.sensors.length > 0) {
+            setSensors(st.sensors.map((s) => ({
+              name: `${s.label} (${s.type || 'Sensor'})`,
+              serial: `SN-${s.id.toUpperCase()}-01`,
+              last: s.lastCal || '30 days ago',
+              next: s.nextCal || 'in 60 days',
+              status: s.calOverdue ? 'Due soon' : 'Calibrated',
+              isDueSoon: Boolean(s.calOverdue),
+            })));
           }
         }
       } catch (err) {

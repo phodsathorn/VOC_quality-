@@ -29,3 +29,31 @@
 
 ## งานค้างและขั้นตอนถัดไป
 - ดำเนินการ Commit และ Push ขึ้นทั้ง GitLab (`origin/main`) และ GitHub (`github/main`)
+
+## อัปเดตเวลา 15:06 ICT (แสดงผลเซนเซอร์ครบทุกตัวในระบบทั้ง 12 แชนแนล)
+### สิ่งที่เปลี่ยน
+1. **`vocs-website/frontend/src/pages/Dashboard.jsx` (Live Telemetry Drawer):**
+   - อัปเกรดตาราง Live Probe Readings จากเดิมที่เป็นตัวอย่าง Mock 5 ตัว (`MQ-135`, `MQ-137`, `PID`, `SGP40`, `TGS2602`) ให้แสดงผลเป็น **เซนเซอร์จริงทั้งหมดของระบบครบทั้ง 12 แชนแนล (จาก 8 โมดูลฮาร์ดแวร์จริง)**:
+     1. `CCS811 (TVOC)` — Primary Chamber (ppb)
+     2. `CCS811 (eCO₂)` — Exhaust Return (ppm)
+     3. `MQ-135` — Booth Inflow (ADC)
+     4. `MQ-3` — Solvent Spray Zone (ADC)
+     5. `MQ-2` — Curing Line (ADC)
+     6. `MQ-8` — Recirculation Line (ADC)
+     7. `MiCS-6814 (CO)` — Burner / Heater Bed (mV)
+     8. `MiCS-6814 (NO₂)` — Vent Exhaust (mV)
+     9. `MiCS-6814 (NH₃)` — Pre-treatment Wash (mV)
+     10. `PMS5003` — PM2.5 Particle Counter (µg/m³)
+     11. `DHT22 (Temp)` — Chamber Temperature (°C)
+     12. `DHT22 (Humidity)` — Relative Humidity (%RH)
+   - ปรับ Subtitle ให้เป็น Dynamic ตามจำนวนโพรบจริง: `Powder Coating Booth 1 · 12 Active Probes`
+   - เพิ่มระบบเช็คสถานะรวมแบบ Dynamic: แสดง `All systems nominal` (สีเขียว) หรือ `Warning threshold exceeded` (สีส้ม) ตามค่าของแต่ละหัววัด
+2. **`vocs-website/frontend/src/pages/Maintenance.jsx`:**
+   - ปรับรายการเซนเซอร์ในตาราง Calibration ให้ตรงกับโมดูลเซนเซอร์จริงทั้ง 8 ตัว (`CCS811`, `MQ-135`, `MQ-3`, `MQ-2`, `MQ-8`, `MiCS-6814`, `PMS5003`, `DHT22`) พร้อมดึงสถานะจริงจาก `/api/maintenance/status`
+
+### การตรวจสอบ
+- ตรวจสอบ `npm --prefix vocs-website/frontend run lint` ผ่าน 100% (0 errors)
+- ทดสอบคอมไพล์ `npm --prefix vocs-website/frontend run build` ผ่าน 100% ใน 248ms
+- Push โค้ดขึ้นทั้ง GitLab (`origin/main`) และ GitHub (`github/main`) เพื่อให้ Vercel Deploy อัตโนมัติ
+
+

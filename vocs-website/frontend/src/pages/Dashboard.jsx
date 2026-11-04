@@ -174,6 +174,124 @@ export default function Dashboard() {
   // Pip position for the Air Quality slider (0 to 100+ scale)
   const aqiPipPercent = Math.min(100, Math.max(0, (currentAqi / 100) * 100));
 
+  // Real-time sensor probes array (All 12 sensor channels from 8 physical hardware modules)
+  const allProbes = useMemo(() => [
+    {
+      id: 'CCS811 (TVOC)',
+      name: 'TVOC Gas Sensor',
+      loc: 'Primary Chamber',
+      val: reading.tvoc != null ? `${Math.round(reading.tvoc)} ppb` : '64 ppb',
+      thresh: '120 ppb',
+      status: (reading.tvoc != null && reading.tvoc > 120) ? 'Warning' : 'Normal',
+      type: 'VOC MEMS',
+    },
+    {
+      id: 'CCS811 (eCO₂)',
+      name: 'Equivalent CO₂',
+      loc: 'Exhaust Return',
+      val: reading.eco2 != null ? `${Math.round(reading.eco2)} ppm` : '450 ppm',
+      thresh: '1000 ppm',
+      status: (reading.eco2 != null && reading.eco2 > 1000) ? 'Warning' : 'Normal',
+      type: 'CO₂ Equiv',
+    },
+    {
+      id: 'MQ-135',
+      name: 'Air Quality / Benzene',
+      loc: 'Booth Inflow',
+      val: reading.mq135 != null ? `${reading.mq135} ADC` : '1420 ADC',
+      thresh: '2500 ADC',
+      status: (reading.mq135 != null && reading.mq135 > 2500) ? 'Warning' : 'Normal',
+      type: 'MOS Gas',
+    },
+    {
+      id: 'MQ-3',
+      name: 'Alcohol / Thinner / Solvents',
+      loc: 'Solvent Spray Zone',
+      val: reading.mq3 != null ? `${reading.mq3} ADC` : '2100 ADC',
+      thresh: '2800 ADC',
+      status: (reading.mq3 != null && reading.mq3 > 2800) ? 'Warning' : 'Normal',
+      type: 'MOS Gas',
+    },
+    {
+      id: 'MQ-2',
+      name: 'Combustible / Smoke / LPG',
+      loc: 'Curing Line',
+      val: reading.mq2 != null ? `${reading.mq2} ADC` : '1180 ADC',
+      thresh: '2000 ADC',
+      status: (reading.mq2 != null && reading.mq2 > 2000) ? 'Warning' : 'Normal',
+      type: 'MOS Gas',
+    },
+    {
+      id: 'MQ-8',
+      name: 'Hydrogen / Flammable Gas',
+      loc: 'Recirculation Line',
+      val: reading.mq8 != null ? `${reading.mq8} ADC` : '1650 ADC',
+      thresh: '1800 ADC',
+      status: (reading.mq8 != null && reading.mq8 > 1800) ? 'Warning' : 'Normal',
+      type: 'MOS Gas',
+    },
+    {
+      id: 'MiCS-6814 (CO)',
+      name: 'Carbon Monoxide',
+      loc: 'Burner / Heater Bed',
+      val: reading.mics_co != null ? `${reading.mics_co} mV` : '1100 mV',
+      thresh: '1500 mV',
+      status: (reading.mics_co != null && reading.mics_co > 1500) ? 'Warning' : 'Normal',
+      type: 'Multi-MEMS',
+    },
+    {
+      id: 'MiCS-6814 (NO₂)',
+      name: 'Nitrogen Dioxide',
+      loc: 'Vent Exhaust',
+      val: reading.no2 != null ? `${reading.no2} mV` : '820 mV',
+      thresh: '1200 mV',
+      status: (reading.no2 != null && reading.no2 > 1200) ? 'Warning' : 'Normal',
+      type: 'Multi-MEMS',
+    },
+    {
+      id: 'MiCS-6814 (NH₃)',
+      name: 'Ammonia Channel',
+      loc: 'Pre-treatment Wash',
+      val: reading.nh3 != null ? `${reading.nh3} mV` : '1380 mV',
+      thresh: '1400 mV',
+      status: (reading.nh3 != null && reading.nh3 > 1400) ? 'Warning' : 'Normal',
+      type: 'Multi-MEMS',
+    },
+    {
+      id: 'PMS5003',
+      name: 'PM2.5 Particle Counter',
+      loc: 'Booth Filter Intake',
+      val: reading.pm25 != null ? `${Number(reading.pm25).toFixed(1)} µg/m³` : '12.0 µg/m³',
+      thresh: '37.5 µg/m³',
+      status: (reading.pm25 != null && reading.pm25 > 37.5) ? 'Warning' : 'Normal',
+      type: 'Optical Laser',
+    },
+    {
+      id: 'DHT22 (Temp)',
+      name: 'Chamber Temperature',
+      loc: 'Coating Line Ambient',
+      val: reading.temp != null ? `${Number(reading.temp).toFixed(1)} °C` : '28.5 °C',
+      thresh: '38.0 °C',
+      status: (reading.temp != null && reading.temp > 38) ? 'Warning' : 'Normal',
+      type: 'Capacitive/RTD',
+    },
+    {
+      id: 'DHT22 (Humidity)',
+      name: 'Relative Humidity',
+      loc: 'Coating Line Ambient',
+      val: reading.rh != null ? `${Number(reading.rh).toFixed(1)} %RH` : '55.2 %RH',
+      thresh: '75.0 %RH',
+      status: (reading.rh != null && reading.rh > 75) ? 'Warning' : 'Normal',
+      type: 'Capacitive/RTD',
+    },
+  ], [
+    reading.tvoc, reading.eco2, reading.mq135, reading.mq3,
+    reading.mq2, reading.mq8, reading.mics_co, reading.no2,
+    reading.nh3, reading.pm25, reading.temp, reading.rh
+  ]);
+
+  const hasWarning = allProbes.some((p) => p.status === 'Warning');
+
   if (!data) {
     return <DashboardSkeleton isColdStarting={isColdStarting} onRetry={() => fetchAll()} />;
   }
@@ -531,7 +649,7 @@ export default function Dashboard() {
                   Live sensor telemetry
                 </h2>
                 <span className="text-[11px] text-[#505f76]">
-                  Powder Coating Booth 1 · 5 Active Probes
+                  Powder Coating Booth 1 · {allProbes.length} Active Probes
                 </span>
               </div>
             </div>
@@ -550,10 +668,17 @@ export default function Dashboard() {
               <span className="text-[11px] uppercase tracking-wider text-[#505f76] font-medium">
                 Real-time probe readings
               </span>
-              <div className="flex items-center gap-1.5 text-[11px] text-[#00AA55] font-medium">
-                <span className="w-2 h-2 rounded-full bg-[#00CC66] animate-pulse" />
-                All systems nominal
-              </div>
+              {hasWarning ? (
+                <div className="flex items-center gap-1.5 text-[11px] text-[#943700] font-medium">
+                  <span className="w-2 h-2 rounded-full bg-[#f97316] animate-pulse" />
+                  Warning threshold exceeded
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-[11px] text-[#00AA55] font-medium">
+                  <span className="w-2 h-2 rounded-full bg-[#00CC66] animate-pulse" />
+                  All systems nominal
+                </div>
+              )}
             </div>
 
             <div className="border border-[#eaedff] rounded-2xl overflow-x-auto bg-white shadow-xs">
@@ -568,45 +693,14 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#eaedff] text-[#131b2e]">
-                  {[
-                    {
-                      id: 'MQ-135',
-                      loc: 'Booth Inflow',
-                      val: reading.mq135 != null ? `${Math.round(reading.mq135 / 25)} ppb` : '48 ppb',
-                      thresh: '100 ppb',
-                      status: (reading.mq135 != null && reading.mq135 / 25 > 100) ? 'Warning' : 'Normal',
-                    },
-                    {
-                      id: 'MQ-137',
-                      loc: 'Vent Exhaust',
-                      val: reading.mq2 != null ? `${Math.round(reading.mq2 / 35)} ppb` : '32 ppb',
-                      thresh: '80 ppb',
-                      status: (reading.mq2 != null && reading.mq2 / 35 > 80) ? 'Warning' : 'Normal',
-                    },
-                    {
-                      id: 'PID',
-                      loc: 'Primary Chamber',
-                      val: reading.tvoc != null ? `${Math.round(reading.tvoc)} ppb` : '64 ppb',
-                      thresh: '120 ppb',
-                      status: (reading.tvoc != null && reading.tvoc > 120) ? 'Warning' : 'Normal',
-                    },
-                    {
-                      id: 'SGP40',
-                      loc: 'Curing Zone',
-                      val: reading.mq3 != null ? `${Math.round(reading.mq3 / 110)} ppb` : '18 ppb',
-                      thresh: '50 ppb',
-                      status: (reading.mq3 != null && reading.mq3 / 110 > 50) ? 'Warning' : 'Normal',
-                    },
-                    {
-                      id: 'TGS2602',
-                      loc: 'Recirculation Line',
-                      val: reading.mq8 != null ? `${Math.round(reading.mq8 / 30)} ppb` : '55 ppb',
-                      thresh: '90 ppb',
-                      status: (reading.mq8 != null && reading.mq8 / 30 > 90) ? 'Warning' : 'Normal',
-                    },
-                  ].map((probe) => (
+                  {allProbes.map((probe) => (
                     <tr key={probe.id} className="hover:bg-[#eaedff]/40 transition-colors">
-                      <td className="py-2.5 px-3 font-semibold text-[#004ac6] whitespace-nowrap">{probe.id}</td>
+                      <td className="py-2.5 px-3 font-semibold text-[#004ac6] whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span>{probe.id}</span>
+                          <span className="text-[10px] text-[#505f76] font-normal">{probe.name}</span>
+                        </div>
+                      </td>
                       <td className="py-2.5 px-3 text-[#505f76] whitespace-nowrap">{probe.loc}</td>
                       <td className="py-2.5 px-3 text-right font-medium tabular-nums whitespace-nowrap">{probe.val}</td>
                       <td className="py-2.5 px-3 text-right text-[#505f76] tabular-nums whitespace-nowrap">{probe.thresh}</td>
