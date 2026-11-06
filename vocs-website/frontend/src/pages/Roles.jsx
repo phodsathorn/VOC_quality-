@@ -1,11 +1,13 @@
-import { ShieldCheck, User, ShieldAlert, Key, Check, X, Sliders } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Roles() {
+  const { t } = useLanguage();
+
   const rolesData = [
     {
       code: 'AD',
-      name: 'Admin',
-      desc: 'Full system configuration & tenant management',
+      nameKey: 'roleAdminName',
+      descKey: 'roleAdminDesc',
       bg: 'bg-[#dbe1ff] text-[#004ac6]',
       perms: {
         dashboard: 'Full',
@@ -17,8 +19,8 @@ export default function Roles() {
     },
     {
       code: 'EN',
-      name: 'Engineer',
-      desc: 'Calibration and telemetry sensor operations',
+      nameKey: 'roleEngineerName',
+      descKey: 'roleEngineerDesc',
       bg: 'bg-[#d0e1fb] text-[#505f76]',
       perms: {
         dashboard: 'Full',
@@ -30,8 +32,8 @@ export default function Roles() {
     },
     {
       code: 'OP',
-      name: 'Operator',
-      desc: 'Line monitoring and local kiosk execution',
+      nameKey: 'roleOperatorName',
+      descKey: 'roleOperatorDesc',
       bg: 'bg-[#e2e7ff] text-[#434655]',
       perms: {
         dashboard: 'View',
@@ -43,8 +45,8 @@ export default function Roles() {
     },
     {
       code: 'SO',
-      name: 'Safety Officer',
-      desc: 'Health & safety audit trail and incident signoff',
+      nameKey: 'roleSafetyOfficerName',
+      descKey: 'roleSafetyOfficerDesc',
       bg: 'bg-[#ffdbcd] text-[#943700]',
       perms: {
         dashboard: 'Full',
@@ -56,8 +58,8 @@ export default function Roles() {
     },
     {
       code: 'AU',
-      name: 'Auditor (PCD / ISO)',
-      desc: 'Read-only compliance and calibration export',
+      nameKey: 'roleAuditorName',
+      descKey: 'roleAuditorDesc',
       bg: 'bg-[#f2f3ff] text-[#131b2e]',
       perms: {
         dashboard: 'View',
@@ -72,24 +74,24 @@ export default function Roles() {
   const getPermBadge = (val) => {
     if (val === 'Full') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#004ac6]/10 text-[#004ac6]">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-[#2563eb]/10 text-[#004ac6]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6]" />
-          Full
+          {t('permFull')}
         </span>
       );
     }
     if (val === 'View') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#eaedff] text-[#505f76]">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-[#eaedff] text-[#505f76]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#505f76]" />
-          View
+          {t('permView')}
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#f2f3ff] text-[#737686]">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-[#f2f3ff] text-[#737686]">
         <span className="w-1.5 h-1.5 rounded-full bg-[#c3c6d7]" />
-        None
+        {t('permNone')}
       </span>
     );
   };
@@ -99,26 +101,37 @@ export default function Roles() {
       {/* Header matching Stitch */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#737686]">Access Control</span>
+          <span className="text-[12px] font-semibold uppercase tracking-wider text-[#737686]">
+            {t('accessControlTag')}
+          </span>
           <span className="w-1 h-1 rounded-full bg-[#c3c6d7]" />
-          <span className="text-xs font-medium text-[#737686]">Industrial Policy Matrix</span>
+          <span className="text-[12px] font-medium text-[#737686]">
+            {t('policyMatrixTag')}
+          </span>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-[#131b2e]">Roles &amp; Permissions</h1>
-        <p className="text-sm text-[#434655]">Access permissions matrix across operational interfaces</p>
+        <h1 className="text-[24px] font-bold tracking-tight text-[#131b2e]">
+          {t('rolesTitle')}
+        </h1>
+        <p className="text-[14px] text-[#434655]">
+          {t('rolesSubtitle')}
+        </p>
       </div>
 
       {/* Main Table Card matching Stitch */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-[#eaedff] overflow-hidden">
+      <div
+        className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-[#eaedff] overflow-hidden"
+        style={{ boxShadow: 'rgba(15, 23, 42, 0.03) 0px 4px 20px -2px, rgba(15, 23, 42, 0.02) 0px 2px 6px -1px' }}
+      >
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
+          <table className="w-full text-left border-collapse text-[14px]">
             <thead>
-              <tr className="bg-[#f2f3ff] text-[#737686] text-xs font-semibold uppercase tracking-wider">
-                <th className="py-3.5 px-4 rounded-l-2xl">Role Name</th>
-                <th className="py-3.5 px-4">Dashboard</th>
-                <th className="py-3.5 px-4">Kiosk</th>
-                <th className="py-3.5 px-4">Alerts</th>
-                <th className="py-3.5 px-4">Settings</th>
-                <th className="py-3.5 px-4 rounded-r-2xl">Devices</th>
+              <tr className="bg-[#f2f3ff] text-[#737686] text-[12px] font-semibold uppercase tracking-wider">
+                <th className="py-3.5 px-4 rounded-l-2xl">{t('roleNameCol')}</th>
+                <th className="py-3.5 px-4">{t('dashboard')}</th>
+                <th className="py-3.5 px-4">{t('kiosk')}</th>
+                <th className="py-3.5 px-4">{t('alerts')}</th>
+                <th className="py-3.5 px-4">{t('settings')}</th>
+                <th className="py-3.5 px-4 rounded-r-2xl">{t('devices')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#eaedff] text-[#131b2e]">
@@ -126,12 +139,12 @@ export default function Roles() {
                 <tr key={r.code} className="hover:bg-[#f2f3ff]/40 transition-colors">
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${r.bg}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 ${r.bg}`}>
                         {r.code}
                       </div>
                       <div>
-                        <div className="font-semibold text-[#131b2e]">{r.name}</div>
-                        <div className="text-[11px] text-[#737686]">{r.desc}</div>
+                        <div className="font-semibold text-[#131b2e]">{t(r.nameKey)}</div>
+                        <div className="text-[11px] text-[#737686]">{t(r.descKey)}</div>
                       </div>
                     </div>
                   </td>
@@ -149,4 +162,3 @@ export default function Roles() {
     </div>
   );
 }
-

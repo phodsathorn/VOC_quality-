@@ -647,7 +647,43 @@
 
 ### สถานะ
 - [x] หน้าที่ 12/15: User Guide (`/user-guide`) รองรับ TH/EN และ 4 แท็บตรงตาม Stitch 100%
-- [ ] หน้าถัดไป: หน้าที่ 13/15: Roles & Policy (`/roles`)
+- [x] หน้าที่ 13/15: Roles & Policy (`/roles`) ตรงตาม Stitch 100% รองรับ TH/EN สมบูรณ์
+- [ ] หน้าถัดไป: หน้าที่ 14/15: System States (`/system-states`)
+
+---
+
+## 2026-11-07 04:40 — ปรับปรุงหน้า 13/15: Roles & Policy (`/roles`) ตรงตาม Stitch AI 100% พร้อมระบบสองภาษา TH/EN
+
+### สิ่งที่เปลี่ยน
+1. **หน้า 13/15: Roles & Policy (`Roles.jsx`):**
+   - ส่วนหัวหน้า:
+     - ป้ายกำกับหมวดหมู่ `Access Control · Industrial Policy Matrix` / `การควบคุมสิทธิ์การเข้าถึง · เมทริกซ์นโยบายระดับโรงงานอุตสาหกรรม`
+     - หัวเรื่องหลัก `Roles & Permissions` / `บทบาทและสิทธิ์การใช้งาน`
+     - คำอธิบาย `Access permissions matrix across operational interfaces` / `เมทริกซ์สิทธิ์การเข้าถึงระบบตามส่วนการทำงานต่าง ๆ`
+   - ตารางสิทธิ์การใช้งานระดับองค์กร (Industrial Policy Matrix Table):
+     - ป้ายสถานะสิทธิ์แบบ Badge มีจุดวงกลม:
+       - `Full` / `เต็มสิทธิ์`: สีน้ำเงินเข้มขลิบอ่อน (`bg-[#2563eb]/10 text-[#004ac6]`) พร้อมจุดสีน้ำเงิน
+       - `View` / `ดูข้อมูล`: สีเทาอ่อนขลิบน้ำเงิน (`bg-[#eaedff] text-[#505f76]`) พร้อมจุดสีเทา
+       - `None` / `ไม่มีสิทธิ์`: สีจาง (`bg-[#f2f3ff] text-[#737686]`) พร้อมจุดสีเทาอ่อน
+     - 5 บทบาทหลักในโรงงาน:
+       - 1. **Admin (AD):** `Full system configuration` (Full ทุกหน้า Dashboard, Kiosk, Alerts, Settings, Devices)
+       - 2. **Engineer (EN):** `Calibration and telemetry operations` (Full Dashboard, Kiosk, Alerts, Devices; View Settings)
+       - 3. **Operator (OP):** `Line monitoring and local kiosk` (View Dashboard & Alerts; Full Kiosk; None Settings & Devices)
+       - 4. **Safety Officer (SO):** `Health & safety audit trail and incident signoff` (Full Dashboard & Alerts; View Kiosk, Settings, Devices)
+       - 5. **Auditor (AU):** `Read-only compliance and calibration export` (View Dashboard, Kiosk, Alerts, Devices; None Settings)
+   - ล้าง Unused imports 7 ตัวที่ค้างอยู่เดิม (`ShieldCheck, User, ShieldAlert, Key, Check, X, Sliders`)
+
+2. **ระบบสองภาษา (`LanguageContext.jsx`):**
+   - เพิ่มชุดคำศัพท์ภาษาไทยล้วน (สละสลวยตามมาตรฐานโครงสร้างองค์กรและการรักษาความปลอดภัยระบบ) และภาษาอังกฤษแท้ตรงตาม Stitch AI ทุกคอลัมน์ ทุกป้ายสถานะ และทุกคำบรรยาย
+
+### การตรวจสอบ
+- `npm --prefix vocs-website/frontend run build`: สำเร็จใน 234ms (0 errors)
+- `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors, warnings ลดลง 7 ตัว)
+
+### สถานะ
+- [x] หน้าที่ 13/15: Roles & Policy (`/roles`) รองรับ TH/EN และตาราง Matrix ตรงตาม Stitch 100%
+- [ ] หน้าถัดไป: หน้าที่ 14/15: System States (`/system-states`)
+
 
 
 

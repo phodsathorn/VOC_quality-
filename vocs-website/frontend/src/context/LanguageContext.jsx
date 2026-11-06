@@ -427,6 +427,26 @@ const translations = {
     calibMatrixLink: 'ตารางเมทริกซ์การสอบเทียบ',
     firmwareOtaLink: 'การอัปเกรดเฟิร์มแวร์ไร้สาย (ESP-IDF)',
     oshaPelLink: 'ค่าขีดจำกัดสารตามเกณฑ์ OSHA PEL',
+
+    // Roles & Policy
+    accessControlTag: 'การควบคุมสิทธิ์การเข้าถึง',
+    policyMatrixTag: 'เมทริกซ์นโยบายระดับโรงงานอุตสาหกรรม',
+    rolesTitle: 'บทบาทและสิทธิ์การใช้งาน',
+    rolesSubtitle: 'เมทริกซ์สิทธิ์การเข้าถึงระบบตามส่วนการทำงานต่าง ๆ',
+    roleNameCol: 'ชื่อบทบาท',
+    permFull: 'เต็มสิทธิ์',
+    permView: 'ดูข้อมูล',
+    permNone: 'ไม่มีสิทธิ์',
+    roleAdminName: 'ผู้ดูแลระบบ (Admin)',
+    roleAdminDesc: 'กำหนดค่าระบบทั้งหมดและจัดการผู้ใช้งาน',
+    roleEngineerName: 'วิศวกรระบบ (Engineer)',
+    roleEngineerDesc: 'การสอบเทียบเซนเซอร์และการควบคุมโทรมาตร',
+    roleOperatorName: 'ผู้ควบคุมสายการผลิต (Operator)',
+    roleOperatorDesc: 'เฝ้าระวังหน้างานและสั่งการผ่านแผงคีออสก์',
+    roleSafetyOfficerName: 'เจ้าหน้าที่ความปลอดภัย (Safety Officer)',
+    roleSafetyOfficerDesc: 'ตรวจสอบประวัติความปลอดภัยและการลงนามเหตุการณ์',
+    roleAuditorName: 'ผู้ตรวจประเมิน (Auditor - PCD / ISO)',
+    roleAuditorDesc: 'สิทธิ์อ่านอย่างเดียวสำหรับส่งออกผลตรวจรับรอง',
   },
   EN: {
     // Navigation
@@ -854,6 +874,26 @@ const translations = {
     calibMatrixLink: 'Calibration Matrix',
     firmwareOtaLink: 'Firmware OTA (ESP-IDF)',
     oshaPelLink: 'OSHA PEL Limits',
+
+    // Roles & Policy
+    accessControlTag: 'Access Control',
+    policyMatrixTag: 'Industrial Policy Matrix',
+    rolesTitle: 'Roles & Permissions',
+    rolesSubtitle: 'Access permissions matrix across operational interfaces',
+    roleNameCol: 'Role Name',
+    permFull: 'Full',
+    permView: 'View',
+    permNone: 'None',
+    roleAdminName: 'Admin',
+    roleAdminDesc: 'Full system configuration',
+    roleEngineerName: 'Engineer',
+    roleEngineerDesc: 'Calibration and telemetry operations',
+    roleOperatorName: 'Operator',
+    roleOperatorDesc: 'Line monitoring and local kiosk',
+    roleSafetyOfficerName: 'Safety Officer',
+    roleSafetyOfficerDesc: 'Health & safety audit trail and incident signoff',
+    roleAuditorName: 'Auditor (PCD / ISO)',
+    roleAuditorDesc: 'Read-only compliance and calibration export',
   }
 };
 
