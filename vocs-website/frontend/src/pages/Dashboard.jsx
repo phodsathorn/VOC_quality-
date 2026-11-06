@@ -364,8 +364,6 @@ export default function Dashboard() {
           onClick={() => toggleTelemetryDrawer(true)}
           className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden cursor-pointer hover:shadow-md transition-all group"
         >
-          <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#2563eb]/5 blur-2xl pointer-events-none" />
-
           {/* Top Row: Label + Badge */}
           <div>
             <div className="flex items-center justify-between">
@@ -410,8 +408,6 @@ export default function Dashboard() {
           className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden cursor-pointer hover:shadow-md transition-all group"
           id="tvocCard"
         >
-          <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#004ac6]/5 blur-2xl pointer-events-none" />
-
           {/* Top Row: Label + Sensor Icon */}
           <div>
             <div className="flex items-center justify-between">
@@ -441,8 +437,6 @@ export default function Dashboard() {
 
         {/* Card 3: Exhaust Fan State */}
         <div className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden">
-          <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#2563eb]/5 blur-2xl pointer-events-none" />
-
           {/* Top Row: Label + Glowing Active Indicator */}
           <div>
             <div className="flex items-center justify-between">
@@ -471,8 +465,6 @@ export default function Dashboard() {
 
         {/* Card 4: eCO2 Estimated Concentration (Harmonized with Cards 1-3) */}
         <div className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden">
-          <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#2563eb]/5 blur-2xl pointer-events-none" />
-
           {/* Top Row: Label + Status Badge */}
           <div>
             <div className="flex items-center justify-between">
