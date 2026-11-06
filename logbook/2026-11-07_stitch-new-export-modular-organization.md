@@ -380,6 +380,36 @@
 - `npm --prefix vocs-website/frontend run build`: สำเร็จใน 217ms (0 errors)
 - `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
 
+---
+
+## 2026-11-07 04:05 — ปรับปรุงหน้า 6/15: Maintenance (`/maintenance`) และผสานระบบสองภาษา TH/EN แบบสมบูรณ์
+
+### สิ่งที่เปลี่ยน
+1. **หน้า 6/15: Maintenance (`Maintenance.jsx`):**
+   - เชื่อมต่อ `useLanguage()` เข้ากับทุกองค์ประกอบอย่างสมบูรณ์แบบ:
+     - ส่วนหัวและปุ่มการกระทำ: `Filter life & sensor calibration` / `อายุการใช้งานตัวกรองและการสอบเทียบเซนเซอร์`, ปุ่ม `Add log` / `เพิ่มบันทึก`, `Calibration History` / `ประวัติการสอบเทียบ`, `Add work order` / `สร้างใบสั่งงาน`
+     - การ์ดสถานะตัวกรอง 3 ชุด: แผ่นกรอง HEPA (82%), แผ่นกรองคาร์บอน (42%), หลอดรังสี UV (91%) พร้อมโมดอลตรวจสอบวินิจฉัย (Diagnostics modal)
+     - แถบแท็บและตาราง: เซนเซอร์และตัวกรอง (Sensors & Filters) และ ใบสั่งงาน (Work Orders)
+     - ตารางเซนเซอร์ 7 คอลัมน์: Sensor, Serial No., Last calibrated, Calibrated by, Drift %, Next due, Certificate, Status
+     - ตารางใบสั่งงาน 5 คอลัมน์: Title, Assignee, Due Date, Status, Signed off by
+   - **Drawer & Modal ทุกบานรองรับสองภาษา:**
+     - Drawer 1: เพิ่มบันทึกงานซ่อมบำรุง (`Add Maintenance Log`)
+     - Drawer 2: ประวัติการสอบเทียบเซนเซอร์ (`Calibration History`) แสดง Audit Trail และปุ่มดาวน์โหลดใบรับรอง PDF
+     - Drawer 3: สร้างใบสั่งงาน (`Add work order`) พร้อมโซนอัปโหลดภาพถ่าย
+     - Modal: ยืนยันการสอบเทียบเซนเซอร์ (`Confirm Sensor Calibration`) กำหนดค่า Zero-point baseline
+     - Modal: ข้อมูลตรวจวิเคราะห์ตัวกรอง (`Filter Diagnostics`) แสดงอายุการใช้งานที่เหลือและรอบการเปลี่ยน
+
+2. **ระบบสองภาษา (`LanguageContext.jsx`):**
+   - เพิ่มชุดคำศัพท์เฉพาะทางงานซ่อมบำรุงและมาตรวิทยา ทั้งภาษาไทยล้วน (สละสลวยตามมาตรฐาน จป. / วิศวกรรม) และภาษาอังกฤษแท้ (ตรงตาม Stitch AI)
+
+### การตรวจสอบ
+- `npm --prefix vocs-website/frontend run build`: สำเร็จใน 235ms (0 errors)
+- `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
+
+### สถานะ
+- [x] หน้าที่ 6/15: Maintenance รองรับ TH/EN สมบูรณ์ 100%
+- [ ] เตรียมต่อหน้าที่ 7/15: Devices (`/devices`)
+
 
 
 

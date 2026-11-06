@@ -6,9 +6,11 @@ import {
 } from 'lucide-react';
 import { API } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Maintenance() {
   const { user } = useAuth();
+  const { t, isThai } = useLanguage();
   const [activeTab, setActiveTab] = useState('sensors'); // 'sensors' | 'workorders'
   const [expandedRow, setExpandedRow] = useState(null);
 
@@ -287,10 +289,10 @@ export default function Maintenance() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-col">
           <h1 className="text-[20px] font-semibold text-[#131b2e] leading-snug">
-            Maintenance
+            {t('maintenance', 'Maintenance')}
           </h1>
           <span className="text-[14px] text-[#434655] font-normal">
-            Filter life &amp; sensor calibration
+            {t('filterLifeSensorCalib', 'Filter life & sensor calibration')}
           </span>
         </div>
 
@@ -303,7 +305,7 @@ export default function Maintenance() {
             className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[#004ac6] text-white text-[14px] font-medium shadow-xs hover:bg-[#003ea8] transition-all cursor-pointer"
           >
             <Plus size={18} />
-            <span>Add log</span>
+            <span>{t('addLog', 'Add log')}</span>
           </button>
 
           {/* Calibration History */}
@@ -314,7 +316,7 @@ export default function Maintenance() {
             className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white text-[#004ac6] border border-[#eaedff] text-[14px] font-medium shadow-xs hover:bg-[#f2f3ff] transition-colors cursor-pointer"
           >
             <History size={18} />
-            <span>Calibration History</span>
+            <span>{t('calibrationHistory', 'Calibration History')}</span>
           </button>
 
           {/* Add work order */}
@@ -325,7 +327,7 @@ export default function Maintenance() {
             className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[#f2f3ff] text-[#004ac6] text-[14px] font-medium shadow-xs hover:bg-[#e2e7ff] transition-all cursor-pointer"
           >
             <Wrench size={18} />
-            <span>Add work order</span>
+            <span>{t('addWorkOrder', 'Add work order')}</span>
           </button>
         </div>
       </div>
@@ -339,7 +341,7 @@ export default function Maintenance() {
           >
             <div className="flex flex-col gap-4">
               <span className="text-[14px] font-medium uppercase text-[#434655] tracking-wider">
-                {f.name}
+                {f.name === 'HEPA filter' ? t('hepaFilter', 'HEPA filter') : f.name === 'Carbon filter' ? t('carbonFilter', 'Carbon filter') : t('uvLamp', 'UV lamp')}
               </span>
               <span className="text-[56px] font-bold text-[#131b2e] leading-none tabular-nums tracking-tight">
                 {f.percent}%
@@ -357,7 +359,7 @@ export default function Maintenance() {
               onClick={() => setSelectedFilter(f)}
               className="mt-6 text-[14px] font-medium text-[#004ac6] inline-flex items-center gap-1 hover:translate-x-0.5 transition-transform text-left cursor-pointer"
             >
-              View details <span aria-hidden="true">→</span>
+              {t('viewDetails', 'View details')} <span aria-hidden="true">→</span>
             </button>
           </div>
         ))}
@@ -376,7 +378,7 @@ export default function Maintenance() {
                 : 'text-[#505f76] hover:text-[#131b2e] hover:bg-[#f2f3ff]'
             }`}
           >
-            Sensors &amp; Filters
+            {t('sensorsAndFilters', 'Sensors & Filters')}
           </button>
           <button
             type="button"
@@ -388,7 +390,7 @@ export default function Maintenance() {
                 : 'text-[#505f76] hover:text-[#131b2e] hover:bg-[#f2f3ff]'
             }`}
           >
-            <span>Work orders</span>
+            <span>{t('workOrders', 'Work orders')}</span>
             <span
               className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                 activeTab === 'workorders' ? 'bg-white/20 text-white' : 'bg-[#eaedff] text-[#004ac6]'
@@ -407,21 +409,21 @@ export default function Maintenance() {
             <table className="w-full text-left text-[14px]">
               <thead>
                 <tr className="bg-[#f2f3ff] text-[#434655] text-[12px] uppercase tracking-wider font-medium">
-                  <th className="py-3 px-4 rounded-l-2xl">Sensor</th>
-                  <th className="py-3 px-4">Serial No.</th>
-                  <th className="py-3 px-4">Last calibrated</th>
-                  <th className="py-3 px-4">Calibrated by</th>
+                  <th className="py-3 px-4 rounded-l-2xl">{t('sensor', 'Sensor')}</th>
+                  <th className="py-3 px-4">{t('serialNo', 'Serial No.')}</th>
+                  <th className="py-3 px-4">{t('lastCalibrated', 'Last calibrated')}</th>
+                  <th className="py-3 px-4">{t('calibratedBy', 'Calibrated by')}</th>
                   <th className="py-3 px-4">
                     <div className="inline-flex items-center gap-1">
-                      <span>Drift %</span>
+                      <span>{t('drift', 'Drift %')}</span>
                       <span title="Change from first baseline" className="text-[#505f76] hover:text-[#131b2e] cursor-pointer">
                         <Info size={14} />
                       </span>
                     </div>
                   </th>
-                  <th className="py-3 px-4">Next due</th>
-                  <th className="py-3 px-4 text-center">Certificate</th>
-                  <th className="py-3 px-4 text-right rounded-r-2xl">Status</th>
+                  <th className="py-3 px-4">{t('nextDue', 'Next due')}</th>
+                  <th className="py-3 px-4 text-center">{t('certificate', 'Certificate')}</th>
+                  <th className="py-3 px-4 text-right rounded-r-2xl">{t('status', 'Status')}</th>
                 </tr>
               </thead>
               <tbody className="text-[#131b2e] divide-y-0">
@@ -496,7 +498,7 @@ export default function Maintenance() {
                               s.isDueSoon ? 'bg-[#943700]' : 'bg-[#004ac6]'
                             }`}
                           />
-                          <span>{s.status}</span>
+                          <span>{s.isDueSoon ? t('dueSoon', 'Due soon') : t('calibrated', 'Calibrated')}</span>
                         </button>
                       </td>
                     </tr>
@@ -575,11 +577,11 @@ export default function Maintenance() {
             <table className="w-full text-left text-[14px]">
               <thead>
                 <tr className="bg-[#f2f3ff] text-[#434655] text-[12px] uppercase tracking-wider font-medium">
-                  <th className="py-3 px-4 rounded-l-2xl">Title</th>
-                  <th className="py-3 px-4">Assignee</th>
-                  <th className="py-3 px-4">Due Date</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right rounded-r-2xl">Signed off by</th>
+                  <th className="py-3 px-4 rounded-l-2xl">{t('title', 'Title')}</th>
+                  <th className="py-3 px-4">{t('assignee', 'Assignee')}</th>
+                  <th className="py-3 px-4">{t('dueDate', 'Due Date')}</th>
+                  <th className="py-3 px-4">{t('status', 'Status')}</th>
+                  <th className="py-3 px-4 text-right rounded-r-2xl">{t('signedOffBy', 'Signed off by')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y-0 text-[#131b2e]">
@@ -625,10 +627,10 @@ export default function Maintenance() {
                 </div>
                 <div>
                   <h2 className="text-[18px] font-semibold text-[#131b2e] leading-tight">
-                    Add Maintenance Log
+                    {t('addMaintenanceLog', 'Add Maintenance Log')}
                   </h2>
                   <span className="text-[12px] text-[#505f76] mt-0.5 block">
-                    Record calibration or replacement
+                    {t('recordCalibration', 'Record calibration or replacement')}
                   </span>
                 </div>
               </div>
@@ -644,7 +646,7 @@ export default function Maintenance() {
             <form onSubmit={handleSaveLog} className="p-6 flex-1 flex flex-col gap-5 overflow-y-auto">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] uppercase tracking-wider text-[#505f76] font-semibold" htmlFor="log-type">
-                  Type
+                  {t('type', 'Type')}
                 </label>
                 <div className="relative">
                   <select
@@ -653,10 +655,10 @@ export default function Maintenance() {
                     onChange={(e) => setLogType(e.target.value)}
                     className="w-full appearance-none bg-[#f2f3ff] text-[#131b2e] rounded-2xl py-3 px-4 pr-10 text-[14px] font-normal focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 cursor-pointer"
                   >
-                    <option value="sensor-calibration">Sensor Calibration</option>
-                    <option value="filter-replacement">Filter Replacement</option>
-                    <option value="uv-lamp-inspection">UV Lamp Inspection</option>
-                    <option value="zero-drift">Zero-Point Drift Check</option>
+                    <option value="sensor-calibration">{t('sensorCalibrationOption', 'Sensor Calibration')}</option>
+                    <option value="filter-replacement">{t('filterReplacementOption', 'Filter Replacement')}</option>
+                    <option value="uv-lamp-inspection">{t('uvLampInspectionOption', 'UV Lamp Inspection')}</option>
+                    <option value="zero-drift">{t('zeroDriftOption', 'Zero-Point Drift Check')}</option>
                   </select>
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#505f76]">
                     <ChevronDown size={18} />
@@ -666,7 +668,7 @@ export default function Maintenance() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] uppercase tracking-wider text-[#505f76] font-semibold" htmlFor="log-date">
-                  Date
+                  {t('date', 'Date')}
                 </label>
                 <input
                   id="log-date"
@@ -679,7 +681,7 @@ export default function Maintenance() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] uppercase tracking-wider text-[#505f76] font-semibold" htmlFor="log-tech">
-                  Technician
+                  {t('technician', 'Technician')}
                 </label>
                 <input
                   id="log-tech"
@@ -692,14 +694,14 @@ export default function Maintenance() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] uppercase tracking-wider text-[#505f76] font-semibold" htmlFor="log-note">
-                  Notes
+                  {t('note', 'Notes')}
                 </label>
                 <textarea
                   id="log-note"
                   rows={4}
                   value={logNote}
                   onChange={(e) => setLogNote(e.target.value)}
-                  placeholder="Record gas standard, calibration values, or filter differential pressure..."
+                  placeholder={lang === 'TH' ? 'บันทึกก๊าซมาตรฐาน ค่าการสอบเทียบ หรือแรงดันตกคร่อมตัวกรอง...' : 'Record gas standard, calibration values, or filter differential pressure...'}
                   className="w-full bg-[#f2f3ff] text-[#131b2e] rounded-2xl p-4 text-[14px] font-normal focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 resize-none"
                 />
               </div>
@@ -710,13 +712,13 @@ export default function Maintenance() {
                   onClick={() => setIsAddLogOpen(false)}
                   className="px-5 py-2.5 rounded-2xl bg-[#eaedff] text-[#131b2e] text-[14px] font-medium hover:bg-[#dbe1ff] transition-colors cursor-pointer"
                 >
-                  Cancel
+                  {t('cancel', 'Cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2.5 rounded-2xl bg-[#004ac6] text-white text-[14px] font-medium shadow-xs hover:bg-[#003ea8] transition-colors cursor-pointer"
                 >
-                  Save log
+                  {t('save', 'Save log')}
                 </button>
               </div>
             </form>
@@ -739,10 +741,10 @@ export default function Maintenance() {
                 </div>
                 <div>
                   <h2 className="text-[18px] font-semibold text-[#131b2e] leading-tight">
-                    Calibration History
+                    {t('calibrationHistory', 'Calibration History')}
                   </h2>
                   <span className="text-[12px] text-[#505f76]">
-                    Powder Coating Booth 1 • Sensor Audit Trail
+                    {t('auditTrailSubtitle', 'Powder Coating Booth 1 • Sensor Audit Trail')}
                   </span>
                 </div>
               </div>
@@ -761,7 +763,7 @@ export default function Maintenance() {
                   <span className="text-[13px] font-bold text-[#131b2e]">Oct 12, 2025 • 09:30 AM</span>
                   <span className="text-[#004ac6] text-[11px] font-semibold bg-white px-2.5 py-0.5 rounded-full shadow-2xs">Drift +2.4%</span>
                 </div>
-                <span className="text-[12px] text-[#505f76]">Technician: E. Mitchell (H&amp;S Officer)</span>
+                <span className="text-[12px] text-[#505f76]">{lang === 'TH' ? 'ผู้สอบเทียบ: E. Mitchell (เจ้าหน้าที่ จป.)' : 'Technician: E. Mitchell (H&S Officer)'}</span>
                 <span className="text-[11px] text-[#505f76] font-mono">Baseline resistance: 42.1 kΩ • Zero-air certified</span>
                 <button
                   type="button"
@@ -769,7 +771,7 @@ export default function Maintenance() {
                   className="mt-1 text-[12px] font-medium text-[#004ac6] hover:underline inline-flex items-center gap-1 cursor-pointer text-left"
                 >
                   <Download size={14} />
-                  <span>Download Certificate PDF</span>
+                  <span>{t('downloadPdfCert', 'Download Certificate PDF')}</span>
                 </button>
               </div>
 
@@ -778,7 +780,7 @@ export default function Maintenance() {
                   <span className="text-[13px] font-bold text-[#131b2e]">Sep 12, 2025 • 11:15 AM</span>
                   <span className="text-[#004ac6] text-[11px] font-semibold bg-white px-2.5 py-0.5 rounded-full shadow-2xs">Drift +1.1%</span>
                 </div>
-                <span className="text-[12px] text-[#505f76]">Technician: E. Mitchell</span>
+                <span className="text-[12px] text-[#505f76]">{lang === 'TH' ? 'ผู้สอบเทียบ: E. Mitchell' : 'Technician: E. Mitchell'}</span>
                 <span className="text-[11px] text-[#505f76] font-mono">Baseline resistance: 41.8 kΩ</span>
                 <button
                   type="button"
@@ -786,7 +788,7 @@ export default function Maintenance() {
                   className="mt-1 text-[12px] font-medium text-[#004ac6] hover:underline inline-flex items-center gap-1 cursor-pointer text-left"
                 >
                   <Download size={14} />
-                  <span>Download Certificate PDF</span>
+                  <span>{t('downloadPdfCert', 'Download Certificate PDF')}</span>
                 </button>
               </div>
 
@@ -795,7 +797,7 @@ export default function Maintenance() {
                   <span className="text-[13px] font-bold text-[#131b2e]">Aug 10, 2025 • 02:40 PM</span>
                   <span className="text-[#004ac6] text-[11px] font-semibold bg-white px-2.5 py-0.5 rounded-full shadow-2xs">Drift -0.6%</span>
                 </div>
-                <span className="text-[12px] text-[#505f76]">Technician: R. Chen</span>
+                <span className="text-[12px] text-[#505f76]">{lang === 'TH' ? 'ผู้สอบเทียบ: R. Chen' : 'Technician: R. Chen'}</span>
                 <span className="text-[11px] text-[#505f76] font-mono">Baseline resistance: 42.5 kΩ</span>
                 <button
                   type="button"
@@ -803,16 +805,16 @@ export default function Maintenance() {
                   className="mt-1 text-[12px] font-medium text-[#004ac6] hover:underline inline-flex items-center gap-1 cursor-pointer text-left"
                 >
                   <Download size={14} />
-                  <span>Download Certificate PDF</span>
+                  <span>{t('downloadPdfCert', 'Download Certificate PDF')}</span>
                 </button>
               </div>
 
               <div className="p-4 rounded-2xl bg-[#f2f3ff] border border-[#eaedff] flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] font-bold text-[#131b2e]">Jul 11, 2025 • 10:05 AM</span>
-                  <span className="text-[#004ac6] text-[11px] font-semibold bg-white px-2.5 py-0.5 rounded-full shadow-2xs">Initial Reference</span>
+                  <span className="text-[#004ac6] text-[11px] font-semibold bg-white px-2.5 py-0.5 rounded-full shadow-2xs">{lang === 'TH' ? 'ค่าอ้างอิงเริ่มต้นจากโรงงาน' : 'Initial Reference'}</span>
                 </div>
-                <span className="text-[12px] text-[#505f76]">Technician: Factory Commissioning</span>
+                <span className="text-[12px] text-[#505f76]">{lang === 'TH' ? 'ผู้สอบเทียบ: ทดสอบและตรวจรับจากโรงงาน' : 'Technician: Factory Commissioning'}</span>
                 <span className="text-[11px] text-[#505f76] font-mono">Baseline resistance: 42.8 kΩ</span>
                 <button
                   type="button"
@@ -820,7 +822,7 @@ export default function Maintenance() {
                   className="mt-1 text-[12px] font-medium text-[#004ac6] hover:underline inline-flex items-center gap-1 cursor-pointer text-left"
                 >
                   <Download size={14} />
-                  <span>Download Certificate PDF</span>
+                  <span>{t('downloadPdfCert', 'Download Certificate PDF')}</span>
                 </button>
               </div>
             </div>
@@ -831,7 +833,7 @@ export default function Maintenance() {
                 onClick={() => setIsHistoryDrawerOpen(false)}
                 className="w-full py-2.5 rounded-2xl bg-[#eaedff] text-[#131b2e] font-medium text-[14px] hover:bg-[#dbe1ff] transition-colors cursor-pointer text-center"
               >
-                Close
+                {t('close', 'Close')}
               </button>
             </div>
           </aside>
@@ -853,10 +855,10 @@ export default function Maintenance() {
                 </div>
                 <div>
                   <h2 className="text-[18px] font-semibold text-[#131b2e] leading-tight">
-                    Add work order
+                    {t('addWorkOrderTitle', 'Add work order')}
                   </h2>
                   <span className="text-[12px] text-[#505f76]">
-                    Schedule maintenance task
+                    {t('assignTask', 'Schedule maintenance task')}
                   </span>
                 </div>
               </div>
@@ -872,13 +874,13 @@ export default function Maintenance() {
             <form onSubmit={handleSaveWorkOrder} className="p-6 flex-1 flex flex-col gap-5 overflow-y-auto">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] uppercase tracking-wider text-[#505f76] font-semibold" htmlFor="wo-title">
-                  Title
+                  {t('title', 'Title')}
                 </label>
                 <input
                   id="wo-title"
                   type="text"
                   required
-                  placeholder="e.g. Clean intake pre-filters"
+                  placeholder={lang === 'TH' ? 'เช่น ทำความสะอาดแผ่นกรองขั้นต้น' : 'e.g. Clean intake pre-filters'}
                   value={woTitle}
                   onChange={(e) => setWoTitle(e.target.value)}
                   className="w-full bg-[#f2f3ff] text-[#131b2e] rounded-2xl py-3 px-4 text-[14px] font-normal focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20"
@@ -887,7 +889,7 @@ export default function Maintenance() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] uppercase tracking-wider text-[#505f76] font-semibold" htmlFor="wo-assignee">
-                  Assignee
+                  {t('assignee', 'Assignee')}
                 </label>
                 <input
                   id="wo-assignee"
@@ -900,7 +902,7 @@ export default function Maintenance() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] uppercase tracking-wider text-[#505f76] font-semibold" htmlFor="wo-due">
-                  Due date
+                  {t('dueDate', 'Due date')}
                 </label>
                 <input
                   id="wo-due"
@@ -913,27 +915,27 @@ export default function Maintenance() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] uppercase tracking-wider text-[#505f76] font-semibold">
-                  Photo upload
+                  {t('photoUpload', 'Photo upload')}
                 </label>
                 <div className="border-2 border-dashed border-[#c3c6d7] hover:border-[#004ac6] rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer bg-[#f2f3ff]/40 transition-colors">
                   <Upload size={28} className="text-[#004ac6] mb-1.5" />
                   <span className="text-[12px] font-medium text-[#131b2e]">
-                    Drag &amp; drop inspection image or <span className="text-[#004ac6] underline">browse</span>
+                    {t('dragDropImage', 'Drag & drop inspection image or browse')}
                   </span>
-                  <span className="text-[10px] text-[#505f76] mt-1">Supports PNG, JPG, HEIC up to 15MB</span>
+                  <span className="text-[10px] text-[#505f76] mt-1">{t('imageSupportInfo', 'Supports PNG, JPG, HEIC up to 15MB')}</span>
                 </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] uppercase tracking-wider text-[#505f76] font-semibold" htmlFor="wo-note">
-                  Note
+                  {t('note', 'Note')}
                 </label>
                 <textarea
                   id="wo-note"
                   rows={3}
                   value={woNote}
                   onChange={(e) => setWoNote(e.target.value)}
-                  placeholder="Detailed instructions or safety precautions..."
+                  placeholder={lang === 'TH' ? 'คำแนะนำโดยละเอียดหรือข้อควรระวังความปลอดภัย...' : 'Detailed instructions or safety precautions...'}
                   className="w-full bg-[#f2f3ff] text-[#131b2e] rounded-2xl p-4 text-[14px] font-normal focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 resize-none"
                 />
               </div>
@@ -944,13 +946,13 @@ export default function Maintenance() {
                   onClick={() => setIsWorkOrderDrawerOpen(false)}
                   className="px-5 py-2.5 rounded-2xl bg-[#eaedff] text-[#131b2e] text-[14px] font-medium hover:bg-[#dbe1ff] transition-colors cursor-pointer"
                 >
-                  Cancel
+                  {t('cancel', 'Cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2.5 rounded-2xl bg-[#004ac6] text-white text-[14px] font-medium shadow-xs hover:bg-[#003ea8] transition-colors cursor-pointer"
                 >
-                  Save
+                  {t('save', 'Save')}
                 </button>
               </div>
             </form>
@@ -972,7 +974,7 @@ export default function Maintenance() {
               </div>
               <div>
                 <h3 className="text-[18px] font-semibold text-[#131b2e]">
-                  Confirm Sensor Calibration
+                  {t('confirmSensorCalibration', 'Confirm Sensor Calibration')}
                 </h3>
                 <span className="text-xs text-[#004ac6] font-medium">
                   {calibModalSensor.name} ({calibModalSensor.serial})
@@ -981,18 +983,20 @@ export default function Maintenance() {
             </div>
 
             <p className="text-[13px] text-[#505f76] leading-relaxed">
-              This action establishes a zero-point baseline for {calibModalSensor.name}. Please confirm reference gas flow is stable prior to calibration.
+              {lang === 'TH'
+                ? `การดำเนินการนี้จะสร้างจุดศูนย์อ้างอิงใหม่สำหรับ ${calibModalSensor.name} โปรดตรวจสอบว่าการไหลของก๊าซมาตรฐานมีความเสถียรก่อนทำการสอบเทียบ`
+                : `This action establishes a zero-point baseline for ${calibModalSensor.name}. Please confirm reference gas flow is stable prior to calibration.`}
             </p>
 
             <div className="flex flex-col gap-1.5">
               <label className="text-[12px] font-semibold text-[#505f76] uppercase tracking-wider">
-                Calibration notes / reference gas standard
+                {t('calibrationNotesGas', 'Calibration notes / reference gas standard')}
               </label>
               <textarea
                 rows={3}
                 value={calibStandard}
                 onChange={(e) => setCalibStandard(e.target.value)}
-                placeholder="e.g. Standard Zero Air + 50 ppm Span canister (Batch #4902-A)"
+                placeholder={lang === 'TH' ? 'เช่น ก๊าซศูนย์มาตรฐาน Zero Air + ถังก๊าซ Span 50 ppm (ชุดผลิต #4902-A)' : 'e.g. Standard Zero Air + 50 ppm Span canister (Batch #4902-A)'}
                 className="w-full p-3 rounded-2xl bg-[#f2f3ff] text-[#131b2e] text-[13px] focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 resize-none"
               />
             </div>
@@ -1003,14 +1007,14 @@ export default function Maintenance() {
                 onClick={() => setCalibModalSensor(null)}
                 className="px-4 py-2.5 rounded-2xl bg-[#eaedff] text-[#131b2e] text-[14px] font-medium hover:bg-[#dbe1ff] transition-colors cursor-pointer"
               >
-                Cancel
+                {t('cancel', 'Cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmCalibration}
                 className="px-5 py-2.5 rounded-2xl bg-[#004ac6] text-white text-[14px] font-medium shadow-xs hover:bg-[#003ea8] transition-opacity cursor-pointer"
               >
-                Confirm Calibration
+                {t('confirmCalibration', 'Confirm Calibration')}
               </button>
             </div>
           </div>
@@ -1031,7 +1035,7 @@ export default function Maintenance() {
                   {selectedFilter.stage}
                 </span>
                 <h3 className="text-[20px] font-semibold text-[#131b2e] mt-0.5">
-                  {selectedFilter.name} Diagnostics
+                  {selectedFilter.name} {lang === 'TH' ? 'ข้อมูลตรวจวิเคราะห์' : 'Diagnostics'}
                 </h3>
               </div>
               <button
@@ -1045,7 +1049,7 @@ export default function Maintenance() {
 
             <div className="p-4 rounded-2xl bg-[#f2f3ff] flex items-center justify-between">
               <div>
-                <span className="text-xs text-[#505f76]">Estimated Remaining Life</span>
+                <span className="text-xs text-[#505f76]">{t('estRemainingLife', 'Estimated Remaining Life')}</span>
                 <div className="text-[32px] font-bold text-[#131b2e] tabular-nums">
                   {selectedFilter.percent}%
                 </div>
@@ -1064,11 +1068,11 @@ export default function Maintenance() {
 
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div className="p-3 rounded-xl bg-[#f2f3ff]">
-                <span className="text-[#505f76] block">Installed Date</span>
+                <span className="text-[#505f76] block">{t('installedDate', 'Installed Date')}</span>
                 <span className="font-semibold text-[#131b2e]">{selectedFilter.installed}</span>
               </div>
               <div className="p-3 rounded-xl bg-[#f2f3ff]">
-                <span className="text-[#505f76] block">Replacement Interval</span>
+                <span className="text-[#505f76] block">{t('replacementInterval', 'Replacement Interval')}</span>
                 <span className="font-semibold text-[#131b2e]">{selectedFilter.lifespan}</span>
               </div>
             </div>
@@ -1079,7 +1083,7 @@ export default function Maintenance() {
                 onClick={() => setSelectedFilter(null)}
                 className="px-5 py-2.5 rounded-2xl bg-[#004ac6] text-white text-[14px] font-medium hover:bg-[#003ea8] transition-colors cursor-pointer"
               >
-                Close
+                {t('close', 'Close')}
               </button>
             </div>
           </div>
