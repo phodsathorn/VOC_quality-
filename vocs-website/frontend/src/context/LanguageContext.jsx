@@ -473,6 +473,18 @@ const translations = {
     updated5mAgo: 'อัปเดตเมื่อ 5 นาทีที่แล้ว',
     awaitingNextFrame: 'กำลังรอเฟรมข้อมูลโทรมาตรรอบถัดไป',
     forcePollBtn: 'บังคับดึงข้อมูลทันที',
+
+    // Login
+    signInTitle: 'เข้าสู่ระบบ',
+    usernameLabel: 'ชื่อผู้ใช้งาน',
+    usernamePlaceholder: 'ระบุรหัสประจำตัวหรืออีเมล',
+    passwordLabel: 'รหัสผ่าน',
+    passwordPlaceholder: '••••••••',
+    signInBtn: 'เข้าสู่ระบบ',
+    connectingBackend: 'กำลังเชื่อมต่อระบบประมวลผล...',
+    invalidCredentials: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง',
+    enterUserPass: 'กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน',
+    authorizedOnlyNotice: 'เฉพาะบุคลากรที่ได้รับอนุญาตเท่านั้น การเข้าถึงทั้งหมดถูกบันทึกในระบบ',
   },
   EN: {
     // Navigation
@@ -946,6 +958,18 @@ const translations = {
     updated5mAgo: 'Updated 5 min ago',
     awaitingNextFrame: 'Awaiting next telemetry frame',
     forcePollBtn: 'Force Poll',
+
+    // Login
+    signInTitle: 'Sign in',
+    usernameLabel: 'Username',
+    usernamePlaceholder: 'Enter your ID or email',
+    passwordLabel: 'Password',
+    passwordPlaceholder: '••••••••',
+    signInBtn: 'Sign In',
+    connectingBackend: 'Connecting to cloud backend...',
+    invalidCredentials: 'Invalid credentials',
+    enterUserPass: 'Please enter username and password',
+    authorizedOnlyNotice: 'Authorized personnel only. Activity is logged.',
   }
 };
 
