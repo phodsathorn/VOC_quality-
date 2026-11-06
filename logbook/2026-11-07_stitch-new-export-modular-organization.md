@@ -599,7 +599,56 @@
 
 ### สถานะ
 - [x] หน้าที่ 11/15: Emissions (`/emissions`) รองรับ TH/EN และ 4 แท็บตรงตาม Stitch 100%
-- [ ] หน้าถัดไป: หน้าที่ 12/15: User Guide (`/user-guide`)
+- [x] หน้าที่ 12/15: User Guide (`/user-guide`) ตรงตาม Stitch 100% รองรับ TH/EN สมบูรณ์
+- [ ] หน้าถัดไป: หน้าที่ 13/15: Roles & Policy (`/roles`)
+
+---
+
+## 2026-11-07 04:35 — ปรับปรุงหน้า 12/15: User Guide (`/user-guide`) ตรงตาม Stitch AI 100% พร้อมระบบสองภาษา TH/EN
+
+### สิ่งที่เปลี่ยน
+1. **หน้า 12/15: User Guide (`Guide.jsx`):**
+   - ส่วนหัวหน้า:
+     - ป้ายกำกับหมวดหมู่ `Documentation & Protocol` / `เอกสารคู่มือและระเบียบปฏิบัติ` พร้อมจุดสีน้ำเงิน
+     - หัวเรื่องหลัก `User Guide` / `คู่มือการใช้งานระบบ`
+     - คำอธิบาย `Hardware pinout, sensor telemetry integration, and safety response protocols.` / `แผนผังการต่อวงจรฮาร์ดแวร์ การส่งข้อมูลโทรมาตร และขั้นตอนปฏิบัติการรับมือเหตุฉุกเฉิน`
+     - ป้ายเวอร์ชัน `Revision 2.4 • Node Rev-D` และปุ่ม `PDF Manual` (ดาวน์โหลดคู่มือฉบับเต็ม)
+   - แถบนำทาง 4 Pill Tabs ตรงตาม Stitch 100%:
+     - **แท็บ 1: Wiring (ผังการต่อสายและพิน - หน้าหลักเริ่มต้น):**
+       - **ฝั่งซ้าย (7 คอลัมน์) ตาราง Sensor Wiring & Pinout:**
+         - ป้าย `3.3V Logic Level`
+         - ตาราง 5 แถว: MQ-3, MQ-2, Mini PID (UART), SGP40 (I2C 0x59 พร้อม Badge สีน้ำเงิน), TGS2602
+         - เชิงอรรถระบุระดับ Attenuation 12-bit (11dB 0-3.1V) และลิงก์ดาวน์โหลด Schematic PDF
+       - **ฝั่งขวา (5 คอลัมน์) แผนผังทางกายภาพ Enclosure Diagram:**
+         - ป้ายมาตรฐาน `IP65 / NEMA 4X`
+         - กราฟิกเวกเตอร์ SVG ละเอียดตรงตาม Stitch 1:1: แสดงราง DIN Rail TS-35, ท่อ Intake Snorkel ดึงอากาศเข้า, Sensor Chamber พร้อมช่องเซนเซอร์ 5 รู, พัดลมระบายตัวอย่าง Sample Purge Fan 5V, บอร์ดหลัก ESP32-S3 Dual-Core LX7, วงจรแปลงแรงดัน DC Buck Stepdown 12V->5V/3.3V, หลอดไฟแสดงสถานะ RGB, และข้อต่อต่อสายเคเบิลแกลนด์กันน้ำ PG7
+     - **แท็บ 2: Safety & Emergency (ความปลอดภัยและเหตุฉุกเฉิน):**
+       - **ฝั่งซ้าย (7 คอลัมน์) Standard Operating Procedure (SOP):**
+         - ป้ายกำกับ `Level 2 Hazard` ขลิบแดงด้านบน
+         - 4 ขั้นตอนพร้อมวงกลมตัวเลขสีแดง: 1. Evacuate Booth, 2. Engage Emergency Ventilation, 3. Isolate Solvents, 4. Notify Incident Commander
+         - แถบเตือนระบบล็อกอัตโนมัติเมื่อ TVOC > 350 ppm ต่อเนื่องเกิน 30 วินาที พร้อมปุ่มดาวน์โหลดเอกสาร SOP
+       - **ฝั่งขวา (5 คอลัมน์) Emergency Contacts:**
+         - รายชื่อติดต่อฉุกเฉิน 3 ท่าน: Somchai Jaidee (Priority 1 วิทยุช่อง 4), E. Mitchell (Priority 2 วิทยุช่อง 2), Maintenance Dispatch (Ext 1999 ตลอด 24 ชม.)
+         - ปุ่มโทรออกฉุกเฉินสายด่วนความปลอดภัยโรงงาน (Trigger Plant Safety Hotline)
+     - **แท็บ 3: Quick Start (เริ่มต้นใช้งานด่วน):**
+       - รายการตรวจสอบการติดตั้งอุปกรณ์ 3 ขั้นตอน: 1. Mount Enclosure (ราง TS-35 สูง 1.5 ม.), 2. Power 12VDC Line, 3. Sensor Burn-in (24 ชั่วโมง) พร้อมปุ่มนำทางไปยัง Wiring
+     - **แท็บ 4: API & MQTT Ingestion (ข้อมูลเชื่อมต่อ API / MQTT):**
+       - ป้ายกำกับ `JSON Schema v1.4` และหัวข้อ MQTT `booth1/enose/telemetry/live`
+       - กล่องแสดงเพย์โหลด JSON สด พร้อมปุ่มคัดลอก (Copy JSON)
+   - ส่วนท้ายหน้า (Footer):
+     - ลิงก์คู่มือความปลอดภัย: Calibration Matrix, Firmware OTA (ESP-IDF), OSHA PEL Limits
+
+2. **ระบบสองภาษา (`LanguageContext.jsx`):**
+   - เพิ่มชุดคำศัพท์ภาษาไทยล้วน (สละสลวยทางวิศวกรรมความปลอดภัย จป. และการต่อวงจรไฟฟ้า) และภาษาอังกฤษแท้ตรงตาม Stitch AI ครบทุกแท็บ ทุกปุ่ม และทุกคำบรรยาย
+
+### การตรวจสอบ
+- `npm --prefix vocs-website/frontend run build`: สำเร็จใน 256ms (0 errors)
+- `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
+
+### สถานะ
+- [x] หน้าที่ 12/15: User Guide (`/user-guide`) รองรับ TH/EN และ 4 แท็บตรงตาม Stitch 100%
+- [ ] หน้าถัดไป: หน้าที่ 13/15: Roles & Policy (`/roles`)
+
 
 
 
