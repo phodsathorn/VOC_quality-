@@ -413,28 +413,28 @@ export default function Alerts() {
             <table className="w-full text-left text-[14px]">
               <thead>
                 <tr className="bg-[#f2f3ff] text-[#434655] text-[12px] uppercase tracking-wider font-medium">
-                  <th className="py-3 px-4 rounded-l-2xl">Time</th>
+                  <th className="py-3 px-4">Time</th>
                   <th className="py-3 px-4">Level</th>
                   <th className="py-3 px-4">Condition</th>
                   <th className="py-3 px-4">Rule</th>
                   <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 rounded-r-2xl">Owner</th>
+                  <th className="py-3 px-4">Owner</th>
                 </tr>
               </thead>
-              <tbody className="divide-y-0">
+              <tbody className="divide-y divide-[#eaedff]/60">
                 {filteredIncidents.map((inc) => {
                   const isSelected = selectedIncident?.id === inc.id;
                   return (
                     <tr
                       key={inc.id}
                       onClick={() => setSelectedIncident(inc)}
-                      className={`group cursor-pointer transition-colors rounded-2xl ${
+                      className={`group cursor-pointer transition-colors ${
                         isSelected
                           ? 'bg-[#e2e7ff]'
                           : 'hover:bg-[#f2f3ff]'
                       }`}
                     >
-                      <td className="py-4 px-4 font-medium text-[#131b2e] rounded-l-2xl tabular-nums whitespace-nowrap">
+                      <td className="py-4 px-4 font-medium text-[#131b2e] tabular-nums whitespace-nowrap">
                         {inc.time}
                       </td>
                       <td className="py-4 px-4 whitespace-nowrap">
@@ -454,7 +454,7 @@ export default function Alerts() {
                           {inc.status}
                         </span>
                       </td>
-                      <td className="py-4 px-4 rounded-r-2xl whitespace-nowrap">
+                      <td className="py-4 px-4 whitespace-nowrap">
                         <div className="inline-flex items-center gap-2">
                           <span
                             className={`w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center ${
