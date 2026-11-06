@@ -367,36 +367,32 @@ export default function Dashboard() {
           <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#2563eb]/5 blur-2xl pointer-events-none" />
 
           {/* Top Row: Label + Badge */}
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-              Air Quality
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#131b2e] bg-[#eaedff]">
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: aqiCategory.color || '#00CC66' }}
-              />
-              {aqiCategory.label || 'Good'}
-            </span>
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
+                Air Quality
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#131b2e] bg-[#eaedff]">
+                <span className="w-2 h-2 rounded-full bg-[#00CC66]" />
+                Good
+              </span>
+            </div>
+            <span className="text-[11px] text-[#505f76]">Source: MQ-135 (PM2.5 / eCO2)</span>
           </div>
-          <span className="text-[11px] text-[#505f76]">Source: MQ-135 (PM2.5 / eCO2)</span>
 
           {/* Center Metric */}
           <div className="flex items-baseline">
-            <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight tabular-nums">
-              {currentAqi}
+            <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight">
+              38
             </span>
           </div>
 
           {/* Bottom Continuous 3-color Spectrum Bar */}
           <div className="flex flex-col gap-1.5">
-            <div className="relative w-full h-1.5 rounded-full bg-[#e2e7ff] overflow-visible">
+            <div className="relative w-full h-1.5 rounded-full bg-[#eaedff] overflow-visible">
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#00CC66] via-[#F59E0B] to-[#ba1a1a] opacity-80" />
-              {/* Dynamic Pip positioned according to AQI */}
-              <div
-                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-md border border-[#e2e8f0] flex items-center justify-center transition-all duration-500"
-                style={{ left: `${aqiPipPercent}%` }}
-              >
+              {/* Dynamic Pip positioned according to AQI 38 */}
+              <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 left-[38%] w-3 h-3 bg-white rounded-full shadow-md flex items-center justify-center">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#131b2e]" />
               </div>
             </div>
@@ -405,50 +401,41 @@ export default function Dashboard() {
               <span>50</span>
               <span>100+</span>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-[#505f76] pt-0.5">
-              <span>PM2.5 {Math.round(pm25Value)} µg/m³</span>
-              <span>·</span>
-              <span className="inline-flex items-center gap-1 text-[#00AA55] font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#00CC66]" />Safe
-              </span>
-            </div>
           </div>
         </div>
 
         {/* Card 2: TVOC Real-time Concentration */}
         <div
           onClick={() => toggleTelemetryDrawer(true)}
-          className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden cursor-pointer hover:shadow-md hover:ring-1 hover:ring-[#004ac6]/20 transition-all group"
+          className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden cursor-pointer hover:shadow-md transition-all group"
           id="tvocCard"
-          title="Click to view live sensor telemetry"
         >
-          <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#004ac6]/5 blur-2xl pointer-events-none group-hover:bg-[#004ac6]/10 transition-colors" />
+          <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#004ac6]/5 blur-2xl pointer-events-none" />
 
           {/* Top Row: Label + Sensor Icon */}
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider group-hover:text-[#004ac6] transition-colors">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
                 TVOC
               </span>
-              <span className="text-[11px] text-[#505f76]">Source: MQ-3</span>
+              <svg className="w-[18px] h-[18px] text-[#505f76]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M7.8 14.5a6 6 0 0 1 8.4 0M4.93 11.64a10 10 0 0 1 14.14 0" />
+              </svg>
             </div>
-            <Radio size={18} className="text-[#505f76] group-hover:text-[#004ac6] transition-colors" />
+            <span className="text-[11px] text-[#505f76]">Source: MQ-3</span>
           </div>
 
           {/* Center Metric */}
           <div className="flex items-baseline gap-2">
-            <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight tabular-nums">
-              {tvocValue}
+            <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight">
+              64
             </span>
             <span className="text-[20px] font-semibold text-[#505f76]">ppb</span>
           </div>
 
           {/* Bottom Descriptor */}
-          <div className="flex items-center justify-between">
+          <div>
             <span className="text-[14px] text-[#505f76]">Normal range under 100</span>
-            <span className="text-[11px] text-[#004ac6] font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-              View sensors →
-            </span>
           </div>
         </div>
 
@@ -457,33 +444,27 @@ export default function Dashboard() {
           <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#2563eb]/5 blur-2xl pointer-events-none" />
 
           {/* Top Row: Label + Glowing Active Indicator */}
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
+          <div>
+            <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
                 Exhaust Fan
               </span>
-              <span className="text-[11px] text-[#505f76]">Source: Pitot sensor</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#00CC66] shadow-[0_0_8px_rgba(0,204,102,0.6)]" />
             </div>
-            <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                fanState === 'ON'
-                  ? 'bg-[#00CC66] shadow-[0_0_8px_rgba(0,204,102,0.6)]'
-                  : 'bg-[#64748b]'
-              }`}
-            />
+            <span className="text-[11px] text-[#505f76]">Source: Pitot sensor</span>
           </div>
 
           {/* Center Metric */}
           <div className="flex items-baseline gap-3">
             <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight">
-              {fanState}
+              ON
             </span>
           </div>
 
           {/* Bottom Descriptor */}
           <div>
             <span className="text-[14px] text-[#434655] font-medium">
-              {fanSpeed}% running
+              100% running
             </span>
           </div>
         </div>
@@ -494,12 +475,12 @@ export default function Dashboard() {
 
           {/* Top Row: Label + Sensor Status */}
           <div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-1">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-                eCO₂ (estimated)
+                eCO2 (estimated)
               </span>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-[#505f76] bg-[#eaedff]">
-                <Activity size={12} className="animate-spin text-[#004ac6]" />
+                <RefreshCw size={11} className="animate-spin text-[#004ac6]" />
                 Warming up
               </span>
             </div>
@@ -508,7 +489,7 @@ export default function Dashboard() {
 
           {/* Center Metric */}
           <div className="flex items-baseline gap-2">
-            <span className="text-[56px] font-bold text-[#505f76]/40 leading-none tabular-nums">
+            <span className="text-[56px] font-normal text-[#505f76]/40 leading-none">
               --
             </span>
             <span className="text-[20px] font-semibold text-[#505f76]/40">ppm</span>
@@ -517,7 +498,7 @@ export default function Dashboard() {
           {/* Bottom Descriptor */}
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#F59E0B] animate-pulse" />
-            <span className="text-[13px] text-[#505f76]">Sensor stabilising (45s)</span>
+            <span className="text-[14px] text-[#505f76]">Sensor stabilising (45s)</span>
           </div>
         </div>
       </section>
