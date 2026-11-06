@@ -553,6 +553,55 @@
 - `npm --prefix vocs-website/frontend run build`: สำเร็จใน 211ms (0 errors)
 - `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
 
+### สถานะ
+- [x] หน้าที่ 10/15: Air Quality Guide รองรับ TH/EN และ 3 บล็อก/โมดอลตรงตาม Stitch 100%
+- [x] หน้าที่ 11/15: Emissions (`/emissions`) ตรงตาม Stitch 100% รองรับ TH/EN สมบูรณ์
+- [ ] เตรียมต่อหน้าที่ 12/15: User Guide (`/user-guide`)
+
+---
+
+## 2026-11-07 04:30 — ปรับปรุงหน้า 11/15: Emissions (`/emissions`) ตรงตาม Stitch AI 100% พร้อมระบบสองภาษา TH/EN
+
+### สิ่งที่เปลี่ยน
+1. **หน้า 11/15: Emissions (`EmissionsReport.jsx`):**
+   - ส่วนหัวหน้า:
+     - แถบเตือน Advisory Banner: ข้อควรระวัง `Notice: E-Nose does not replace certified stack CEMS` พร้อมป้ายกำกับ `Advisory Only`
+     - หัวเรื่องหลัก: `EPA Title V Overview · Q3 Rolling Assessment`
+     - เมนูเลือกปีงบประมาณ: `Year: 2024 (Current)`, 2023 (Archived), 2022 (Archived)
+     - ปุ่มส่งออกรายงาน: `Export PCD audit report` (ส่งออกไฟล์ CSV สรุปการตรวจสอบและสัดส่วนสาร พร้อมข้อความแจ้งเตือน Toast)
+   - แถบนำทาง 4 แท็บตรงตาม Stitch 100%:
+     - **แท็บ 1: Overview (ภาพรวม):**
+       - **การ์ดที่ 1 (Regulatory Compliance Gauge Card):**
+         - ป้ายสถานะ `Compliant` พร้อมจุดกะพริบ
+         - ตัวเลขสรุปความสอดคล้อง `42% below legal threshold limit`
+         - แถบวัดพร้อมหมุดชี้ระดับที่ 58% (ช่วง 0 ถึง 100 ppm, ป้ายกำกับ Cap: 100 ppm, Current: 58 ppm)
+         - แถบแสดงปริมาณมวลรวมรายปี: `Annual VOC emissions 8,400 kg of 14,500 kg legal limit` (ป้ายกำกับ 57.9% of limit)
+       - **การ์ดที่ 2 (VOC Emissions by Solvent):**
+         - สลับมุมมองได้ทั้งแบบกราฟแท่ง `Bar Chart` และตารางแจกแจง `View solvent breakdown`
+         - มุมมอง Bar Chart: แสดงสัดส่วน Toluene (14.2 ppm / 56.8%), Xylene (9.8 ppm / 39.2%), Ethyl Acetate (18.5 ppm / 74%), MEK (15.5 ppm / 62%) พร้อมสเกล 0 ถึง 30 ppm Safe Ceiling
+         - มุมมอง Table: ตารางคอลัมน์ Solvent, Concentration mg/m³, Rate kg/hr, Share % พร้อมเชิงอรรถอ้างอิงเกณฑ์ EPA CEMS และปุ่มกดย้อนกลับไป Bar Chart
+     - **แท็บ 2: Inputs & Methodology (ปัจจัยนำเข้าและวิธีคำนวณ):**
+       - การ์ดพารามิเตอร์นำเข้า: Flow rate (42,000 m³/h), Operating hours (3,840 hrs/yr), Stack selector (Stack 01 Main Exhaust / Stack 02 Curing Oven), หมายเหตุ `Enter manually, PLC later`
+       - การ์ดสูตรการคำนวณ: วิธีมาตรฐาน EPA Title V Standard Method, สูตรคำนวณ `Mass (kg/yr) = Conc × Flow × Hours ÷ 1,000,000`, และค่าตัวอย่างจริง `8,400 kg/yr = 52.1 mg/m³ × 42,000 m³/h × 3,840 h ÷ 1,000,000`
+     - **แท็บ 3: Solvent Breakdown (จำแนกตามสารทำละลาย):**
+       - แสดงการ์ด VOC Emissions by Solvent โดยตรงพร้อมฟังก์ชันสลับกราฟ/ตาราง
+     - **แท็บ 4: Lab Reports (รายงานผลแล็บ):**
+       - รายการเอกสารผลตรวจแล็บที่ได้รับรอง: `Q3_Stack_Isokinetic_Lab_Analysis.pdf` (2.4 MB, ผ่านการรับรอง) และ `VOC_Speciation_GCMS_Report_Aug.pdf` (1.8 MB, ผ่านการรับรอง)
+       - ปุ่มเปิดดูตัวอย่างเอกสาร (View report) ผ่านโมดอล และปุ่มดาวน์โหลดเอกสาร (Download PDF)
+       - ปุ่ม `Upload PDF` พร้อมโมดอลอัปโหลดเอกสารใหม่และบันทึกเข้าสู่รายการทันที
+
+2. **ระบบสองภาษา (`LanguageContext.jsx`):**
+   - เพิ่มชุดคำศัพท์ภาษาไทยล้วน (สละสลวยทางวิศวกรรมสิ่งแวดล้อมและมาตรวิทยา PCD) และภาษาอังกฤษแท้ตรงตาม Stitch AI ทุกปุ่ม ฟิลด์ และคำอธิบาย
+
+### การตรวจสอบ
+- `npm --prefix vocs-website/frontend run build`: สำเร็จใน 229ms (0 errors)
+- `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
+
+### สถานะ
+- [x] หน้าที่ 11/15: Emissions (`/emissions`) รองรับ TH/EN และ 4 แท็บตรงตาม Stitch 100%
+- [ ] หน้าถัดไป: หน้าที่ 12/15: User Guide (`/user-guide`)
+
+
 
 
 
