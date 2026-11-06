@@ -326,6 +326,37 @@
 ### สถานะ
 - [x] หน้าที่ 2/15: Kiosk ปรับปรุงตรงตามต้นแบบ `kiosk_multi_state_4_gauges` 100% พร้อมส่งมอบให้ผู้ใช้ตรวจสอบ
 
+---
+
+## 2026-11-07 03:34 — ตรวจสอบความครบถ้วนทั้งระบบ (Full Audit) และปรับปรุงหน้า 4: Airflow (`/airflow`) ให้ตรงตาม Stitch 100%
+
+### สิ่งที่เปลี่ยน
+1. **`pages/AirflowDiagram.jsx` (หน้าที่ 4/15):**
+   - ปรับแต่งให้ตรงกับ `airflow_telemetry_drawer_pathway_details` และ `airflow_sensor_box_telemetry` 1:1
+   - **Exhaust Stack Popover**: เพิ่ม Floating Badge เหนือปล่องไอเสีย แสดงค่า `Stack output: 14 ppb` พร้อมปุ่มปิด `×` และไฟกระพริบ
+   - **Duct Info Dots**: เพิ่มจุด Info Interactive `i` 3 จุดบนท่อส่งลม:
+     - จุดที่ 1 (24.5%): แสดง Tooltip `Velocity 18.4 m/s`
+     - จุดที่ 2 (50.0%): แสดง Tooltip `Scrubber inlet: Transit Line A stable`
+     - จุดที่ 3 (75.5%): แสดง Tooltip `Exhaust transfer: VOC filter active`
+   - **Carbon Scrubber Telemetry Drawer**:
+     - เพิ่มสถานะ Active Inspection พร้อมขอบไฮไลท์ `ring-2 ring-primary` เมื่อเปิด Drawer
+     - ปรับโครงสร้างเนื้อหา Drawer ด้านในเป็น 3 BIG NUMBERS ขนาด 54px สะอาดตาตามต้นแบบ Stitch:
+       1. `Differential pressure`: **312 Pa** (Nominal resistance)
+       2. `Efficiency`: **94.2 %** (Hydrocarbon adsorption yield)
+       3. `Filter life`: **42 %** (1,280 operating hours remaining)
+     - Footer แสดง `Updated 3s ago` พร้อมปุ่ม Dismiss
+   - เพิ่ม Keyframe Animation `@keyframes airflowFlow` และ `.airflow-pulse` ให้ท่อลมไหลอย่างนุ่มนวล
+
+2. **Full System Audit Report**:
+   - ตรวจสอบทั้ง 15 หน้าหลัก และ Sub-states ทั้งหมด เทียบกับโฟลเดอร์ Stitch AI (`stitch_air_quality_minimal_dashboard/`)
+   - ยืนยันความพร้อมของ Core SCADA / Safety logic (OSHA / ISO 16000 / PCD Standards)
+
+### การตรวจสอบ
+- `npm --prefix vocs-website/frontend run build`: สำเร็จใน 218ms (0 errors)
+- `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
+- บันทึกการเปลี่ยนแปลงใน Git และผลักขึ้นทั้ง 2 remotes (GitLab `origin` และ GitHub `github`)
+
+
 
 
 
