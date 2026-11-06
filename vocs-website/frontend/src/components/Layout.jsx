@@ -4,7 +4,7 @@ import {
   Activity, Bell, Settings, LayoutDashboard, Box, Database, Wind, BookOpen, CalendarDays,
   X, Volume2, VolumeX, ShieldAlert, AlertTriangle, Info, Wrench,
   User, LogOut, Monitor, Factory, Menu, ShieldCheck, HardHat, FileSearch,
-  CheckCircle2, Radio, Layers
+  CheckCircle2, Radio, Layers, MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -16,6 +16,7 @@ export default function Layout({ children }) {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [soundActive, setSoundActive] = useState(() => isSoundEnabled());
+  const [lang, setLang] = useState('EN');
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
   const [criticalBannerAlert, setCriticalBannerAlert] = useState(null);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
@@ -161,23 +162,8 @@ export default function Layout({ children }) {
         )}
       </div>
 
-      {/* Role Pill under Brand */}
-      <div className="px-4 pt-3 pb-1">
-        <span
-          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide uppercase"
-          style={{
-            backgroundColor: activeRoleBadge.bg,
-            color: activeRoleBadge.color,
-            border: `1px solid ${activeRoleBadge.border}`,
-          }}
-        >
-          <RoleIcon size={12} />
-          {activeRoleBadge.label}
-        </span>
-      </div>
-
       {/* Navigation Items (Scrollable) */}
-      <nav className="flex-1 overflow-y-auto px-2.5 py-2 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-0.5">
         {navItems.map((item, idx) => {
           const prevItem = navItems[idx - 1];
           const showMoreHeader = item.isMore && (!prevItem || !prevItem.isMore);
@@ -217,35 +203,60 @@ export default function Layout({ children }) {
         })}
       </nav>
 
-      {/* Bottom User Profile Card */}
-      {user && (
-        <div className="p-3 border-t border-[#e2e8f0] bg-[#faf8ff] shrink-0">
-          <div className="p-2 rounded-xl bg-white border border-[#e2e8f0] flex items-center justify-between shadow-xs">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-[#004ac6] text-white flex items-center justify-center text-[12px] font-bold shrink-0">
-                {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[12px] font-semibold text-[#131b2e] truncate leading-tight">
-                  {user.full_name || user.username}
-                </span>
-                <span className="text-[10px] text-[#64748b] truncate leading-tight">
-                  {user.site || 'Main Plant'} • {user.role}
-                </span>
-              </div>
-            </div>
+      {/* Bottom User Profile Card matching Stitch dashboard_2 1:1 */}
+      <div className="p-3 border-t border-[#eaedff] flex items-center justify-between shrink-0 relative">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-full bg-[#004ac6] text-white flex items-center justify-center shrink-0">
+            <User size={18} />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-[13px] font-medium text-[#131b2e] truncate leading-tight">
+              {user?.full_name || 'E. Mitchell'}
+            </span>
+            <span className="text-[11px] text-[#505f76] truncate leading-none mt-0.5">
+              {user?.role === 'admin' ? 'H&S Officer' : (user?.role || 'H&S Officer')}
+            </span>
+          </div>
+        </div>
 
+        <button
+          type="button"
+          onClick={() => setShowUserMenu(prev => !prev)}
+          className="text-[#505f76] hover:text-[#131b2e] p-1.5 rounded-lg hover:bg-[#eaedff]/50 transition-colors"
+          title="User settings"
+        >
+          <MoreVertical size={18} />
+        </button>
+
+        {/* User Context Dropdown */}
+        {showUserMenu && (
+          <div className="absolute bottom-14 left-2 right-2 bg-white rounded-2xl shadow-xl border border-[#e2e8f0] p-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <div className="px-3 py-2 border-b border-[#f1f5f9] mb-1">
+              <p className="text-[12px] font-semibold text-[#131b2e]">{user?.full_name || 'E. Mitchell'}</p>
+              <p className="text-[10px] text-[#64748b]">{user?.site || 'Main Plant'} • {user?.role || 'H&S Officer'}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const next = toggleSoundEnabled();
+                setSoundActive(next);
+              }}
+              className="w-full px-3 py-2 text-left text-[12px] text-[#131b2e] hover:bg-[#f8fafc] rounded-lg flex items-center justify-between"
+            >
+              <span>Sound Notifications</span>
+              {soundActive ? <Volume2 size={15} className="text-[#059669]" /> : <VolumeX size={15} className="text-[#64748b]" />}
+            </button>
             <button
               type="button"
               onClick={() => logout()}
-              title="ออกจากระบบ"
-              className="p-1.5 rounded-lg text-[#64748b] hover:text-[#ba1a1a] hover:bg-[#ffdad6]/40 transition-colors"
+              className="w-full px-3 py-2 text-left text-[12px] text-[#ba1a1a] hover:bg-[#ffdad6]/30 rounded-lg flex items-center gap-2 mt-1"
             >
-              <LogOut size={16} />
+              <LogOut size={15} />
+              <span>Log out</span>
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 
@@ -327,80 +338,59 @@ export default function Layout({ children }) {
             </div>
           </div>
 
-          {/* Right: Sound Toggle + Alert Bell + User Menu */}
-          <div className="flex items-center gap-3">
-            {/* Audio Toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                const next = toggleSoundEnabled();
-                setSoundActive(next);
-              }}
-              title={soundActive ? 'คลิกเพื่อปิดเสียงแจ้งเตือน' : 'คลิกเพื่อเปิดเสียงแจ้งเตือน'}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[12px] font-semibold transition-all ${
-                soundActive
-                  ? 'bg-[#ecfdf5] border-[#a7f3d0] text-[#059669]'
-                  : 'bg-white border-[#e2e8f0] text-[#64748b] hover:bg-[#f8fafc]'
-              }`}
-            >
-              {soundActive ? <Volume2 size={16} /> : <VolumeX size={16} />}
-              <span className="hidden md:inline">{soundActive ? 'เสียงเปิด' : 'เสียงปิด'}</span>
-            </button>
+          {/* Right: Updated time + Language toggle + Bell + User Avatar */}
+          <div className="flex items-center gap-4">
+            {/* Real-time Update indicator + TH/EN toggle matching Stitch dashboard_2 */}
+            <div className="hidden sm:flex items-center gap-2.5">
+              <span className="text-[12px] font-medium text-[#505f76] select-none">
+                Updated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+              </span>
+              <div className="flex items-center p-0.5 bg-[#eaedff] rounded-full text-[11px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setLang('TH')}
+                  className={`px-2 py-0.5 rounded-full transition-colors ${
+                    lang === 'TH'
+                      ? 'bg-white text-[#004ac6] shadow-xs'
+                      : 'text-[#505f76] hover:text-[#131b2e]'
+                  }`}
+                >
+                  TH
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLang('EN')}
+                  className={`px-2 py-0.5 rounded-full transition-colors ${
+                    lang === 'EN'
+                      ? 'bg-white text-[#004ac6] shadow-xs'
+                      : 'text-[#505f76] hover:text-[#131b2e]'
+                  }`}
+                >
+                  EN
+                </button>
+              </div>
+            </div>
 
-            {/* Alerts Bell */}
+            {/* Notifications Bell */}
             <Link
               to="/alerts"
-              title="ดูรายการแจ้งเตือนทั้งหมด"
-              className="relative p-2 rounded-xl text-[#64748b] hover:text-[#131b2e] hover:bg-[#f8fafc] border border-[#e2e8f0] transition-colors"
+              title="Notifications"
+              className="relative p-2 rounded-full hover:bg-[#eaedff] text-[#505f76] hover:text-[#131b2e] transition-colors flex items-center justify-center"
             >
-              <Bell size={18} />
+              <Bell size={20} />
               {activeAlertsCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#ba1a1a] text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
-                  {activeAlertsCount}
-                </span>
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#ba1a1a]" />
               )}
             </Link>
 
-            {/* User Profile dropdown */}
-            {user && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 p-1.5 rounded-xl border border-[#e2e8f0] hover:bg-[#f8fafc] transition-colors"
-                >
-                  <div className="w-7 h-7 rounded-full bg-[#004ac6] text-white flex items-center justify-center text-[12px] font-bold">
-                    {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
-                  </div>
-                  <span className="hidden sm:inline text-[13px] font-medium text-[#131b2e] max-w-[100px] truncate">
-                    {user.username}
-                  </span>
-                </button>
-
-                {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-[#e2e8f0] shadow-xl p-3 z-50 animate-fadeIn">
-                    <div className="pb-2 border-b border-[#f1f5f9] mb-2">
-                      <div className="text-[13px] font-semibold text-[#131b2e]">
-                        {user.full_name || user.username}
-                      </div>
-                      <div className="text-[11px] text-[#64748b]">
-                        @{user.username} • {user.role}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        logout();
-                        setShowUserMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-semibold text-[#ba1a1a] bg-[#ffdad6]/30 hover:bg-[#ffdad6]/60 transition-colors"
-                    >
-                      <LogOut size={14} /> ออกจากระบบ
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* User Profile Avatar */}
+            <div
+              onClick={() => setShowUserMenu(prev => !prev)}
+              className="w-8 h-8 rounded-full bg-[#004ac6] flex items-center justify-center text-white cursor-pointer hover:opacity-90 transition-opacity"
+              title={user?.full_name || 'E. Mitchell'}
+            >
+              <User size={18} />
+            </div>
           </div>
         </header>
 

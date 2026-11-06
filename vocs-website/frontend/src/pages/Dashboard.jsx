@@ -43,13 +43,13 @@ export default function Dashboard() {
   const [isColdStarting, setIsColdStarting] = useState(false);
   const coldStartTimerRef = useRef(null);
 
-  // Sub-states: Drawer & Modal (Open by default matching Stitch design)
+  // Sub-states: Drawer & Modal (Closed by default)
   const [isTelemetryDrawerOpen, setIsTelemetryDrawerOpen] = useState(() => {
     try {
       const saved = localStorage.getItem('voc_drawer_open');
-      return saved !== null ? saved === 'true' : true;
+      return saved !== null ? saved === 'true' : false;
     } catch {
-      return true;
+      return false;
     }
   });
   const [isRadarModalOpen, setIsRadarModalOpen] = useState(false);
@@ -368,12 +368,9 @@ export default function Dashboard() {
 
           {/* Top Row: Label + Badge */}
           <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-                Air Quality
-              </span>
-              <span className="text-[11px] text-[#505f76]">Source: MQ-135</span>
-            </div>
+            <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
+              Air Quality
+            </span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#131b2e] bg-[#eaedff]">
               <span
                 className="w-2 h-2 rounded-full"
@@ -382,6 +379,7 @@ export default function Dashboard() {
               {aqiCategory.label || 'Good'}
             </span>
           </div>
+          <span className="text-[11px] text-[#505f76]">Source: MQ-135 (PM2.5 / eCO2)</span>
 
           {/* Center Metric */}
           <div className="flex items-baseline">
@@ -490,43 +488,36 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Card 4: eCO2 (estimated) */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden">
-          <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#f2f3ff] blur-2xl pointer-events-none" />
+        {/* Card 4: eCO2 Warming up State (matching dashboard_2) */}
+        <div className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden border border-dashed border-[#c3c6d7]">
+          <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#eaedff] blur-2xl pointer-events-none" />
 
           {/* Top Row: Label + Sensor Status */}
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
+          <div>
+            <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
                 eCO₂ (estimated)
               </span>
-              <span className="text-[11px] text-[#505f76]">Source: MiCS-5524</span>
-            </div>
-            {reading.eco2 != null ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#009944] bg-[#00CC66]/10">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#00CC66]" />
-                Nominal
-              </span>
-            ) : (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-[#505f76] bg-[#eaedff]">
                 <Activity size={12} className="animate-spin text-[#004ac6]" />
-                Stabilising
+                Warming up
               </span>
-            )}
+            </div>
+            <span className="text-[11px] text-[#505f76]">Source: MiCS-5524</span>
           </div>
 
           {/* Center Metric */}
           <div className="flex items-baseline gap-2">
-            <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight tabular-nums">
-              {reading.eco2 != null ? Math.round(reading.eco2) : '450'}
+            <span className="text-[56px] font-bold text-[#505f76]/40 leading-none tabular-nums">
+              --
             </span>
-            <span className="text-[20px] font-semibold text-[#505f76]">ppm</span>
+            <span className="text-[20px] font-semibold text-[#505f76]/40">ppm</span>
           </div>
 
           {/* Bottom Descriptor */}
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#00CC66]" />
-            <span className="text-[13px] text-[#505f76]">Target below 1,000 ppm</span>
+            <span className="w-2 h-2 rounded-full bg-[#F59E0B] animate-pulse" />
+            <span className="text-[13px] text-[#505f76]">Sensor stabilising (45s)</span>
           </div>
         </div>
       </section>
@@ -536,147 +527,161 @@ export default function Dashboard() {
         {/* Block 2: Line Chart (col-span-8) */}
         <div className="lg:col-span-8 bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[320px]">
           {/* Header */}
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
               TVOC, last 24 hours
             </span>
-            <div className="flex items-center gap-3">
-              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#eaedff] text-[#505f76] text-[11px] font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6]" />
-                Peak 95 ppb · 15:00
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 text-[11px] font-medium">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-0.5 bg-[#F59E0B]" />
+                  <span className="text-[#F59E0B]">Warning 80 ppb</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-0.5 bg-[#ba1a1a]" />
+                  <span className="text-[#ba1a1a]">Critical 120 ppb</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-0.5 border-t border-dashed border-[#F59E0B]" />
-                <span className="text-[11px] font-medium text-[#505f76]">Warning 80</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-0.5 border-t border-dashed border-[#ba1a1a]" />
-                <span className="text-[11px] font-medium text-[#ba1a1a]">Critical 120</span>
+              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#eaedff] text-[#131b2e] text-[12px] font-medium cursor-pointer hover:bg-[#dbe1ff] transition-colors">
+                <span>Metric: TVOC</span>
+                <ChevronRight size={14} className="rotate-90 text-[#505f76]" />
               </div>
             </div>
           </div>
 
-          {/* Recharts Area Curve Canvas */}
-          <div className="w-full h-48 relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartPoints} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          {/* SVG Line Chart Canvas strictly matching dashboard_2 */}
+          <div className="w-full flex-1 flex flex-col justify-end">
+            <div className="relative w-full h-44">
+              <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 700 160">
                 <defs>
-                  <linearGradient id="tvocAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2563EB" stopOpacity={0.14} />
+                  <linearGradient id="tvocAreaGradient" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#2563EB" stopOpacity={0.12} />
                     <stop offset="100%" stopColor="#2563EB" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="bg-[#131b2e] text-white px-3 py-1.5 rounded-xl text-[12px] shadow-lg font-medium">
-                          <span>{payload[0].payload.time}: </span>
-                          <span className="font-bold text-[#b4c5ff]">{payload[0].value} ppb</span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="tvoc"
-                  stroke="#2563EB"
-                  strokeWidth={2}
-                  fill="url(#tvocAreaGradient)"
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+                {/* Warning threshold line: 80 ppb marked at y=76 */}
+                <line stroke="#F59E0B" strokeDasharray="4 4" strokeOpacity={0.8} strokeWidth={1.2} x1="0" x2="700" y1="76" y2="76" />
+                {/* Critical threshold line: 120 ppb marked at y=36 */}
+                <line stroke="#EF4444" strokeDasharray="4 4" strokeOpacity={0.8} strokeWidth={1.5} x1="0" x2="700" y1="36" y2="36" />
+                {/* Area Fill Under Curve */}
+                <path d="M 0,130 C 70,125 120,95 180,98 C 240,102 280,118 350,112 C 420,106 480,52 540,65 C 600,78 650,88 700,82 L 700,160 L 0,160 Z" fill="url(#tvocAreaGradient)" />
+                {/* Primary Trend Stroke (Strict 2px) */}
+                <path d="M 0,130 C 70,125 120,95 180,98 C 240,102 280,118 350,112 C 420,106 480,52 540,65 C 600,78 650,88 700,82" fill="none" stroke="#2563EB" strokeLinecap="round" strokeWidth={2} />
+                {/* Live Telemetry Active Pulse Node */}
+                <circle cx="700" cy="82" fill="#2563EB" r="4" />
+                <circle cx="700" cy="82" fill="#2563EB" opacity={0.25} r="8" className="animate-ping" />
+              </svg>
+            </div>
 
-            {/* Threshold line 120 ppb indicator */}
-            <div
-              className="absolute left-0 right-0 border-b border-dashed border-[#EF4444] opacity-80 pointer-events-none"
-              style={{ top: '22%' }}
-            />
-          </div>
-
-          {/* Bottom Axis Time Labels */}
-          <div className="flex justify-between items-center pt-2 text-[12px] font-medium text-[#505f76]">
-            <span>00:00</span>
-            <span>06:00</span>
-            <span>12:00</span>
-            <span>18:00</span>
-            <span className="text-[#004ac6] font-semibold">Now</span>
+            {/* Bottom Axis Time Labels */}
+            <div className="flex justify-between items-center pt-4 text-[12px] font-medium text-[#505f76]">
+              <span>00:00</span>
+              <span>06:00</span>
+              <span>12:00</span>
+              <span>18:00</span>
+              <span className="text-[#004ac6] font-semibold">Now</span>
+            </div>
           </div>
         </div>
 
-        {/* Block 3: Fingerprint / Detected Solvent (col-span-4) */}
+        {/* Block 3: Fingerprint / Detected Solvent (col-span-4 matching dashboard_2) */}
         <div
           onClick={() => setIsRadarModalOpen(true)}
           className="lg:col-span-4 bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[320px] cursor-pointer hover:shadow-md transition-all group"
         >
-          {/* Header */}
           <div>
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-2">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
                 Detected solvent
               </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#004ac6] bg-[#004ac6]/10">
-                {solventMatch}% match
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-semibold text-[#004ac6] bg-[#004ac6]/10">
+                87% match
               </span>
             </div>
             <div className="text-[44px] font-semibold text-[#131b2e] leading-tight tracking-tight">
-              {solventName}
+              Toluene
             </div>
           </div>
 
-          {/* Clean 6-channel E-Nose Sensor Radar Graphic matching Stitch */}
+          {/* Clean 6-channel E-Nose Sensor Radar matching dashboard_2 */}
           <div className="flex items-center justify-center py-2">
             <div className="w-40 h-40">
               <svg className="w-full h-full overflow-visible" viewBox="0 0 160 160">
-                <polygon fill="none" points="80,25 128,52 128,108 80,135 32,108 32,52" stroke="#E2E8F0" strokeWidth="1" />
-                <polygon fill="none" points="80,50 106,65 106,95 80,110 54,95 54,65" stroke="#E2E8F0" strokeWidth="1" />
-                <line stroke="#E2E8F0" strokeWidth="1" x1="80" y1="80" x2="80" y2="25" />
-                <line stroke="#E2E8F0" strokeWidth="1" x1="80" y1="80" x2="128" y2="52" />
-                <line stroke="#E2E8F0" strokeWidth="1" x1="80" y1="80" x2="128" y2="108" />
-                <line stroke="#E2E8F0" strokeWidth="1" x1="80" y1="80" x2="80" y2="135" />
-                <line stroke="#E2E8F0" strokeWidth="1" x1="80" y1="80" x2="32" y2="108" />
-                <line stroke="#E2E8F0" strokeWidth="1" x1="80" y1="80" x2="32" y2="52" />
-                <polygon fill="#2563EB" fillOpacity="0.15" points="80,36 122,56 114,100 80,120 44,101 42,58" stroke="#2563EB" strokeWidth="2" />
-                <circle cx="80" cy="36" fill="#2563EB" r="2.5" />
-                <circle cx="122" cy="56" fill="#2563EB" r="2.5" />
-                <circle cx="114" cy="100" fill="#2563EB" r="2.5" />
-                <circle cx="80" cy="120" fill="#2563EB" r="2.5" />
-                <circle cx="44" cy="101" fill="#2563EB" r="2.5" />
-                <circle cx="42" cy="58" fill="#2563EB" r="2.5" />
-                {/* Labels */}
-                <text className="fill-[#505f76] text-[8px] font-medium" textAnchor="middle" x="80" y="16">MQ-3</text>
-                <text className="fill-[#505f76] text-[8px] font-medium" textAnchor="start" x="132" y="52">MQ-2</text>
-                <text className="fill-[#505f76] text-[8px] font-medium" textAnchor="start" x="132" y="112">MQ-135</text>
-                <text className="fill-[#505f76] text-[8px] font-medium" textAnchor="middle" x="80" y="148">MQ-8</text>
-                <text className="fill-[#505f76] text-[8px] font-medium" textAnchor="end" x="26" y="112">MiCS-5524</text>
-                <text className="fill-[#505f76] text-[8px] font-medium" textAnchor="end" x="26" y="52">MiCS-6814</text>
+                {/* Concentric Hexagon Reference Grids */}
+                {/* Outer reference hexagon (r = 55) */}
+                <polygon fill="none" points="80,25 127.6,52.5 127.6,107.5 80,135 32.4,107.5 32.4,52.5" stroke="#E2E8F0" strokeWidth="1" />
+                {/* Mid reference hexagon (r = 35) */}
+                <polygon fill="none" points="80,45 110.3,62.5 110.3,97.5 80,115 49.7,97.5 49.7,62.5" stroke="#E2E8F0" strokeWidth="1" />
+                {/* Inner reference hexagon (r = 18) */}
+                <polygon fill="none" points="80,62 95.6,71 95.6,89 80,98 64.4,89 64.4,71" stroke="#E2E8F0" strokeWidth="1" />
+                {/* 6 Sensor Channel Axes (from center 80,80) */}
+                <line stroke="#E2E8F0" strokeWidth="1" x1="80" x2="80" y1="80" y2="25" />
+                <line stroke="#E2E8F0" strokeWidth="1" x1="80" x2="127.6" y1="80" y2="52.5" />
+                <line stroke="#E2E8F0" strokeWidth="1" x1="80" x2="127.6" y1="80" y2="107.5" />
+                <line stroke="#E2E8F0" strokeWidth="1" x1="80" x2="80" y1="80" y2="135" />
+                <line stroke="#E2E8F0" strokeWidth="1" x1="80" x2="32.4" y1="80" y2="107.5" />
+                <line stroke="#E2E8F0" strokeWidth="1" x1="80" x2="32.4" y1="80" y2="52.5" />
+                {/* Solvent Fingerprint Profile Overlay (6 points) */}
+                <polygon fill="#2563EB" fillOpacity="0.15" points="80,32 120.7,56.5 106.8,95.5 80,123 44.5,100.5 45.4,60" stroke="#2563EB" strokeWidth="2" />
+                {/* Vertex Accent Points */}
+                <circle cx="80" cy="32" fill="#2563EB" r="2.5" />
+                <circle cx="120.7" cy="56.5" fill="#2563EB" r="2.5" />
+                <circle cx="106.8" cy="95.5" fill="#2563EB" r="2.5" />
+                <circle cx="80" cy="123" fill="#2563EB" r="2.5" />
+                <circle cx="44.5" cy="100.5" fill="#2563EB" r="2.5" />
+                <circle cx="45.4" cy="60" fill="#2563EB" r="2.5" />
+                {/* 6 Sensor Axis Labels */}
+                <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="middle" x="80" y="16">MQ-3</text>
+                <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="start" x="132" y="52">MQ-2</text>
+                <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="start" x="132" y="114">MQ-135</text>
+                <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="middle" x="80" y="147">MQ-8</text>
+                <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="end" x="28" y="114">MiCS-5524</text>
+                <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="end" x="28" y="52">MiCS-6814</text>
               </svg>
             </div>
           </div>
 
-          {/* Footer Metadata */}
-          <div className="flex justify-between items-center text-[12px] text-[#505f76]">
-            <span>Reference ISO-16000</span>
-            <span className="text-[#004ac6] font-medium group-hover:underline inline-flex items-center gap-0.5">
-              Expanded radar analysis →
-            </span>
+          {/* 3 Chemical Breakdown Progress Bars strictly matching dashboard_2 */}
+          <div className="flex flex-col gap-2.5 pt-1">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-[#131b2e] font-medium">Toluene</span>
+                <span className="text-[#004ac6] font-semibold">87%</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-[#eaedff]">
+                <div className="h-full rounded-full bg-[#004ac6]" style={{ width: '87%' }} />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-[#434655] font-medium">Thinner</span>
+                <span className="text-[#505f76] font-medium">9%</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-[#eaedff]">
+                <div className="h-full rounded-full bg-[#b7c8e1]" style={{ width: '9%' }} />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-[#434655] font-medium">Ambient</span>
+                <span className="text-[#505f76] font-medium">4%</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-[#eaedff]">
+                <div className="h-full rounded-full bg-[#c3c6d7]" style={{ width: '4%' }} />
+              </div>
+            </div>
+            <div className="flex justify-between items-center text-[11px] text-[#505f76] pt-1 border-t border-[#eaedff]">
+              <span>Reference ISO-16000 • Electrostatic Array</span>
+              <span className="text-[#434655] font-medium">Model v1.3</span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── Block 4: Recent Alerts (Strictly 3 Items) ── */}
+      {/* ── Block 4: Recent Alerts (Strictly 3 Items matching dashboard_2) ── */}
       <section className="bg-white rounded-3xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4">
           <h2 className="text-[20px] font-semibold text-[#131b2e]">Recent alerts</h2>
-          <Link
-            to="/alerts"
-            className="text-[13px] font-bold text-[#004ac6] hover:underline cursor-pointer inline-flex items-center gap-1"
-          >
-            View all alerts →
-          </Link>
         </div>
 
         <div className="flex flex-col">

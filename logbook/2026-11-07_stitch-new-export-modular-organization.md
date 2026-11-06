@@ -166,6 +166,49 @@
 - Linter: `npm run lint` ผ่าน (0 errors)
 - Vite Production Build: `npm run build` ผ่าน 100% (242ms)
 
+### สถานะ
+- [x] ปรับแต่งแถบแจ้งเตือนด้านบนตามเงื่อนไขเฉพาะเมื่อมีเตือนเสร็จเรียบร้อย
+
+---
+
+## 2026-11-07 02:50 — ปรับปรุง Dashboard & Layout ตรงตาม dashboard_2 แบบ 1:1 และเตรียม Deploy ขึ้น Vercel
+
+### สิ่งที่เปลี่ยน
+1. **Card 4 (eCO2 estimated):**
+   - เปลี่ยนเป็นกรอบเส้นประ (`border border-dashed border-[#c3c6d7]`)
+   - ป้ายสถานะ `Warming up` พร้อมไอคอน Spinner หมุน
+   - ค่าตัวเลข `-- ppm`
+   - จุดกะพริบสีส้มและคำอธิบาย `Sensor stabilising (45s)`
+2. **Block 2 (TVOC 24-Hour Trend Line):**
+   - ใช้งาน SVG Curve เรียบเนียนคมชัด 100% ตรงตามแบบของ `dashboard_2/code.html`
+   - เส้นประเกณฑ์เตือน Warning 80 ppb (สีส้ม) และ Critical 120 ppb (สีแดง)
+   - Pill ตัวเลือก `Metric: TVOC`
+   - ป้ายแกนเวลา: `00:00`, `06:00`, `12:00`, `18:00`, `Now` (พร้อมจุดกะพริบ Active Telemetry)
+3. **Block 3 (Detected Solvent & Chemical Fingerprint):**
+   - ป้ายคะแนนความแม่นยำ `87% match`
+   - ชื่อสารตัวโต `Toluene`
+   - กราฟเรดาร์ 6 แชนแนล (`MQ-3`, `MQ-2`, `MQ-135`, `MQ-8`, `MiCS-5524`, `MiCS-6814`)
+   - แถบความเข้มข้น 3 สารเคมี:
+     - `Toluene` 87% (แถบน้ำเงิน)
+     - `Thinner` 9% (แถบสีฟ้าอมเทา)
+     - `Ambient` 4% (แถบสีเทาอ่อน)
+   - ข้อความกำกับด้านล่าง: `Reference ISO-16000 • Electrostatic Array` ทางซ้าย และ `Model v1.3` ทางขวา
+4. **Layout (Sidebar & Header):**
+   - ปรับส่วนหัวด้านขวา: แสดงเวลาเรียลไทม์ `Updated HH:MM:SS`, เมนูสลับภาษา `TH | EN`, กระดิ่งแจ้งเตือนพร้อมจุดแดง, Avatar สีน้ำเงิน
+   - ลบปุ่มเสียงสีเขียวขนาดใหญ่และป้าย ADMIN VIEW ที่รกตาออก โดยย้ายตัวตั้งค่าเสียงและการออกจากระบบไปไว้ในเมนูโปรไฟล์ 3 จุดอย่างเป็นระเบียบ
+   - ส่วนล่างของ Sidebar: การ์ดโปรไฟล์แสดงชื่อ `E. Mitchell` และตำแหน่ง `H&S Officer` พร้อมปุ่มจุดไข่ปลา `more_vert` ตรงตาม `dashboard_2/screen.png`
+   - แถบเตือนสีแดงด้านบนสุด (`TVOC above critical limit in Booth 1 | View alert`) จะปรากฏเฉพาะเมื่อมีเหตุการณ์ Active Alerts เท่านั้น
+5. **Telemetry Drawer:**
+   - ตั้งค่าเริ่มต้นให้ปิดไว้ (closed by default) เพื่อไม่ให้บดบังเนื้อหาหน้า Dashboard
+
+### การตรวจสอบ
+- Linter: `npm run lint` ผ่าน (0 errors)
+- Vite Production Build: `npm run build` ผ่าน 100% (219ms, ขนาด bundle ลดลงเหลือ 554 kB)
+
+### สถานะ
+- [x] หน้าที่ 1/15: Dashboard ปรับปรุงตรงตามภาพ `dashboard_2/screen.png` 100% เรียบร้อยแล้ว พร้อมส่งมอบและผลักดันขึ้นเซิร์ฟเวอร์ Deploy
+
+
 
 
 
