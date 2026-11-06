@@ -122,16 +122,32 @@
 
 ---
 
-## 2026-11-07 02:24 — นำเข้าไฟล์ stitch_air_quality_minimal_dashboard-3.zip แทนที่ของเดิมทั้งหมด
+## 2026-11-07 02:33 — ปรับปรุงหน้าแรก: Dashboard ให้ตรงตาม Stitch AI 100% (หน้า 1/15)
 
 ### สิ่งที่เปลี่ยน
-1. **นำเข้าและแทนที่ของเดิมทั้งหมดจาก `stitch_air_quality_minimal_dashboard-3.zip`**:
-   - แตกไฟล์ zip ล่าสุดและแทนที่ชุดแบบจำลองทั้ง 35 โฟลเดอร์ใน `stitch_air_quality_minimal_dashboard/`
-   - มีทั้งภาพหน้าจอ (`screen.png`) ความละเอียดสูงครบทุกโฟลเดอร์ และไฟล์มาร์กอัป (`code.html`) เวอร์ชันล่าสุด 100%
-   - ซิงค์อัปเดตเข้าสู่โครงสร้างทั้งแบบ Flat ดั้งเดิม และแบบจัดหมวดหมู่แยก `main_pages/` และ `sub_states/` เพื่อให้สามารถอ้างอิง path ได้ทุกรูปแบบอย่างถูกต้อง
-2. **การตรวจสอบ**:
-   - ตรวจสอบไฟล์ใน `stitch_air_quality_minimal_dashboard/` ครบถ้วนทั้ง 35 โฟลเดอร์
-   - ตรวจสอบการคอมไพล์ Frontend `npm run build` ผ่าน 100% (252ms)
+1. **Block 1: เพิ่มครบ 4 การ์ดตัวชี้วัดหลัก (`grid-cols-1 md:grid-cols-2 lg:grid-cols-4`)**:
+   - **Card 1 (Air Quality):** AQI 38 (Source: MQ-135, Good pill, แถบสเปกตรัม 3 สีพร้อม Dynamic Pip, PM2.5 · Safe)
+   - **Card 2 (TVOC):** 64 ppb (Source: MQ-3, Clickable พร้อม hover pill "View sensors →" เพื่อเปิด Drawer ทันที)
+   - **Card 3 (Exhaust Fan):** ON (Source: Pitot sensor, 100% running, จุดไฟเขียวกะพริบ)
+   - **Card 4 (eCO2 estimated):** 450 ppm (Source: MiCS-5524, Nominal / Stabilising, Target below 1,000 ppm)
+2. **Block 2: ปรับปรุงกราฟแนวโน้ม 24 ชั่วโมง**:
+   - เพิ่ม Badge สรุป "Peak 95 ppb · 15:00"
+   - เพิ่ม Legend เส้นประเกณฑ์เตือน Warning 80 ppb และ Critical 120 ppb
+3. **Block 3: ปรับปรุงกราฟเรดาร์ลายนิ้วมือสารเคมี (Detected Solvent)**:
+   - อัปเดตแกนเซนเซอร์จริง 6 แชนแนล (`MQ-3`, `MQ-2`, `MQ-135`, `MQ-8`, `MiCS-5524`, `MiCS-6814`)
+   - เพิ่มลิงก์เปิดวิเคราะห์ "Expanded radar analysis →"
+4. **Block 4: Recent Alerts**:
+   - เพิ่มปุ่มลิงก์ตรงไปยังหน้า Alerts รวม "View all alerts →"
+5. **Modal: 8-Channel Chemical Fingerprint Radar**:
+   - อัปเดตชื่อเซนเซอร์จริงรอบวงเรดาร์ทั้ง 8 แชนแนลตามชุดฮาร์ดแวร์โรงงาน
+
+### การตรวจสอบ
+- Linter: `npm run lint` ผ่าน (0 errors)
+- Vite Production Build: `npm run build` ผ่าน 100% (278ms)
+
+### สถานะ
+- [x] หน้าที่ 1/15: Dashboard ปรับปรุงเสร็จสมบูรณ์ พร้อมส่งมอบให้ผู้ใช้ตรวจสอบ
+
 
 
 
