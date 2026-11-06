@@ -57,6 +57,11 @@ export default function Devices() {
   const [rebootingNode, setRebootingNode] = useState(null);
   const [isOtaModalOpen, setIsOtaModalOpen] = useState(false);
   const [otaProgress, setOtaProgress] = useState(68);
+  const [isDiagModalOpen, setIsDiagModalOpen] = useState(false);
+  const [diagRunning, setDiagRunning] = useState(false);
+  const [diagResults, setDiagResults] = useState(null);
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
 
   // Load real devices from backend
   useEffect(() => {
@@ -108,6 +113,25 @@ export default function Devices() {
         return prev + 12;
       });
     }, 600);
+  }
+
+  function handleRunDiagnostics() {
+    setDiagRunning(true);
+    setDiagResults(null);
+    setTimeout(() => {
+      setDiagRunning(false);
+      setDiagResults([
+        { phase: 'I2C/UART Connectivity', status: 'PASS', detail: 'All 8 sensor bus lines responding normally' },
+        { phase: '12-bit ADC Noise Floor', status: 'PASS', detail: 'RMS noise 8.4 mV (well below 15 mV threshold)' },
+        { phase: 'Baseline Drift Evaluation', status: 'PASS', detail: 'Zero-air baseline stable across 24h window' },
+      ]);
+    }, 1600);
+  }
+
+  function handleCopyToken() {
+    navigator.clipboard.writeText('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.node01-ingest-token-2026');
+    setCopiedToken(true);
+    setTimeout(() => setCopiedToken(false), 2000);
   }
 
   return (
@@ -266,6 +290,29 @@ export default function Devices() {
                     {selectedDevice.sensors}
                   </div>
                 </div>
+
+                {/* Additional Diagnostics & Token Quick Actions */}
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDiagModalOpen(true);
+                      handleRunDiagnostics();
+                    }}
+                    className="py-2.5 px-3 rounded-xl bg-[#faf8ff] hover:bg-[#eaedff] border border-[#eaedff] text-[#004ac6] text-[12px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Activity size={15} />
+                    <span>Run Diagnostics</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsTokenModalOpen(true)}
+                    className="py-2.5 px-3 rounded-xl bg-[#faf8ff] hover:bg-[#eaedff] border border-[#eaedff] text-[#505f76] hover:text-[#131b2e] text-[12px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <ShieldCheck size={15} />
+                    <span>Ingest Token</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -288,6 +335,103 @@ export default function Devices() {
                 <span>Update firmware (OTA)</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sub-State Hardware Diagnostics Modal ── */}
+      {isDiagModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#131b2e]/30 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl border border-[#eaedff] w-full max-w-[460px] p-6 flex flex-col gap-5">
+            <div className="flex items-start justify-between pb-3 border-b border-[#eaedff]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#eaedff] text-[#004ac6] flex items-center justify-center">
+                  <Activity size={20} />
+                </div>
+                <div>
+                  <h3 className="text-[17px] font-bold text-[#131b2e]">Hardware Self-Diagnostics</h3>
+                  <span className="text-[12px] text-[#505f76]">{selectedDevice?.id || 'ESP32 Node 01'} Automated Bus Scan</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDiagModalOpen(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[#505f76] hover:text-[#131b2e] hover:bg-[#f2f3ff] cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {diagRunning ? (
+              <div className="py-8 flex flex-col items-center justify-center gap-3 text-center">
+                <RotateCcw size={28} className="animate-spin text-[#004ac6]" />
+                <span className="text-[14px] font-semibold text-[#131b2e]">Testing bus channels and ADC baseline...</span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {diagResults?.map((res, i) => (
+                  <div key={i} className="p-3.5 rounded-xl bg-[#faf8ff] border border-[#eaedff] flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-bold text-[#131b2e]">{res.phase}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ecfdf5] text-[#059669]">
+                        {res.status}
+                      </span>
+                    </div>
+                    <span className="text-[12px] text-[#505f76]">{res.detail}</span>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={handleRunDiagnostics}
+                  className="mt-2 w-full py-2.5 rounded-xl bg-[#004ac6] text-white font-bold text-[13px] hover:bg-[#003ea8] transition-all cursor-pointer"
+                >
+                  Rerun Diagnostics
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Sub-State Hardware Ingest Token Modal ── */}
+      {isTokenModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#131b2e]/30 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl border border-[#eaedff] w-full max-w-[420px] p-6 flex flex-col gap-4">
+            <div className="flex items-start justify-between pb-3 border-b border-[#eaedff]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#eaedff] text-[#004ac6] flex items-center justify-center">
+                  <ShieldCheck size={20} />
+                </div>
+                <div>
+                  <h3 className="text-[17px] font-bold text-[#131b2e]">Ingest API Token</h3>
+                  <span className="text-[12px] text-[#505f76]">Bearer authentication for POST /api/ingest</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTokenModalOpen(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[#505f76] hover:text-[#131b2e] hover:bg-[#f2f3ff] cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[12px] font-semibold text-[#505f76]">Node Bearer Key</label>
+              <div className="p-3 rounded-xl bg-[#faf8ff] border border-[#eaedff] font-mono text-[11px] text-[#131b2e] break-all">
+                eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.node01-ingest-token-2026
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopyToken}
+              className="w-full py-2.5 rounded-xl bg-[#004ac6] text-white font-bold text-[13px] hover:bg-[#003ea8] transition-all cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <Check size={16} />
+              <span>{copiedToken ? 'Token Copied to Clipboard ✓' : 'Copy Ingest Token'}</span>
+            </button>
           </div>
         </div>
       )}

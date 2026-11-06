@@ -1,464 +1,264 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
-  BookOpen, Cpu, Database, Activity, ChevronDown, ChevronUp,
-  CheckCircle, AlertTriangle, Terminal, Wifi, BarChart2, ShieldAlert
+  BookOpen, ShieldAlert, AlertTriangle, Phone, CheckCircle2,
+  Cpu, Wrench, HardDrive, Terminal, ArrowRight, Zap, Copy, Check
 } from 'lucide-react';
-import { Card, Button } from '../components/ui';
 
-// ─── ส่วนช่วยสำหรับ Code block ────────────────────────────────
-function CodeBlock({ children, lang = '' }) {
-  const [copied, setCopied] = useState(false);
-  function copy() {
-    navigator.clipboard.writeText(children.trim()).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
-  return (
-    <div style={{ position: 'relative', margin: '0.75rem 0' }}>
-      <pre style={{
-        background: '#1e293b', color: '#e2e8f0', borderRadius: '0.5rem',
-        padding: '1rem 1.25rem', fontSize: '0.8rem', lineHeight: 1.7,
-        overflowX: 'auto', margin: 0, fontFamily: '"Fira Code", "Consolas", monospace',
-      }}>
-        <code>{children.trim()}</code>
-      </pre>
-      {lang && (
-        <span style={{ position: 'absolute', top: '0.5rem', right: '4rem', fontSize: '0.65rem', color: '#64748b', fontWeight: 600 }}>{lang}</span>
-      )}
-      <button
-        onClick={copy}
-        style={{
-          position: 'absolute', top: '0.5rem', right: '0.5rem',
-          background: copied ? '#10b981' : '#334155', color: 'white',
-          border: 'none', borderRadius: '0.25rem', padding: '0.2rem 0.5rem',
-          fontSize: '0.7rem', cursor: 'pointer', fontWeight: 600, transition: 'background 0.2s',
-        }}
-      >
-        {copied ? '✓ copied' : 'copy'}
-      </button>
-    </div>
-  );
-}
-
-// ─── Step circle ─────────────────────────────────────────────
-function Step({ n, title, children }) {
-  return (
-    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.75rem' }}>
-      <div style={{ flexShrink: 0 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: '50%',
-          background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
-          color: 'white', fontWeight: 700, fontSize: '1rem',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 12px #2563eb44',
-        }}>{n}</div>
-      </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.5rem', color: 'var(--text-main)' }}>{title}</div>
-        <div style={{ color: '#334155', lineHeight: 1.8, fontSize: '0.875rem' }}>{children}</div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Callout box ─────────────────────────────────────────────
-function Callout({ type = 'info', children }) {
-  const styles = {
-    info:    { bg: '#eff6ff', border: '#bfdbfe', color: '#1e40af', icon: 'ℹ️' },
-    tip:     { bg: '#f0fdf4', border: '#86efac', color: '#166534', icon: '💡' },
-    warning: { bg: '#fffbeb', border: '#fcd34d', color: '#92400e', icon: '⚠️' },
-    danger:  { bg: '#fef2f2', border: '#fca5a5', color: '#991b1b', icon: '🔴' },
-  };
-  const s = styles[type];
-  return (
-    <div style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: '0.5rem', padding: '0.75rem 1rem', margin: '0.75rem 0', display: 'flex', gap: '0.5rem' }}>
-      <span style={{ flexShrink: 0 }}>{s.icon}</span>
-      <div style={{ fontSize: '0.85rem', color: s.color, lineHeight: 1.7 }}>{children}</div>
-    </div>
-  );
-}
-
-// ─── FAQ item ─────────────────────────────────────────────────
-function FaqItem({ q, children }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
-      <button
-        onClick={() => setOpen(!open)}
-        style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '0.25rem 0' }}
-      >
-        <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-main)' }}>{q}</span>
-        {open ? <ChevronUp size={16} color="#64748b" /> : <ChevronDown size={16} color="#64748b" />}
-      </button>
-      {open && (
-        <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#334155', lineHeight: 1.8 }}>
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Section card ─────────────────────────────────────────────
-function Section({ id, icon, title, children, accent = '#2563eb' }) {
-  return (
-    <Card id={id} className="mb-6 p-6 border-l-4 hover:shadow-md transition-shadow" style={{ borderLeftColor: accent }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1.25rem' }}>
-        <div style={{ color: accent }}>{icon}</div>
-        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>{title}</h2>
-      </div>
-      {children}
-    </Card>
-  );
-}
-
-// ─── Main Guide page ──────────────────────────────────────────
 export default function Guide() {
-  const sections = [
-    { id: 's1', label: '📋 ภาพรวม' },
-    { id: 's2', label: '📦 ข้อกำหนด' },
-    { id: 's3', label: '🚀 Quick Start' },
-    { id: 's4', label: '🗂 เก็บข้อมูล' },
-    { id: 's5', label: '🤖 เทรน AI' },
-    { id: 's6', label: '📡 ESP32' },
-    { id: 's7', label: '📊 อ่าน Dashboard' },
-    { id: 's8', label: '❓ FAQ' },
-  ];
+  const [copiedPayload, setCopiedPayload] = useState(false);
+
+  const jsonPayload = `{
+  "box_id": "BOX-001",
+  "recorded_at": "2026-11-07T01:30:00Z",
+  "readings": {
+    "tvoc": 64.0,
+    "eco2": 450.0,
+    "mq135": 1420,
+    "mq3": 2100,
+    "mq2": 1180,
+    "mq8": 1650,
+    "mics_co": 1100,
+    "no2": 820,
+    "nh3": 1380,
+    "pm25": 12.0,
+    "temp": 28.5,
+    "rh": 55.2
+  },
+  "status": "ONLINE"
+}`;
+
+  function handleCopyPayload() {
+    navigator.clipboard.writeText(jsonPayload);
+    setCopiedPayload(true);
+    setTimeout(() => setCopiedPayload(false), 2000);
+  }
 
   return (
-    <div className="max-w-[1000px] mx-auto pb-16">
-
-      {/* ── Hero ── */}
-      <div className="rounded-3xl p-8 mb-6 text-white shadow-lg bg-gradient-to-br from-blue-700 via-indigo-700 to-purple-800">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-          <BookOpen size={28} />
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 700 }}>คู่มือการใช้งาน VOC / E-Nose</h1>
+    <div className="flex flex-col w-full max-w-5xl mx-auto gap-8 pb-20">
+      {/* ── Header ── */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-2 mb-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6]" />
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[#004ac6]">
+              Documentation &amp; SOP
+            </span>
+          </div>
+          <h1 className="text-[28px] md:text-[34px] font-bold text-[#131b2e] tracking-tight">
+            User Guide
+          </h1>
+          <p className="text-[14px] text-[#505f76] mt-0.5">
+            Hardware wiring schematics, emergency containment protocols, and platform telemetry specifications.
+          </p>
         </div>
-        <p style={{ opacity: 0.9, lineHeight: 1.8, fontSize: '0.9rem', maxWidth: 600 }}>
-          ระบบตรวจสอบสารอินทรีย์ระเหยง่าย (VOC) และคุณภาพอากาศ
-          ด้วย E-Nose (กล่องเซนเซอร์ ESP32-S3) + AI Classification
-        </p>
+      </div>
 
-        {/* Quick jump */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1.25rem' }}>
-          {sections.map(s => (
-            <a key={s.id} href={`#${s.id}`} style={{
-              fontSize: '0.75rem', fontWeight: 600,
-              padding: '0.35rem 0.85rem', borderRadius: '999px',
-              backgroundColor: 'rgba(255,255,255,0.18)', color: 'white',
-              textDecoration: 'none', backdropFilter: 'blur(4px)',
-              border: '1px solid rgba(255,255,255,0.25)',
-            }}>{s.label}</a>
+      {/* ── Section 1: Sensor Wiring & Pinout ── */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-sm border border-[#eaedff] flex flex-col gap-6">
+        <div className="flex items-center gap-3 pb-4 border-b border-[#eaedff]">
+          <div className="w-10 h-10 rounded-2xl bg-[#eaedff] text-[#004ac6] flex items-center justify-center font-bold">
+            <Cpu size={20} />
+          </div>
+          <div>
+            <h2 className="text-[18px] font-bold text-[#131b2e]">Sensor Wiring &amp; Pinout</h2>
+            <p className="text-[13px] text-[#505f76]">ESP32-S3 microcontroller pin assignment and bus mapping</p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-[13px]">
+            <thead>
+              <tr className="border-b border-[#eaedff] text-[11px] uppercase tracking-wider text-[#505f76] font-semibold bg-[#faf8ff]">
+                <th className="py-3 px-4 rounded-l-xl">Sensor Module</th>
+                <th className="py-3 px-4">Interface Type</th>
+                <th className="py-3 px-4">ESP32 Pinout</th>
+                <th className="py-3 px-4 rounded-r-xl">I2C / Bus Address</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#eaedff] text-[#131b2e]">
+              {[
+                { name: 'CCS811 (TVOC/eCO2)', desc: 'I2C Gas Sensor', type: 'I2C Bus 1', pin: 'GPIO 21 (SDA) / 22 (SCL)', addr: '0x5B' },
+                { name: 'ADS1115 (16-bit ADC)', desc: 'MiCS-6814 Interface', type: 'I2C Bus 2', pin: 'GPIO 32 (SDA) / 13 (SCL)', addr: '0x48' },
+                { name: 'MQ-135', desc: 'Air Quality / Benzene', type: 'Analog ADC', pin: 'GPIO 39 (ADC1_CH3)', addr: '—' },
+                { name: 'MQ-3', desc: 'Alcohol / Thinner / Solvents', type: 'Analog ADC', pin: 'GPIO 36 (ADC1_CH0)', addr: '—' },
+                { name: 'MQ-2', desc: 'Combustible Gas / LPG / Smoke', type: 'Analog ADC', pin: 'GPIO 33 (ADC1_CH5)', addr: '—' },
+                { name: 'MQ-8', desc: 'Hydrogen / Flammable Gas', type: 'Analog ADC', pin: 'GPIO 34 (ADC1_CH6)', addr: '—' },
+                { name: 'PMS5003', desc: 'Laser PM2.5 Counter', type: 'UART 2', pin: 'GPIO 16 (RX2) / 17 (TX2)', addr: '—' },
+                { name: 'DHT22', desc: 'Temperature & Humidity', type: '1-Wire Digital', pin: 'GPIO 27', addr: '—' },
+              ].map((s) => (
+                <tr key={s.name} className="hover:bg-[#faf8ff] transition-colors">
+                  <td className="py-3 px-4">
+                    <span className="font-bold text-[#131b2e] block">{s.name}</span>
+                    <span className="text-[11px] text-[#505f76]">{s.desc}</span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#eaedff] text-[#004ac6]">
+                      {s.type}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 font-mono text-[12px] text-[#505f76]">{s.pin}</td>
+                  <td className="py-3 px-4 font-mono text-[12px] font-semibold text-[#131b2e]">{s.addr}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Section 2: Chemical Leak Containment Protocol ── */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-sm border border-[#eaedff] flex flex-col gap-6">
+        <div className="flex items-center gap-3 pb-4 border-b border-[#eaedff]">
+          <div className="w-10 h-10 rounded-2xl bg-[#fee2e2] text-[#ba1a1a] flex items-center justify-center font-bold">
+            <ShieldAlert size={20} />
+          </div>
+          <div>
+            <h2 className="text-[18px] font-bold text-[#131b2e]">
+              Protocol: Chemical Solvent Leak Response
+            </h2>
+            <p className="text-[13px] text-[#505f76]">
+              Standard Operating Procedure (SOP) triggered during Level 4 (Orange) and Level 5 (Red) VOC alarms
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            {
+              step: '01',
+              title: 'Evacuate Booth',
+              desc: 'Direct all non-essential personnel to immediately exit Powder Coating Booth 1 through designated safety airlocks. Verify muster zone roll-call.',
+              badge: 'Immediate',
+              color: 'text-[#ba1a1a] bg-[#fee2e2]',
+            },
+            {
+              step: '02',
+              title: 'Engage Emergency Ventilation',
+              desc: 'Press the Booster Fan 100% button on the Kiosk terminal or main control panel. Confirm damper actuator moves to full exhaust discharge.',
+              badge: 'Within 60s',
+              color: 'text-[#004ac6] bg-[#eaedff]',
+            },
+            {
+              step: '03',
+              title: 'Isolate Solvents',
+              desc: 'Shut main solvent feed lines to the powder application guns. Inspect line couplings and pressure relief valves for liquid or vapor leaks.',
+              badge: 'Within 3 min',
+              color: 'text-[#943700] bg-[#ffdbcd]',
+            },
+            {
+              step: '04',
+              title: 'Notify Incident Commander',
+              desc: 'Confirm automated LINE escalation has paged the shift EHS officer. Report VOC concentration trend and scrubber bed differential pressure.',
+              badge: 'Within 5 min',
+              color: 'text-[#059669] bg-[#ecfdf5]',
+            },
+          ].map((item) => (
+            <div key={item.step} className="p-5 rounded-2xl bg-[#faf8ff] border border-[#eaedff] flex flex-col justify-between gap-3">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[13px] font-bold text-[#505f76]">STEP {item.step}</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${item.color}`}>
+                  {item.badge}
+                </span>
+              </div>
+              <div>
+                <h3 className="text-[16px] font-bold text-[#131b2e] mb-1">{item.title}</h3>
+                <p className="text-[13px] text-[#505f76] leading-relaxed">{item.desc}</p>
+              </div>
+            </div>
           ))}
         </div>
       </div>
 
-      {/* ── S1: ภาพรวมระบบ ── */}
-      <Section id="s1" icon={<Activity size={20} />} title="ภาพรวมระบบ" accent="#2563eb">
-        <p style={{ lineHeight: 1.8, fontSize: '0.875rem', color: '#334155', marginBottom: '1rem' }}>
-          ระบบประกอบด้วย 3 ส่วนหลักที่ทำงานร่วมกัน:
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-          {[
-            { icon: <Cpu size={20} />, title: 'ESP32-S3 (Hardware)', color: '#0ea5e9', items: ['เซนเซอร์ SGP30/SGP40 (TVOC, eCO₂)', 'SPS30 (PM2.5)', 'DHT22 (Temp, Humidity)', 'MQ3/MQ135/MQ8, MICS-4514 (Gas)'] },
-            { icon: <Terminal size={20} />, title: 'Backend (FastAPI)', color: '#8b5cf6', items: ['รับข้อมูลจาก ESP32 ทุก 3–5 วิ', 'บันทึกลง PostgreSQL', 'เรียก AI Model ทำนาย', 'สร้าง Alert อัตโนมัติ'] },
-            { icon: <BarChart2 size={20} />, title: 'Frontend (React)', color: '#10b981', items: ['Dashboard real-time', 'ระบบ Alert แจ้งเตือน', 'เก็บข้อมูลเทรน AI', 'Airflow Diagram'] },
-          ].map(card => (
-            <div key={card.title} style={{ borderRadius: '0.625rem', border: `1.5px solid ${card.color}30`, background: `${card.color}08`, padding: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: card.color, fontWeight: 700, marginBottom: '0.75rem' }}>
-                {card.icon} {card.title}
+      {/* ── Section 3: Emergency Contacts & Provisioning ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Emergency Contacts */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-[#eaedff] flex flex-col gap-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-[#eaedff]">
+            <div className="w-9 h-9 rounded-xl bg-[#ecfdf5] text-[#059669] flex items-center justify-center">
+              <Phone size={18} />
+            </div>
+            <div>
+              <h2 className="text-[16px] font-bold text-[#131b2e]">Emergency Contacts</h2>
+              <p className="text-[12px] text-[#505f76]">Direct on-call dispatch contacts</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {[
+              { name: 'Somchai Jaidee', title: 'Plant Safety Manager', phone: '+66 81 234 5678' },
+              { name: 'E. Mitchell', title: 'Head of Health & Safety', phone: '+66 89 987 6543' },
+              { name: 'Maintenance Dispatch', title: '24/7 Facility Response', phone: 'Ext. 1044 / Radio Ch. 3' },
+            ].map((c) => (
+              <div key={c.name} className="flex items-center justify-between p-3.5 rounded-xl bg-[#faf8ff] border border-[#eaedff]">
+                <div className="flex flex-col">
+                  <span className="text-[14px] font-bold text-[#131b2e]">{c.name}</span>
+                  <span className="text-[11px] text-[#505f76]">{c.title}</span>
+                </div>
+                <span className="font-mono text-[12px] font-bold text-[#004ac6] bg-[#eaedff] px-2.5 py-1 rounded-lg">
+                  {c.phone}
+                </span>
               </div>
-              <ul style={{ paddingLeft: '1.1rem', margin: 0, lineHeight: 2 }}>
-                {card.items.map(i => <li key={i} style={{ fontSize: '0.78rem', color: '#334155' }}>{i}</li>)}
-              </ul>
-            </div>
-          ))}
-        </div>
-        <div style={{ textAlign: 'center', fontSize: '0.85rem', color: '#64748b', padding: '0.75rem', background: '#f8fafc', borderRadius: '0.5rem', fontFamily: 'monospace' }}>
-          ESP32-S3 → POST /api/ingest → FastAPI → PostgreSQL → React Dashboard
-        </div>
-      </Section>
-
-      {/* ── S2: Requirements ── */}
-      <Section id="s2" icon={<CheckCircle size={20} />} title="ข้อกำหนด (Requirements)" accent="#10b981">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-          <div>
-            <h3 style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.75rem', color: '#0ea5e9' }}>🔌 Hardware</h3>
-            <ul style={{ paddingLeft: '1.1rem', lineHeight: 2.2, fontSize: '0.85rem', color: '#334155' }}>
-              <li>ESP32-S3 DevKit</li>
-              <li>SGP30 หรือ SGP40 (TVOC + eCO₂)</li>
-              <li>SPS30 หรือ PMS5003 (PM2.5)</li>
-              <li>DHT22 (อุณหภูมิ + ความชื้น)</li>
-              <li>MQ-3, MQ-135, MQ-8 (Gas Sensors)</li>
-              <li>MICS-4514 (CO + NO₂)</li>
-            </ul>
-          </div>
-          <div>
-            <h3 style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.75rem', color: '#8b5cf6' }}>💻 Software</h3>
-            <ul style={{ paddingLeft: '1.1rem', lineHeight: 2.2, fontSize: '0.85rem', color: '#334155' }}>
-              <li>Docker Desktop (สำหรับ PostgreSQL)</li>
-              <li>Python 3.10+ + pip</li>
-              <li>Node.js 18+ + npm</li>
-              <li>Arduino IDE หรือ PlatformIO</li>
-              <li>scikit-learn, pandas, matplotlib</li>
-            </ul>
+            ))}
           </div>
         </div>
-      </Section>
 
-      {/* ── S3: Quick Start ── */}
-      <Section id="s3" icon={<Terminal size={20} />} title="เริ่มต้นใช้งาน (Quick Start)" accent="#8b5cf6">
-        <Step n="1" title="เปิด Database (PostgreSQL)">
-          รันจาก root ของ project:
-          <CodeBlock lang="bash">{`
-docker-compose up -d
-# รอ ~10 วิ ให้ DB พร้อม แล้วตรวจสอบ:
-docker logs voc_postgres --tail 5
-          `}</CodeBlock>
-        </Step>
-
-        <Step n="2" title="รัน Backend (FastAPI)">
-          <CodeBlock lang="bash">{`
-cd backend
-pip install fastapi uvicorn asyncpg pandas scikit-learn
-python main.py
-# Backend พร้อมที่ http://localhost:8000
-# ดู API docs: http://localhost:8000/docs
-          `}</CodeBlock>
-        </Step>
-
-        <Step n="3" title="รัน Frontend (React)">
-          <CodeBlock lang="bash">{`
-cd frontend
-npm install
-npm run dev
-# Frontend พร้อมที่ http://localhost:5173
-          `}</CodeBlock>
-          <Callout type="tip">
-            ถ้าต้องการดูระบบโดยไม่ต้องมี Backend จริง ไฟล์ <code>mockApi.js</code> จะ intercept fetch() ให้อัตโนมัติ
-            ค่าเซนเซอร์จะ simulate แบบ real-time ทุก 3 วินาที
-          </Callout>
-        </Step>
-
-        <Step n="4" title="(ถ้ามี ESP32) อัปโหลด Firmware และเชื่อมต่อ WiFi">
-          ตั้งค่า <code>SERVER_IP</code> ใน firmware ให้ตรงกับ IP ของเครื่องที่รัน Backend
-          แล้ว flash ไปยัง ESP32-S3 — ดูรายละเอียดใน <a href="#s6" style={{ color: '#2563eb', fontWeight: 600 }}>หัวข้อ ESP32 Setup</a>
-        </Step>
-      </Section>
-
-      {/* ── S4: Data Collection ── */}
-      <Section id="s4" icon={<Database size={20} />} title="การเก็บข้อมูลเทรน AI" accent="#f59e0b">
-        <p style={{ fontSize: '0.875rem', color: '#334155', lineHeight: 1.8, marginBottom: '1rem' }}>
-          ก่อนเทรน AI Model ต้องเก็บข้อมูล sensor จากสารจริงๆ ไว้ใน Database อย่างน้อย <strong>5 ชนิดสาร ชนิดละ 200 readings</strong>
-        </p>
-        <Step n="1" title='ไปที่หน้า "Data Collection"'>
-          คลิก <Link to="/data-collection" style={{ color: '#f59e0b', fontWeight: 700 }}>Data Collection →</Link> ในแถบเมนูซ้าย
-        </Step>
-        <Step n="2" title="เลือก Label และเริ่มบันทึก">
-          เลือกชนิดสาร เช่น <code>THINNER</code> แล้วกด <strong>"เริ่มบันทึก"</strong>
-          ระบบจะสร้าง Session ID และรอรับข้อมูลจาก ESP32
-        </Step>
-        <Step n="3" title="วางสารใกล้กล่องเซนเซอร์">
-          วางสารห่างจากกล่องประมาณ 5–15 ซม. ทิ้งไว้ <strong>5–10 นาที</strong>
-          จนได้ readings เพียงพอ (ดูตัวเลขในหน้า Data Collection)
-        </Step>
-        <Step n="4" title="กดหยุดและทำซ้ำ">
-          กด <strong>"หยุดบันทึก"</strong> จากนั้นเปลี่ยนสารและทำซ้ำตั้งแต่ข้อ 1–3
-        </Step>
-        <Callout type="tip">
-          <strong>สารที่แนะนำ:</strong> AMBIENT (อากาศปกติ), THINNER, ALCOHOL, ACETONE, BENZENE, TOLUENE, GASOLINE, BLEACH
-          — ยิ่งหลายชนิด Model ยิ่งแม่นยำ
-        </Callout>
-        <Callout type="warning">
-          ควรเก็บข้อมูล AMBIENT ด้วยทุกครั้ง เพื่อให้ Model รู้จัก "สภาวะปกติ" และไม่แจ้งเตือนผิดพลาด
-        </Callout>
-      </Section>
-
-      {/* ── S5: Train Model ── */}
-      <Section id="s5" icon={<Cpu size={20} />} title="การเทรน AI Model" accent="#ef4444">
-        <Step n="1" title="Export CSV จากระบบ">
-          ไปที่ <Link to="/data-collection" style={{ color: '#ef4444', fontWeight: 700 }}>Data Collection →</Link> แล้วกด <strong>"Export CSV ทั้งหมด"</strong>
-          บันทึกไฟล์ <code>voc_training_data.csv</code> ไว้ใน folder <code>ml/</code>
-        </Step>
-        <Step n="2" title="รัน Training Script">
-          <CodeBlock lang="bash">{`
-cd ml
-pip install scikit-learn pandas matplotlib seaborn
-python train_model.py
-# จะได้ไฟล์: voc_model.pkl, model_meta.json
-# และรูป: confusion_matrix.png, feature_importance.png
-          `}</CodeBlock>
-        </Step>
-        <Step n="3" title="Copy Model ไปที่ Backend แล้ว Restart">
-          <CodeBlock lang="bash">{`
-copy ml\\voc_model.pkl backend\\voc_model.pkl
-# หรือ Linux/Mac:
-# cp ml/voc_model.pkl backend/voc_model.pkl
-
-# Restart backend:
-# กด Ctrl+C แล้วรัน python main.py ใหม่
-          `}</CodeBlock>
-          Dashboard จะแสดง <strong>"AI Model Loaded"</strong> และหยุดแสดง Mock badge
-        </Step>
-        <Callout type="info">
-          Model ใช้ <strong>Random Forest Classifier</strong> + StandardScaler ผ่าน sklearn Pipeline
-          — เวลาเทรนปกติ 30–120 วิ ขึ้นกับจำนวน readings
-        </Callout>
-      </Section>
-
-      {/* ── S6: ESP32 ── */}
-      <Section id="s6" icon={<Wifi size={20} />} title="การตั้งค่า ESP32 (Firmware)" accent="#0ea5e9">
-        <p style={{ fontSize: '0.875rem', color: '#334155', lineHeight: 1.8, marginBottom: '1rem' }}>
-          ESP32-S3 ต้อง POST ข้อมูลเซนเซอร์ไปยัง Backend ทุก 3–5 วินาที รูปแบบ JSON ดังนี้:
-        </p>
-        <h3 style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.5rem' }}>Endpoint</h3>
-        <CodeBlock lang="">{`POST http://<SERVER_IP>:8000/api/ingest`}</CodeBlock>
-
-        <h3 style={{ fontWeight: 600, fontSize: '0.875rem', margin: '1rem 0 0.5rem' }}>JSON Payload</h3>
-        <CodeBlock lang="json">{`
-{
-  "box_id":   "BOX-001",
-  "temp":     28.5,
-  "rh":       62.0,
-  "pm25":     12.0,
-  "tvoc":     120,
-  "eco2":     580,
-  "mq3":      210,
-  "mq135":    340,
-  "mq8":      95,
-  "mics_co":  180,
-  "no2":      45,
-  "nh3":      60,
-  "session_id": null
-}
-        `}</CodeBlock>
-
-        <h3 style={{ fontWeight: 600, fontSize: '0.875rem', margin: '1rem 0 0.5rem' }}>ตัวอย่าง Arduino (ESP32)</h3>
-        <CodeBlock lang="C++">{`
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <ArduinoJson.h>
-
-const char* SERVER = "http://192.168.1.100:8000/api/ingest";
-
-void sendReading(float temp, float rh, float pm25,
-                 float tvoc, float eco2,
-                 int mq3, int mq135, int mq8,
-                 int mics_co, int no2, int nh3) {
-  if (WiFi.status() != WL_CONNECTED) return;
-
-  StaticJsonDocument<512> doc;
-  doc["box_id"]  = "BOX-001";
-  doc["temp"]    = temp;
-  doc["rh"]      = rh;
-  doc["pm25"]    = pm25;
-  doc["tvoc"]    = tvoc;
-  doc["eco2"]    = eco2;
-  doc["mq3"]     = mq3;
-  doc["mq135"]   = mq135;
-  doc["mq8"]     = mq8;
-  doc["mics_co"] = mics_co;
-  doc["no2"]     = no2;
-  doc["nh3"]     = nh3;
-
-  String body;
-  serializeJson(doc, body);
-
-  HTTPClient http;
-  http.begin(SERVER);
-  http.addHeader("Content-Type", "application/json");
-  int code = http.POST(body);
-  http.end();
-}
-
-void loop() {
-  // อ่านค่าเซนเซอร์ ...
-  sendReading(temp, rh, pm25, tvoc, eco2,
-              mq3, mq135, mq8, mics_co, no2, nh3);
-  delay(3000); // ส่งทุก 3 วิ
-}
-        `}</CodeBlock>
-        <Callout type="tip">
-          เมื่อกำลังเก็บข้อมูลเทรน ให้ใส่ <code>"session_id": &lt;id&gt;</code> ที่ได้จากการกด "เริ่มบันทึก" ในหน้า Data Collection
-        </Callout>
-      </Section>
-
-      {/* ── S7: อ่าน Dashboard ── */}
-      <Section id="s7" icon={<BarChart2 size={20} />} title="การอ่านค่า Dashboard" accent="#10b981">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-          {[
-            { title: 'AI Detection Card', color: '#2563eb', content: 'แสดงผลทำนายจาก AI Model เช่น AMBIENT / THINNER / ALCOHOL พร้อม Confidence % ยิ่งสูงยิ่งมั่นใจ' },
-            { title: 'Alert Levels', color: '#ef4444', content: '🟡 Warning = ค่าเกินปกติ ควรระวัง\n🟠 High = AI ตรวจพบสารอันตราย\n🔴 Critical = ค่าวิกฤต ต้องดำเนินการ' },
-            { title: 'TVOC (ppb)', color: '#8b5cf6', content: '< 200 ppb = ปกติ\n200–400 ppb = ระวัง\n> 400 ppb = อันตราย ควรระบายอากาศทันที' },
-            { title: 'PM2.5 (µg/m³)', color: '#f59e0b', content: '< 35 µg/m³ = ปกติ\n35–75 µg/m³ = ระวัง\n> 75 µg/m³ = อันตราย ใส่หน้ากาก N95' },
-            { title: 'eCO₂ (ppm)', color: '#0ea5e9', content: '< 1000 ppm = อากาศดี\n1000–2000 ppm = ระบายอากาศเพิ่ม\n> 2000 ppm = อากาศเสีย ต้องระบายโดยทันที' },
-            { title: 'E-Nose Sensors', color: '#64748b', content: 'MQ3, MQ135, MQ8 เป็น raw ADC ยิ่งสูงยิ่งมีความเข้มข้นของก๊าซมาก ค่าปกติขึ้นกับแต่ละสภาพแวดล้อม' },
-          ].map(card => (
-            <div key={card.title} style={{ borderRadius: '0.625rem', padding: '0.875rem', border: `1.5px solid ${card.color}30`, background: `${card.color}06` }}>
-              <div style={{ fontWeight: 700, color: card.color, marginBottom: '0.5rem', fontSize: '0.875rem' }}>{card.title}</div>
-              <div style={{ fontSize: '0.8rem', color: '#334155', lineHeight: 1.8, whiteSpace: 'pre-line' }}>{card.content}</div>
+        {/* Provisioning Steps */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-[#eaedff] flex flex-col gap-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-[#eaedff]">
+            <div className="w-9 h-9 rounded-xl bg-[#eaedff] text-[#004ac6] flex items-center justify-center">
+              <Wrench size={18} />
             </div>
-          ))}
+            <div>
+              <h2 className="text-[16px] font-bold text-[#131b2e]">Node Provisioning</h2>
+              <p className="text-[12px] text-[#505f76]">Installation and calibration sequence</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {[
+              { n: '1', title: 'Mount Enclosure', desc: 'Secure IP65 box 1.5m above floor near exhaust duct entrance.' },
+              { n: '2', title: 'Power 12VDC Line', desc: 'Connect regulated industrial power rail and verify steady 3.3V bus.' },
+              { n: '3', title: 'Sensor Burn-in', desc: 'Run 48-hour continuous pre-heat before zero-air baseline calibration.' },
+            ].map((st) => (
+              <div key={st.n} className="flex items-start gap-3 p-3 rounded-xl bg-[#faf8ff] border border-[#eaedff]">
+                <div className="w-6 h-6 rounded-full bg-[#004ac6] text-white font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                  {st.n}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[13px] font-bold text-[#131b2e]">{st.title}</span>
+                  <span className="text-[12px] text-[#505f76]">{st.desc}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <Callout type="danger">
-          ถ้า AI Detection แสดงชนิดสารและ Confidence &gt; 80% ควรหยุดกิจกรรม ระบายอากาศ และตรวจสอบแหล่งที่มาของสารทันที
-        </Callout>
-      </Section>
+      </div>
 
-      {/* ── Factory VOC Threshold Standard (OSHA / ISO 16000) ── */}
-      <Section id="voc-standard" icon={<ShieldAlert size={20} />} title="เกณฑ์มาตรฐานคุณภาพอากาศในโรงงาน (OSHA / ISO 16000 Calibration)" accent="#0284c7">
-        <p style={{ fontSize: '0.875rem', lineHeight: 1.7, color: '#334155', marginBottom: '1rem' }}>
-          <strong>มาตรฐานตรวจวัดสารประกอบอินทรีย์ระเหยง่าย (VOCs) ในห้องพ่นสีและสายการผลิต (Coating Line 1)</strong> อ้างอิงตามเกณฑ์ความปลอดภัยอาชีวอนามัยสากล OSHA และ ISO 16000 เพื่อควบคุมการระเหยของตัวทำละลายอินทรีย์ (Organic Solvents) และอนุภาคฝุ่นละออง:
-        </p>
+      {/* ── Section 4: Telemetry Payload Reference ── */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-sm border border-[#eaedff] flex flex-col gap-4">
+        <div className="flex items-center justify-between pb-3 border-b border-[#eaedff]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#eaedff] text-[#004ac6] flex items-center justify-center">
+              <Terminal size={18} />
+            </div>
+            <div>
+              <h2 className="text-[17px] font-bold text-[#131b2e]">Telemetry Payload Reference</h2>
+              <p className="text-[12px] text-[#505f76]">Standard JSON format sent to POST /api/ingest</p>
+            </div>
+          </div>
 
-        <ul style={{ fontSize: '0.85rem', lineHeight: 1.8, color: '#475569', paddingLeft: '1.25rem', marginBottom: '1.25rem' }}>
-          <li><strong>Toluene (โทลูอีน)</strong>: สารทำละลายสี เกณฑ์ควบคุมปลอดภัย &lt; 20 ppm (Ceiling 30 ppm)</li>
-          <li><strong>Xylene (ไซลีน)</strong>: สารละลายเรซินและสี เกณฑ์ควบคุมปลอดภัย &lt; 20 ppm</li>
-          <li><strong>Ethyl Acetate (เอทิลอะซีเตต)</strong>: ตัวทำละลายแห้งเร็ว เกณฑ์ควบคุมปลอดภัย &lt; 25 ppm</li>
-          <li><strong>MEK (เมทิลเอทิลคีโตน)</strong>: สารทำความสะอาดและชะล้าง เกณฑ์ควบคุมปลอดภัย &lt; 25 ppm</li>
-          <li><strong>Total VOCs (TVOC)</strong>: ค่ารวมสารอินทรีย์ระเหยง่าย เป้าหมายในไลน์ &lt; 100 ppb</li>
-          <li><strong>Particulate Matter (PM₂.₅)</strong>: ผงสีและละอองฝุ่น Target &lt; 35 µg/m³</li>
-        </ul>
-      </Section>
+          <button
+            type="button"
+            onClick={handleCopyPayload}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#eaedff] hover:bg-[#f2f3ff] text-[#505f76] text-[12px] font-semibold transition-colors cursor-pointer"
+          >
+            {copiedPayload ? <Check size={14} className="text-[#059669]" /> : <Copy size={14} />}
+            <span>{copiedPayload ? 'Copied' : 'Copy JSON'}</span>
+          </button>
+        </div>
 
-      {/* ── S8: FAQ ── */}
-      <Section id="s8" icon={<AlertTriangle size={20} />} title="คำถามที่พบบ่อย (FAQ)" accent="#64748b">
-        <FaqItem q="Dashboard แสดง '🟡 MOCK MODE' หมายความว่าอะไร?">
-          หมายความว่าระบบกำลังแสดงข้อมูลจำลอง (simulate) ยังไม่ได้เชื่อมต่อกับ Backend จริงหรือ ESP32 จริง
-          ให้รัน <code>docker-compose up -d</code> และ <code>python main.py</code> ตามขั้นตอน Quick Start ก่อน
-          แล้วลบ <code>import './mockApi.js'</code> ออกจาก <code>frontend/src/main.jsx</code>
-        </FaqItem>
-        <FaqItem q="Backend เปิดแล้วแต่ Dashboard ยังไม่แสดงข้อมูล?">
-          ตรวจสอบ CORS — Backend ต้องอนุญาต <code>http://localhost:5173</code>
-          และตรวจสอบว่า <code>BOX-001</code> มีอยู่ใน table <code>devices</code> แล้ว (มี seed data ใน init.sql)
-        </FaqItem>
-        <FaqItem q="AI ทำนายผิดบ่อยหรือ Confidence ต่ำ?">
-          <ul style={{ paddingLeft: '1rem' }}>
-            <li>เก็บข้อมูล AMBIENT ไม่เพียงพอ — ควรเก็บอย่างน้อย 300 readings</li>
-            <li>ข้อมูลไม่สมดุล — แต่ละชนิดสารควรมี readings ใกล้เคียงกัน</li>
-            <li>เงื่อนไขแวดล้อม (อุณหภูมิ, ความชื้น) แตกต่างจากตอนเก็บข้อมูล</li>
-            <li>เซนเซอร์ยังไม่ warm-up — ให้เปิดอุปกรณ์ทิ้งไว้ 5–10 นาทีก่อน</li>
-          </ul>
-        </FaqItem>
-        <FaqItem q="เพิ่ม Box ID ใหม่ได้อย่างไร?">
-          ส่ง POST /api/ingest โดยใส่ <code>box_id</code> ใหม่ — ระบบจะสร้าง device record ให้อัตโนมัติ
-          หรือ insert โดยตรงใน PostgreSQL ก็ได้
-        </FaqItem>
-        <FaqItem q="ส่งออก CSV เพื่อเทรน Model ได้จากที่ไหน?">
-          หน้า <Link to="/data-collection" style={{ color: '#2563eb', fontWeight: 600 }}>Data Collection</Link> มีปุ่ม <strong>"Export CSV ทั้งหมด"</strong>
-          หรือเรียก <code>GET /api/export/csv</code> โดยตรงก็ได้
-        </FaqItem>
-        <FaqItem q="ปรับ threshold การแจ้งเตือนได้ที่ไหน?">
-          ปรับสีบน Dashboard ได้ที่หน้า <Link to="/settings" style={{ color: '#2563eb', fontWeight: 600 }}>Settings</Link>
-          — สำหรับ Alert ใน Backend จริง ต้องแก้ <code>THRESHOLDS</code> ใน <code>backend/main.py</code> บรรทัด 15–18
-        </FaqItem>
-      </Section>
-
-      {/* Footer */}
-      <div style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8', fontSize: '0.8rem' }}>
-        VOC / E-Nose System — คู่มือฉบับย่อ | ปัญหาเพิ่มเติม ติดต่อทีมพัฒนา
+        <pre className="p-4 rounded-2xl bg-[#131b2e] text-[#b4c5ff] font-mono text-[12px] leading-relaxed overflow-x-auto shadow-inner">
+          <code>{jsonPayload}</code>
+        </pre>
       </div>
     </div>
   );

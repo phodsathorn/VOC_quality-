@@ -32,4 +32,49 @@
 - ทดสอบคอมไพล์โค้ดเว็บ `npm --prefix vocs-website/frontend run build` ผ่าน 100% (248ms)
 
 ## งานค้างและขั้นตอนถัดไป
-- นำ Component ใหม่ๆ จาก Sub-states (เช่น Diagnostics Drawer, 5-Tabs Settings, Calculator Modal) ไปทยอยผสานลงใน React components ใน `vocs-website/frontend/`
+- [x] นำ Component ใหม่ๆ จาก Sub-states (เช่น Diagnostics Drawer, 5-Tabs Settings, Calculator Modal) ไปทยอยผสานลงใน React components ใน `vocs-website/frontend/`
+- ตรวจสอบการใช้งานจริงในสภาพแวดล้อม Production บน Vercel
+
+---
+
+## 2026-11-07 01:58 — ปรับปรุงหน้าจอเว็บให้ตรงตามต้นแบบ Stitch AI 100%
+
+### สิ่งที่เปลี่ยน
+1. **`pages/Dashboard.jsx`**:
+   - แก้ไขปัญหาตารางทางขวาหาย: เปิด Right-side Drawer "Live sensor telemetry" เป็นค่าเริ่มต้น (`true`) ตามต้นแบบ Stitch พร้อมจัดเก็บสถานะใน `localStorage`
+   - ป้องกันอาการจอขาว (Blank Screen / Infinite Loop) ในฟังก์ชัน `fetchAll` โดยใช้ `dataRef.current` ตัด dependency loop
+   - ปรับแต่งปุ่มและไอคอนใน Drawer และการแสดงผลเซนเซอร์ครบถ้วน
+
+2. **`pages/Alerts.jsx`**:
+   - ปรับให้ตรงตามต้นแบบ `alerts_incident_detail_with_sla_owner` 1:1
+   - เพิ่ม Search Bar ("Search condition, owner or rule...") พร้อมตัวกรอง Date และ Severity
+   - เพิ่มคอลัมน์ `Rule` (เงื่อนไขการเตือน เช่น `TVOC > 200 ppb for 2 min`)
+   - Drawer ฝั่งขวา: เพิ่มการ์ด SLA Response (6m/10m target พร้อมสถานะ Escalation), กราฟ Sparkline "30 minutes around the event" แสดง Peak 218 ppb และเส้น Limit 200 ppb, และ "Incident Timeline" (Created → Acknowledged → In progress → Resolved)
+   - เพิ่มระบบแบ่งหน้า (Pagination) ด้านล่างตาราง
+
+3. **`pages/Maintenance.jsx`**:
+   - ปรับโครงสร้างหน้าให้ตรงตาม `maintenance_table_columns_add_log_drawer` 1:1
+   - เพิ่ม Header Actions 3 ปุ่ม: `+ Add log`, `Calibration History`, `Add work order`
+   - เพิ่มแท็บสลับ `Sensors & Filters` และ `Work orders (4)`
+   - แสดงตาราง 6 เซนเซอร์โรงงานจริง: `MQ-3 (Alcohol)`, `MQ-2 (Combustibles)`, `MQ-135 (Fumes)`, `MQ-8 (H2)`, `MiCS-5524 (CO)`, `MiCS-6814 (NO2)` พร้อมคอลัมน์ Serial No., Calibrated by, Drift % (info icon), Next due, Certificate PDF badge, และ Status pill
+   - รองรับ Row Expand แสดงข้อมูล Span Gas Conc., Calibrate now และ History
+   - เพิ่ม Drawers: `Add Maintenance Log`, `Calibration History` (พร้อมดาวน์โหลด PDF), `Add Work Order`, และ Modal `Confirm Sensor Calibration`
+
+4. **`pages/AirflowDiagram.jsx`**:
+   - เพิ่ม Toggle ด้านบนสลับระหว่าง `Factory ventilation` (ระบบท่อหลัก 4 สเตจ) และ `Sensor box` (วงจรนิวเมติกส์ 5 สเตจ: Intake, HEPA Pre-Filter, Sensor Chamber พร้อมชิปเซนเซอร์, Microcontroller ESP32, Exhaust)
+   - เพิ่มการ์ด 3 ตัวชี้วัดสำหรับ Sensor Box: Fan Speed (2,400 RPM), Chamber Temp (24.2 °C), HEPA ΔP (45 Pa)
+   - เพิ่ม Drawer "Live sensor telemetry" (Powder Coating Booth 1 • 5 Active Probes) พร้อมตารางเซนเซอร์ Array ID: `BOX-001`
+
+5. **`pages/AirQualityGuide.jsx`**:
+   - เพิ่มปุ่มและ Modal "How it is calculated" (สูตร Piecewise linear interpolation)
+   - เพิ่มปุ่มและ Modal "AQI Calculator" (คำนวณแบบอินเทอร์แอคทีฟพร้อมปุ่มดึงค่าเซนเซอร์สด)
+
+6. **`pages/Settings.jsx` & `pages/Guide.jsx`**:
+   - ผสาน 5-Tabs Settings (Thresholds, Notifications/LINE, SLA, Users, General)
+   - ปรับหน้าคู่มือความปลอดภัยและ Pinout แผนผังสายไฟ ESP32-S3
+
+### การตรวจสอบ
+- ตรวจสอบ linter: `npm run lint` ผ่าน (0 errors)
+- คอมไพล์โปรดักชัน: `npm run build` ผ่าน 100% (241ms)
+
+

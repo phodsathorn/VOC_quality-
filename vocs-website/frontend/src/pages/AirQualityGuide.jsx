@@ -1,11 +1,36 @@
 import { useState } from 'react';
 import {
-  CheckCircle2, Radio, Sliders, ArrowRight, FileText, X, ShieldAlert
+  CheckCircle2, Radio, Sliders, ArrowRight, FileText, X, ShieldAlert,
+  Info, Calculator, Cpu
 } from 'lucide-react';
 import { Modal } from '../components/ui';
 
 export default function AirQualityGuide() {
   const [selectedLevel, setSelectedLevel] = useState(null);
+  const [isMethodModalOpen, setIsMethodModalOpen] = useState(false);
+  const [isCalcModalOpen, setIsCalcModalOpen] = useState(false);
+
+  // Quick Calculator state
+  const [calcPollutant, setCalcPollutant] = useState('PM2.5');
+  const [calcVal, setCalcVal] = useState(38);
+
+  // Calculate AQI category for Quick Calculator
+  const calcResult = (() => {
+    const val = Number(calcVal) || 0;
+    if (val <= 25) {
+      return { score: val, title: 'ดีมาก (Very Good)', color: '#00C0FF', desc: 'ปลอดภัย ทำงานได้ปกติ', bg: 'bg-[#00C0FF]/10 text-[#0088cc]' };
+    }
+    if (val <= 50) {
+      return { score: val, title: 'ดี (Good)', color: '#00CC66', desc: 'ปลอดภัย ทำงานได้ปกติ', bg: 'bg-[#00CC66]/10 text-[#00994d]' };
+    }
+    if (val <= 100) {
+      return { score: val, title: 'ปานกลาง (Moderate)', color: '#FFD100', desc: 'เฝ้าระวังผู้ที่ไวต่อสาร', bg: 'bg-[#FFD100]/20 text-[#b38600]' };
+    }
+    if (val <= 200) {
+      return { score: val, title: 'เริ่มมีผลกระทบ (Unhealthy for Sensitive)', color: '#FF7E00', desc: 'เพิ่มการระบายอากาศและสวมใส่ PPE', bg: 'bg-[#FF7E00]/15 text-[#cc6600]' };
+    }
+    return { score: val, title: 'มีผลกระทบ (Hazardous)', color: '#FF0000', desc: 'หยุดกระบวนการพ่นสีและอพยพทันที', bg: 'bg-[#FF0000]/15 text-[#cc0000]' };
+  })();
 
   const thresholdLevels = [
     {
@@ -359,6 +384,151 @@ export default function AirQualityGuide() {
               >
                 Dismiss
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Slim Utility Row matching Stitch ── */}
+      <section className="w-full flex items-center justify-start gap-3 pt-2">
+        <button
+          type="button"
+          onClick={() => setIsMethodModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-semibold text-[#505f76] hover:text-[#131b2e] bg-white hover:bg-[#f2f3ff] border border-[#eaedff] transition-all cursor-pointer shadow-2xs"
+        >
+          <Info size={16} className="text-[#004ac6]" />
+          <span>How it is calculated</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsCalcModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-semibold text-[#505f76] hover:text-[#131b2e] bg-white hover:bg-[#f2f3ff] border border-[#eaedff] transition-all cursor-pointer shadow-2xs"
+        >
+          <Calculator size={16} className="text-[#004ac6]" />
+          <span>Calculator</span>
+        </button>
+      </section>
+
+      {/* ── Modal 1: Calculation Methodology matching Stitch ── */}
+      {isMethodModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#131b2e]/40 backdrop-blur-sm animate-fade-in">
+          <div
+            className="fixed inset-0 cursor-pointer"
+            onClick={() => setIsMethodModalOpen(false)}
+          />
+          <div className="relative bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-[#eaedff] z-10 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#eaedff]">
+              <div className="flex items-center gap-2 text-[#004ac6] font-semibold text-sm">
+                <Calculator size={20} />
+                <span>How it is calculated</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMethodModalOpen(false)}
+                className="text-[#505f76] hover:text-[#131b2e] p-1 rounded-full hover:bg-[#f2f3ff] transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="py-2 text-xs text-[#131b2e] flex flex-col gap-3">
+              <p className="text-[#505f76]">
+                AQI is computed by standard piecewise linear interpolation between defined pollutant concentration breakpoints:
+              </p>
+              <div className="bg-[#f2f3ff] p-3.5 rounded-2xl font-mono text-[11px] text-[#004ac6] overflow-x-auto border border-[#eaedff]">
+                AQI = [(I_high - I_low) / (C_high - C_low)] × (C - C_low) + I_low
+              </div>
+              <div className="space-y-1.5 text-[#505f76] pt-1 text-[11px]">
+                <div>• <strong className="text-[#131b2e]">C:</strong> Pollutant concentration value</div>
+                <div>• <strong className="text-[#131b2e]">[C_low, C_high]:</strong> Concentration breakpoint bracket</div>
+                <div>• <strong className="text-[#131b2e]">[I_low, I_high]:</strong> Corresponding AQI index bracket</div>
+              </div>
+            </div>
+            <div className="pt-3 border-t border-[#eaedff] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsMethodModalOpen(false)}
+                className="px-5 py-2 text-xs font-semibold rounded-2xl bg-[#004ac6] text-white hover:bg-[#003ea8] transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal 2: Quick AQI Calculator matching Stitch ── */}
+      {isCalcModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#131b2e]/40 backdrop-blur-sm animate-fade-in">
+          <div
+            className="fixed inset-0 cursor-pointer"
+            onClick={() => setIsCalcModalOpen(false)}
+          />
+          <div className="relative bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-[#eaedff] z-10 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#eaedff]">
+              <div className="flex items-center gap-2 text-[#004ac6] font-semibold text-sm">
+                <Calculator size={20} />
+                <span>AQI Calculator</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCalcModalOpen(false)}
+                className="text-[#505f76] hover:text-[#131b2e] p-1 rounded-full hover:bg-[#f2f3ff] transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="py-2 flex flex-col gap-4">
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-[#505f76] block mb-1">
+                  Pollutant
+                </label>
+                <select
+                  value={calcPollutant}
+                  onChange={(e) => setCalcPollutant(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-[#f2f3ff] border border-[#eaedff] text-xs text-[#131b2e] outline-none font-medium cursor-pointer"
+                >
+                  <option value="PM2.5">PM2.5 Laser Optical</option>
+                  <option value="TVOC">TVOC Solvent Multi-gas</option>
+                  <option value="MQ-3">MQ-3 Alcohol / Thinner</option>
+                  <option value="Ammonia">Ammonia MiCS / MQ-137</option>
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-[#505f76]">
+                    Concentration
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setCalcVal(38)}
+                    className="text-[11px] font-medium text-[#004ac6] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Radio size={12} />
+                    <span>Use live sensor value</span>
+                  </button>
+                </div>
+                <div className="flex items-center rounded-2xl bg-[#f2f3ff] border border-[#eaedff] overflow-hidden">
+                  <input
+                    type="number"
+                    value={calcVal}
+                    onChange={(e) => setCalcVal(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-transparent text-xs font-semibold text-[#131b2e] outline-none"
+                  />
+                  <span className="px-3 py-2.5 bg-[#eaedff] text-[11px] text-[#505f76] font-medium">
+                    {calcPollutant === 'PM2.5' ? 'µg/m³' : 'ppb'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-1">
+                <div className={`p-3.5 rounded-2xl border border-current/20 flex items-center justify-between ${calcResult.bg}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: calcResult.color }} />
+                    <span className="text-xs font-semibold">{calcResult.score} {calcResult.title}</span>
+                  </div>
+                  <span className="text-[11px] font-medium">{calcResult.desc}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

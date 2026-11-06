@@ -44,7 +44,7 @@ function AppContent() {
         <Route path="/air-quality-guide"  element={<AirQualityGuide />} />
         <Route path="/aqi-info"           element={<Navigate to="/air-quality-guide" replace />} />
         <Route path="/airflow"            element={<AirflowDiagram />} />
-        <Route path="/guide"              element={<AirQualityGuide />} />
+        <Route path="/guide"              element={<Guide />} />
 
         {/* หน้าสำหรับ Operator, Engineer, Admin */}
         <Route path="/kiosk" element={

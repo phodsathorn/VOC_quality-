@@ -93,6 +93,7 @@ export default function Layout({ children }) {
     { name: 'Airflow',               path: '/airflow',         icon: Wind,            roles: ['admin', 'engineer', 'operator', 'viewer'] },
     { name: 'History',               path: '/history',         icon: CalendarDays,    roles: ['admin', 'engineer', 'operator', 'viewer'] },
     { name: 'Air Quality Reference', path: '/air-quality-guide', icon: ShieldAlert,   roles: ['admin', 'engineer', 'operator', 'viewer'] },
+    { name: 'User Guide',            path: '/guide',             icon: BookOpen,      roles: ['admin', 'engineer', 'operator', 'viewer'] },
     { name: 'Emissions Report',      path: '/emissions',       icon: Factory,         roles: ['admin', 'engineer', 'operator', 'viewer'] },
     { name: 'Maintenance',           path: '/maintenance',     icon: Wrench,          roles: ['admin', 'engineer'] },
     { name: 'Devices',               path: '/devices',         icon: Box,             roles: ['admin', 'engineer'] },

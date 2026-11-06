@@ -42,16 +42,36 @@ export default function Dashboard() {
   const [isColdStarting, setIsColdStarting] = useState(false);
   const coldStartTimerRef = useRef(null);
 
-  // Sub-states: Drawer & Modal
-  const [isTelemetryDrawerOpen, setIsTelemetryDrawerOpen] = useState(false);
+  // Sub-states: Drawer & Modal (Open by default matching Stitch design)
+  const [isTelemetryDrawerOpen, setIsTelemetryDrawerOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem('voc_drawer_open');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
   const [isRadarModalOpen, setIsRadarModalOpen] = useState(false);
+
+  const toggleTelemetryDrawer = (open) => {
+    setIsTelemetryDrawerOpen(open);
+    try {
+      localStorage.setItem('voc_drawer_open', String(open));
+    } catch {
+      // ignore
+    }
+  };
 
   const boxId = 'BOX-001';
   const thresholds = getThresholds();
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    if (!data) {
+    if (!dataRef.current) {
       if (coldStartTimerRef.current) clearTimeout(coldStartTimerRef.current);
       coldStartTimerRef.current = setTimeout(() => {
         setIsColdStarting(true);
@@ -93,7 +113,7 @@ export default function Dashboard() {
       setIsColdStarting(false);
     } catch (err) {
       console.warn('Dashboard fetch issue:', err);
-      if (!data) {
+      if (!dataRef.current) {
         // Fallback default according to Stitch design
         const fallback = {
           box_id: 'BOX-001',
@@ -126,7 +146,7 @@ export default function Dashboard() {
       if (coldStartTimerRef.current) clearTimeout(coldStartTimerRef.current);
       setLoading(false);
     }
-  }, [data]);
+  }, []);
 
   useEffect(() => {
     fetchAll();
@@ -331,7 +351,7 @@ export default function Dashboard() {
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Card 1: Air Quality Index */}
         <div
-          onClick={() => setIsTelemetryDrawerOpen(true)}
+          onClick={() => toggleTelemetryDrawer(true)}
           className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden cursor-pointer hover:shadow-md transition-all group"
         >
           <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#2563eb]/5 blur-2xl pointer-events-none" />
@@ -379,7 +399,7 @@ export default function Dashboard() {
 
         {/* Card 2: TVOC Real-time Concentration */}
         <div
-          onClick={() => setIsTelemetryDrawerOpen(true)}
+          onClick={() => toggleTelemetryDrawer(true)}
           className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden cursor-pointer hover:shadow-md transition-all"
         >
           <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#004ac6]/5 blur-2xl pointer-events-none" />
@@ -627,7 +647,7 @@ export default function Dashboard() {
       {/* ── Sub-State Right-side Drawer: Live sensor telemetry (480px) ── */}
       {isTelemetryDrawerOpen && (
         <div
-          onClick={() => setIsTelemetryDrawerOpen(false)}
+          onClick={() => toggleTelemetryDrawer(false)}
           className="fixed inset-0 bg-[#283044]/20 backdrop-blur-[2px] z-50 transition-opacity"
         />
       )}
@@ -655,7 +675,7 @@ export default function Dashboard() {
             </div>
             <button
               type="button"
-              onClick={() => setIsTelemetryDrawerOpen(false)}
+              onClick={() => toggleTelemetryDrawer(false)}
               className="p-1.5 rounded-full text-[#505f76] hover:text-[#131b2e] hover:bg-[#eaedff] transition-colors flex items-center justify-center cursor-pointer"
             >
               <X size={20} />
@@ -743,7 +763,7 @@ export default function Dashboard() {
             </span>
             <button
               type="button"
-              onClick={() => setIsTelemetryDrawerOpen(false)}
+              onClick={() => toggleTelemetryDrawer(false)}
               className="px-4 py-2 rounded-xl bg-[#eaedff] text-[#131b2e] text-[13px] font-medium hover:bg-[#dae2fd] transition-colors cursor-pointer"
             >
               Dismiss
