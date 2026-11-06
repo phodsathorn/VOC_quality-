@@ -5,8 +5,10 @@ import {
   Clock, RotateCcw
 } from 'lucide-react';
 import { API } from '../config';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Kiosk() {
+  const { t, isThai } = useLanguage();
   const [data, setData] = useState(() => {
     try {
       const cached = localStorage.getItem('voc_cached_dashboard_v2');
@@ -27,11 +29,46 @@ export default function Kiosk() {
 
   // Maintenance Checklist state
   const [checklist, setChecklist] = useState([
-    { id: 1, text: '1. ตรวจ HEPA filter', sub: 'ความดันตกคร่อมปกติ', checked: true },
-    { id: 2, text: '2. ตรวจสอบแผ่นกรองคาร์บอน (Carbon Filter)', sub: 'ไม่พบกลิ่นเล็ดลอด', checked: true },
-    { id: 3, text: '3. ตรวจเช็คหลอด UV Lamp และความเข้มแสง', sub: 'อายุใช้งาน 1,420 ชม.', checked: false },
-    { id: 4, text: '4. สอบเทียบหัววัดเซนเซอร์ VOC (Sensor Calibration)', sub: 'ความแม่นยำ ±2%', checked: true },
-    { id: 5, text: '5. ตรวจสอบท่อระบายอากาศและพัดลมดูด', sub: 'ไม่มีสิ่งอุดตัน', checked: false },
+    {
+      id: 1,
+      textTh: '1. ตรวจสอบแผ่นกรองขั้นต้น (HEPA Filter)',
+      textEn: '1. Inspect HEPA pre-filter',
+      subTh: 'ความดันตกคร่อมปกติ',
+      subEn: 'Nominal differential pressure',
+      checked: true,
+    },
+    {
+      id: 2,
+      textTh: '2. ตรวจสอบแผ่นกรองคาร์บอนกัมมันต์',
+      textEn: '2. Inspect activated carbon scrubber',
+      subTh: 'ไม่พบกลิ่นเล็ดลอด',
+      subEn: 'No breakthrough odor',
+      checked: true,
+    },
+    {
+      id: 3,
+      textTh: '3. ตรวจเช็คหลอด UV Lamp และความเข้มแสง',
+      textEn: '3. Check PID UV lamp & radiation intensity',
+      subTh: 'อายุใช้งาน 1,420 ชม.',
+      subEn: 'Runtime: 1,420 hrs',
+      checked: false,
+    },
+    {
+      id: 4,
+      textTh: '4. สอบเทียบหัววัดเซนเซอร์ VOC',
+      textEn: '4. Calibrate VOC electrochemical probes',
+      subTh: 'ความแม่นยำ ±2%',
+      subEn: 'Accuracy ±2% verified',
+      checked: true,
+    },
+    {
+      id: 5,
+      textTh: '5. ตรวจสอบท่อระบายอากาศและพัดลมดูด',
+      textEn: '5. Inspect exhaust ductwork & blower fan',
+      subTh: 'ไม่มีสิ่งอุดตัน',
+      subEn: 'No obstructions detected',
+      checked: false,
+    },
   ]);
 
   // Fetch real-time sensor readings from backend
@@ -80,7 +117,7 @@ export default function Kiosk() {
       if (pin.length >= 4) {
         submitEmergency();
       } else {
-        triggerFeedback('กรุณากรอกรหัส PIN 4 หลักให้ครบถ้วน');
+        triggerFeedback(isThai ? 'กรุณากรอกรหัส PIN 4 หลักให้ครบถ้วน' : 'Please enter all 4 digits of the PIN');
       }
       return;
     }
@@ -102,7 +139,9 @@ export default function Kiosk() {
         body: JSON.stringify({
           box_id: 'BOX-001',
           level: 'Critical',
-          message: '🚨 แจ้งเหตุฉุกเฉินสารเคมีรั่วไหลจากหน้าจอ Kiosk หน้างาน (PIN Verified)',
+          message: isThai
+            ? '🚨 แจ้งเหตุฉุกเฉินสารเคมีรั่วไหลจากหน้าจอ Kiosk หน้างาน (ยืนยันรหัส PIN แล้ว)'
+            : '🚨 Emergency chemical spill alarm triggered from onsite Kiosk (PIN Verified)',
         }),
       });
       if (res.ok) {
@@ -123,7 +162,11 @@ export default function Kiosk() {
 
   function saveMaintenanceChecklist() {
     setCurrentMode('normal');
-    triggerFeedback('✓ บันทึกผลการตรวจสอบซ่อมบำรุงประจำวันเรียบร้อยแล้ว');
+    triggerFeedback(
+      isThai
+        ? '✓ บันทึกผลการตรวจสอบซ่อมบำรุงประจำวันเรียบร้อยแล้ว'
+        : '✓ Daily maintenance verification saved successfully'
+    );
   }
 
   // Values from live readings or standard nominal baseline
@@ -155,7 +198,9 @@ export default function Kiosk() {
         <div className="w-full flex items-center justify-between bg-white/80 backdrop-blur rounded-2xl p-2.5 shadow-sm border border-[#e2e8f0]/60 flex-wrap gap-2">
           <div className="flex items-center gap-2 px-3">
             <Sliders size={20} className="text-[#004ac6]" />
-            <span className="font-bold text-[15px] text-[#131b2e]">จำลองสถานะ (Demo Mode):</span>
+            <span className="font-bold text-[15px] text-[#131b2e]">
+              {isThai ? 'จำลองสถานะการทำงาน:' : 'Demo Mode:'}
+            </span>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
@@ -167,7 +212,7 @@ export default function Kiosk() {
                   : 'bg-[#eaedff] text-[#505f76] hover:text-[#131b2e]'
               }`}
             >
-              ปกติ
+              {isThai ? 'ปกติ' : 'Normal'}
             </button>
             <button
               type="button"
@@ -179,7 +224,7 @@ export default function Kiosk() {
               }`}
             >
               <Lock size={14} />
-              ยืนยันรหัส PIN
+              {isThai ? 'ยืนยันรหัส PIN' : 'Verify PIN'}
             </button>
             <button
               type="button"
@@ -190,7 +235,7 @@ export default function Kiosk() {
                   : 'bg-[#eaedff] text-[#505f76] hover:text-[#131b2e]'
               }`}
             >
-              กำลังส่ง...
+              {isThai ? 'กำลังส่ง...' : 'Sending...'}
             </button>
             <button
               type="button"
@@ -201,7 +246,7 @@ export default function Kiosk() {
                   : 'bg-[#eaedff] text-[#16a34a] hover:bg-[#dcfce7]'
               }`}
             >
-              ส่งสำเร็จ
+              {isThai ? 'ส่งสำเร็จ' : 'Sent'}
             </button>
             <button
               type="button"
@@ -212,7 +257,7 @@ export default function Kiosk() {
                   : 'bg-[#eaedff] text-[#ba1a1a] hover:bg-[#ffdad6]'
               }`}
             >
-              ล้มเหลว
+              {isThai ? 'ล้มเหลว' : 'Failed'}
             </button>
             <button
               type="button"
@@ -224,7 +269,7 @@ export default function Kiosk() {
               }`}
             >
               <Fan size={14} />
-              บูสเตอร์ 100%
+              {isThai ? 'เปิดพัดลมดูดสูงสุด 100%' : 'Booster 100%'}
             </button>
             <button
               type="button"
@@ -236,7 +281,7 @@ export default function Kiosk() {
               }`}
             >
               <Wrench size={14} />
-              ซ่อมบำรุง
+              {isThai ? 'ซ่อมบำรุง' : 'Maintenance'}
             </button>
           </div>
         </div>
@@ -251,7 +296,9 @@ export default function Kiosk() {
             {isSafe ? <CheckCircle2 size={44} className="text-[#004ac6]" /> : <AlertOctagon size={44} />}
           </div>
           <span className="text-[28px] md:text-[32px] font-bold text-[#131b2e] tracking-tight">
-            {isSafe ? 'บรรยากาศปกติ — ปลอดภัย' : 'ตรวจพบไอระเหยสะสม — โปรดระมัดระวัง'}
+            {isSafe
+              ? (isThai ? 'บรรยากาศปกติ — ปลอดภัย' : 'Atmosphere Normal — Safe')
+              : (isThai ? 'ตรวจพบไอระเหยสะสม — โปรดระมัดระวัง' : 'Vapor Accumulation Detected — Caution')}
           </span>
         </div>
 
@@ -267,7 +314,7 @@ export default function Kiosk() {
               <ShieldAlert size={42} />
             </div>
             <span className="text-[26px] font-bold text-white tracking-normal leading-tight">
-              ส่งสัญญาณเตือนภัยฉุกเฉิน
+              {isThai ? 'ส่งสัญญาณเตือนภัยฉุกเฉิน' : 'Trigger Emergency Alarm'}
             </span>
           </button>
 
@@ -281,7 +328,7 @@ export default function Kiosk() {
               <Fan size={42} className="animate-spin-slow" />
             </div>
             <span className="text-[26px] font-bold text-white tracking-normal leading-tight">
-              เปิดพัดลมดูดอากาศ 100% (ฉุกเฉิน)
+              {isThai ? 'เปิดพัดลมดูดอากาศ 100% (ฉุกเฉิน)' : 'Activate Exhaust Fan 100% (Emergency)'}
             </span>
           </button>
 
@@ -295,7 +342,7 @@ export default function Kiosk() {
               <Wrench size={38} />
             </div>
             <span className="text-[26px] font-bold text-[#eef0ff] tracking-normal leading-tight">
-              บันทึกงานซ่อมบำรุงหน้างาน
+              {isThai ? 'บันทึกงานซ่อมบำรุงหน้างาน' : 'Log Onsite Maintenance Task'}
             </span>
           </button>
         </div>
@@ -306,10 +353,10 @@ export default function Kiosk() {
           <div className="bg-white rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between relative overflow-hidden min-h-[290px] border border-[#eaedff]">
             <div className="w-full flex items-center justify-between mb-1">
               <span className="text-[16px] font-bold text-[#505f76] tracking-wide">
-                สารระเหยรวม (TVOC)
+                {isThai ? 'สารระเหยรวม (TVOC)' : 'Total VOC (TVOC)'}
               </span>
               <span className="px-3 py-1 rounded-full bg-[#dcfce7] text-[#16a34a] text-[13px] font-bold">
-                ปกติ
+                {isThai ? 'ปกติ' : 'Normal'}
               </span>
             </div>
             <div className="relative w-44 h-44 flex items-center justify-center my-1">
@@ -345,7 +392,7 @@ export default function Kiosk() {
             </div>
             <div className="text-center mt-1 w-full">
               <span className="text-[13px] text-[#505f76] font-medium">
-                เกณฑ์ปลอดภัย: ต่ำกว่า 220 ppb
+                {isThai ? 'เกณฑ์ปลอดภัย: ต่ำกว่า 220 ppb' : 'Safe threshold: Under 220 ppb'}
               </span>
             </div>
           </div>
@@ -354,10 +401,10 @@ export default function Kiosk() {
           <div className="bg-white rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between relative overflow-hidden min-h-[290px] border border-[#eaedff]">
             <div className="w-full flex items-center justify-between mb-1">
               <span className="text-[16px] font-bold text-[#505f76] tracking-wide">
-                ฝุ่นละอองละเอียด (PM2.5)
+                {isThai ? 'ฝุ่นละอองละเอียด (PM2.5)' : 'Fine Particulate (PM2.5)'}
               </span>
               <span className="px-3 py-1 rounded-full bg-[#dcfce7] text-[#16a34a] text-[13px] font-bold">
-                ปกติ
+                {isThai ? 'ปกติ' : 'Normal'}
               </span>
             </div>
             <div className="relative w-44 h-44 flex items-center justify-center my-1">
@@ -393,7 +440,7 @@ export default function Kiosk() {
             </div>
             <div className="text-center mt-1 w-full">
               <span className="text-[13px] text-[#505f76] font-medium">
-                เกณฑ์ปลอดภัย: ต่ำกว่า 37.5 µg/m³
+                {isThai ? 'เกณฑ์ปลอดภัย: ต่ำกว่า 37.5 µg/m³' : 'Safe threshold: Under 37.5 µg/m³'}
               </span>
             </div>
           </div>
@@ -402,15 +449,17 @@ export default function Kiosk() {
           <div className="bg-white rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between relative overflow-hidden min-h-[290px] border border-[#eaedff]">
             <div className="w-full flex items-center justify-between mb-1">
               <span className="text-[16px] font-bold text-[#505f76] tracking-wide">
-                อุณหภูมิ / ความชื้น
+                {isThai ? 'อุณหภูมิ / ความชื้น' : 'Temperature / Humidity'}
               </span>
               <span className="px-3 py-1 rounded-full bg-[#dcfce7] text-[#16a34a] text-[13px] font-bold">
-                ปกติ
+                {isThai ? 'ปกติ' : 'Normal'}
               </span>
             </div>
             <div className="w-full h-44 flex items-center justify-around my-1 px-2">
               <div className="flex flex-col items-center justify-center text-center flex-1">
-                <span className="text-[14px] font-medium text-[#505f76] mb-1">อุณหภูมิ</span>
+                <span className="text-[14px] font-medium text-[#505f76] mb-1">
+                  {isThai ? 'อุณหภูมิ' : 'Temperature'}
+                </span>
                 <div className="flex items-baseline justify-center">
                   <span className="text-[44px] leading-[46px] font-bold text-[#131b2e] tracking-tight">
                     {tempVal}
@@ -418,12 +467,14 @@ export default function Kiosk() {
                   <span className="text-[20px] font-bold text-[#505f76] ml-1">°C</span>
                 </div>
                 <span className="text-[12px] font-medium text-[#16a34a] bg-[#dcfce7] px-2.5 py-0.5 rounded-full mt-2">
-                  ปกติ
+                  {isThai ? 'ปกติ' : 'Normal'}
                 </span>
               </div>
               <div className="h-20 w-[1px] bg-[#c3c6d7]/40" />
               <div className="flex flex-col items-center justify-center text-center flex-1">
-                <span className="text-[14px] font-medium text-[#505f76] mb-1">ความชื้น</span>
+                <span className="text-[14px] font-medium text-[#505f76] mb-1">
+                  {isThai ? 'ความชื้น' : 'Humidity'}
+                </span>
                 <div className="flex items-baseline justify-center">
                   <span className="text-[44px] leading-[46px] font-bold text-[#131b2e] tracking-tight">
                     {rhVal}
@@ -431,13 +482,13 @@ export default function Kiosk() {
                   <span className="text-[20px] font-bold text-[#505f76] ml-1">%RH</span>
                 </div>
                 <span className="text-[12px] font-medium text-[#16a34a] bg-[#dcfce7] px-2.5 py-0.5 rounded-full mt-2">
-                  ปกติ
+                  {isThai ? 'ปกติ' : 'Normal'}
                 </span>
               </div>
             </div>
             <div className="text-center mt-1 w-full">
               <span className="text-[13px] text-[#505f76] font-medium">
-                เกณฑ์ปลอดภัย: 20-32° / 40-70%
+                {isThai ? 'เกณฑ์ปลอดภัย: 20-32° / 40-70%' : 'Safe threshold: 20-32° / 40-70%'}
               </span>
             </div>
           </div>
@@ -446,10 +497,10 @@ export default function Kiosk() {
           <div className="bg-white rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between relative overflow-hidden min-h-[290px] border border-[#eaedff]">
             <div className="w-full flex items-center justify-between mb-1">
               <span className="text-[16px] font-bold text-[#505f76] tracking-wide">
-                ความเร็วลม
+                {isThai ? 'ความเร็วลม' : 'Airflow Velocity'}
               </span>
               <span className="px-3 py-1 rounded-full bg-[#dcfce7] text-[#16a34a] text-[13px] font-bold">
-                ปกติ
+                {isThai ? 'ปกติ' : 'Normal'}
               </span>
             </div>
             <div className="relative w-44 h-44 flex items-center justify-center my-1">
@@ -485,7 +536,7 @@ export default function Kiosk() {
             </div>
             <div className="text-center mt-1 w-full">
               <span className="text-[13px] text-[#505f76] font-medium">
-                เกณฑ์ปลอดภัย: 15.0 - 22.0 m/s
+                {isThai ? 'เกณฑ์ปลอดภัย: 15.0 - 22.0 m/s' : 'Safe threshold: 15.0 - 22.0 m/s'}
               </span>
             </div>
           </div>
@@ -500,10 +551,12 @@ export default function Kiosk() {
               <Lock size={36} />
             </div>
             <h2 className="text-[28px] font-bold text-[#131b2e] leading-tight mb-1">
-              ใส่รหัสพนักงาน
+              {isThai ? 'ใส่รหัสพนักงาน' : 'Enter Employee PIN'}
             </h2>
             <p className="text-[15px] text-[#505f76] mb-5">
-              กรอกรหัส PIN 4 หลักเพื่อยืนยันการแจ้งเหตุฉุกเฉิน
+              {isThai
+                ? 'กรอกรหัส PIN 4 หลักเพื่อยืนยันการแจ้งเหตุฉุกเฉิน'
+                : 'Enter 4-digit PIN code to confirm emergency alarm'}
             </p>
 
             {/* PIN Dots Indicator */}
@@ -560,7 +613,7 @@ export default function Kiosk() {
               onClick={() => { setCurrentMode('normal'); setPin(''); }}
               className="min-h-[56px] w-full rounded-2xl bg-[#eaedff] text-[#505f76] text-[18px] font-bold hover:text-[#131b2e] transition-all active:scale-98 cursor-pointer"
             >
-              ยกเลิก (Cancel)
+              {isThai ? 'ยกเลิก' : 'Cancel'}
             </button>
           </div>
         </div>
@@ -574,10 +627,12 @@ export default function Kiosk() {
               <RefreshCw size={52} className="animate-spin text-[#004ac6]" />
             </div>
             <h2 className="text-[32px] font-bold text-[#131b2e] leading-tight mb-2">
-              กำลังส่ง...
+              {isThai ? 'กำลังส่ง...' : 'Sending...'}
             </h2>
             <p className="text-[18px] text-[#505f76] mb-6 leading-relaxed">
-              กำลังเชื่อมต่อระบบ LINE OA และระบบเตือนภัยฉุกเฉินส่วนกลาง
+              {isThai
+                ? 'กำลังเชื่อมต่อระบบ LINE OA และระบบเตือนภัยฉุกเฉินส่วนกลาง'
+                : 'Connecting to LINE OA and central emergency alarm system'}
             </p>
             <div className="w-full bg-[#eaedff] rounded-full h-3 overflow-hidden mb-6">
               <div className="bg-[#004ac6] h-full w-2/3 animate-pulse rounded-full" />
@@ -587,7 +642,7 @@ export default function Kiosk() {
               onClick={() => setCurrentMode('normal')}
               className="min-h-[56px] px-8 rounded-2xl bg-[#eaedff] text-[#505f76] font-bold text-[16px] hover:text-[#131b2e] transition-all active:scale-98 cursor-pointer"
             >
-              ปิดหน้าต่าง
+              {isThai ? 'ปิดหน้าต่าง' : 'Close'}
             </button>
           </div>
         </div>
@@ -601,15 +656,19 @@ export default function Kiosk() {
               <CheckCircle2 size={56} className="text-[#16a34a]" />
             </div>
             <h2 className="text-[32px] font-bold text-[#131b2e] leading-tight mb-2 flex items-center gap-2">
-              ส่งแล้ว ✓
+              {isThai ? 'ส่งแล้ว ✓' : 'Sent ✓'}
             </h2>
             <p className="text-[18px] text-[#505f76] mb-6 leading-relaxed">
-              ส่งข้อความเตือนภัยไปยัง LINE OA เจ้าหน้าที่ความปลอดภัย 18 นายสำเร็จแล้ว
+              {isThai
+                ? 'ส่งข้อความเตือนภัยไปยัง LINE OA เจ้าหน้าที่ความปลอดภัย 18 นายสำเร็จแล้ว'
+                : 'Emergency alert dispatched to 18 safety officers via LINE OA successfully'}
             </p>
             <div className="w-full bg-[#eaedff] p-4 rounded-2xl text-left mb-6 flex items-center gap-3">
               <Clock size={24} className="text-[#004ac6] shrink-0" />
               <span className="text-[15px] font-medium text-[#131b2e]">
-                เวลาที่ส่ง: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} น. (SLA Dispatching Active)
+                {isThai
+                  ? `เวลาที่ส่ง: ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} น. (กำลังควบคุมตาม SLA)`
+                  : `Dispatched at: ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} (SLA Dispatching Active)`}
               </span>
             </div>
             <button
@@ -617,7 +676,7 @@ export default function Kiosk() {
               onClick={() => setCurrentMode('normal')}
               className="min-h-[56px] w-full rounded-2xl bg-[#004ac6] text-white text-[20px] font-bold shadow-md hover:bg-[#003ea8] transition-all active:scale-98 cursor-pointer"
             >
-              ตกลง (กลับหน้าหลัก)
+              {isThai ? 'ตกลง (กลับหน้าหลัก)' : 'OK (Return to Home)'}
             </button>
           </div>
         </div>
@@ -631,10 +690,12 @@ export default function Kiosk() {
               <AlertOctagon size={56} className="text-[#ba1a1a]" />
             </div>
             <h2 className="text-[28px] font-bold text-[#ba1a1a] leading-tight mb-2">
-              ส่งไม่สำเร็จ — ลองอีกครั้ง
+              {isThai ? 'ส่งไม่สำเร็จ — ลองอีกครั้ง' : 'Dispatch Failed — Try Again'}
             </h2>
             <p className="text-[17px] text-[#505f76] mb-6 leading-relaxed">
-              เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ LINE OA กรุณากดลองอีกครั้ง
+              {isThai
+                ? 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ LINE OA กรุณากดลองอีกครั้ง'
+                : 'Connection error to LINE OA server. Please try again.'}
             </p>
             <div className="grid grid-cols-2 gap-4 w-full">
               <button
@@ -642,7 +703,7 @@ export default function Kiosk() {
                 onClick={() => setCurrentMode('normal')}
                 className="min-h-[60px] rounded-2xl bg-[#eaedff] text-[#131b2e] text-[18px] font-bold hover:bg-[#d0e1fb] transition-all active:scale-98 cursor-pointer"
               >
-                ยกเลิก
+                {isThai ? 'ยกเลิก' : 'Cancel'}
               </button>
               <button
                 type="button"
@@ -650,7 +711,7 @@ export default function Kiosk() {
                 className="min-h-[60px] rounded-2xl bg-[#ba1a1a] text-white text-[18px] font-bold shadow-md hover:bg-[#a01414] transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <RotateCcw size={22} />
-                ลองอีกครั้ง
+                {isThai ? 'ลองอีกครั้ง' : 'Try Again'}
               </button>
             </div>
           </div>
@@ -663,7 +724,9 @@ export default function Kiosk() {
           <div className="w-full max-w-xl bg-white rounded-3xl p-10 flex flex-col items-center text-center shadow-2xl border-2 border-[#004ac6]/30">
             <div className="flex items-center gap-3 text-[#2563eb] mb-4">
               <Fan size={36} className="animate-spin text-[#004ac6]" />
-              <span className="text-[24px] font-bold text-[#131b2e]">เร่งพัดลมระบายอากาศ 100% ทำงาน</span>
+              <span className="text-[24px] font-bold text-[#131b2e]">
+                {isThai ? 'เร่งพัดลมระบายอากาศ 100% ทำงาน' : 'Exhaust Fan 100% Booster Running'}
+              </span>
             </div>
 
             {/* Radial Progress & Countdown */}
@@ -692,16 +755,22 @@ export default function Kiosk() {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-[18px] font-semibold text-[#505f76]">เหลือเวลา</span>
+                <span className="text-[18px] font-semibold text-[#505f76]">
+                  {isThai ? 'เหลือเวลา' : 'Time Remaining'}
+                </span>
                 <span className="text-[52px] leading-[56px] font-bold text-[#131b2e] tracking-tight mt-1 tabular-nums">
                   {formatTime(fanCountdown)}
                 </span>
-                <span className="text-[16px] text-[#004ac6] font-bold mt-1">กำลังระบายอากาศสูงสุด</span>
+                <span className="text-[16px] text-[#004ac6] font-bold mt-1">
+                  {isThai ? 'กำลังระบายอากาศสูงสุด' : 'Max Exhaust Active'}
+                </span>
               </div>
             </div>
 
             <p className="text-[18px] text-[#505f76] mb-8">
-              รอบพัดลม: 2,850 RPM | อัตราถ่ายเทอากาศ 4,200 CFM
+              {isThai
+                ? 'รอบพัดลม: 2,850 RPM | อัตราถ่ายเทอากาศ 4,200 CFM'
+                : 'Fan RPM: 2,850 RPM | Flow Rate: 4,200 CFM'}
             </p>
 
             <button
@@ -710,7 +779,7 @@ export default function Kiosk() {
               className="min-h-[72px] w-full rounded-2xl bg-[#004ac6] text-white text-[26px] font-bold flex items-center justify-center gap-3 shadow-lg hover:bg-[#003ea8] transition-all active:scale-98 cursor-pointer"
             >
               <StopCircle size={32} />
-              หยุด (Stop)
+              {isThai ? 'หยุดการทำงาน' : 'Stop'}
             </button>
           </div>
         </div>
@@ -723,10 +792,10 @@ export default function Kiosk() {
             <div className="flex items-center justify-between pb-4 border-b border-[#e2e8f0] mb-5">
               <div>
                 <h2 className="text-[28px] font-bold text-[#131b2e] leading-tight">
-                  บันทึกงานซ่อมบำรุงประจำวัน
+                  {isThai ? 'บันทึกงานซ่อมบำรุงประจำวัน' : 'Daily Maintenance Log'}
                 </h2>
                 <p className="text-[16px] text-[#505f76] mt-0.5">
-                  แตะเลือกเพื่อเช็ครายการตรวจสอบ (Touch Checklist)
+                  {isThai ? 'แตะเลือกเพื่อตรวจสอบรายการ' : 'Touch items to check off'}
                 </p>
               </div>
               <button
@@ -753,10 +822,10 @@ export default function Kiosk() {
                     className="w-8 h-8 rounded text-[#004ac6] focus:ring-[#004ac6] accent-[#004ac6] cursor-pointer"
                   />
                   <span className="text-[20px] font-bold text-[#131b2e] flex-grow">
-                    {item.text}
+                    {isThai ? item.textTh : item.textEn}
                   </span>
                   <span className="text-[14px] text-[#505f76] font-medium">
-                    {item.sub}
+                    {isThai ? item.subTh : item.subEn}
                   </span>
                 </label>
               ))}
@@ -769,7 +838,7 @@ export default function Kiosk() {
                 onClick={() => setCurrentMode('normal')}
                 className="min-h-[64px] rounded-2xl bg-[#eaedff] text-[#131b2e] text-[22px] font-bold flex items-center justify-center active:scale-98 cursor-pointer"
               >
-                ยกเลิก (Cancel)
+                {isThai ? 'ยกเลิก' : 'Cancel'}
               </button>
               <button
                 type="button"
@@ -777,7 +846,7 @@ export default function Kiosk() {
                 className="min-h-[64px] rounded-2xl bg-[#004ac6] text-white text-[22px] font-bold flex items-center justify-center gap-2 shadow-md active:scale-98 hover:bg-[#003ea8] cursor-pointer"
               >
                 <Save size={26} />
-                บันทึก (Save)
+                {isThai ? 'บันทึกข้อมูล' : 'Save'}
               </button>
             </div>
           </div>

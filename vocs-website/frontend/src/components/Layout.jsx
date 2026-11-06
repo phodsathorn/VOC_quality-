@@ -212,10 +212,14 @@ export default function Layout({ children }) {
           </div>
           <div className="flex flex-col min-w-0">
             <span className="text-[13px] font-medium text-[#131b2e] truncate leading-tight">
-              {user?.full_name || 'E. Mitchell'}
+              {isThai
+                ? (user?.full_name === 'System Administrator' ? 'ผู้ดูแลระบบ' : (user?.full_name || 'ผู้ดูแลระบบ'))
+                : (user?.full_name || 'System Administrator')}
             </span>
             <span className="text-[11px] text-[#505f76] truncate leading-none mt-0.5">
-              {user?.role === 'admin' ? 'H&S Officer' : (user?.role || 'H&S Officer')}
+              {isThai
+                ? (user?.role === 'H&S Officer' || user?.role === 'admin' ? 'เจ้าหน้าที่ความปลอดภัย (จป.)' : (user?.role || 'เจ้าหน้าที่ความปลอดภัย (จป.)'))
+                : (user?.role || 'H&S Officer')}
             </span>
           </div>
         </div>
@@ -233,8 +237,14 @@ export default function Layout({ children }) {
         {showUserMenu && (
           <div className="absolute bottom-14 left-2 right-2 bg-white rounded-2xl shadow-xl border border-[#e2e8f0] p-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
             <div className="px-3 py-2 border-b border-[#f1f5f9] mb-1">
-              <p className="text-[12px] font-semibold text-[#131b2e]">{user?.full_name || 'E. Mitchell'}</p>
-              <p className="text-[10px] text-[#64748b]">{user?.site || 'Main Plant'} • {user?.role || 'H&S Officer'}</p>
+              <p className="text-[12px] font-semibold text-[#131b2e]">
+                {isThai
+                  ? (user?.full_name === 'System Administrator' ? 'ผู้ดูแลระบบ' : (user?.full_name || 'E. Mitchell'))
+                  : (user?.full_name || 'E. Mitchell')}
+              </p>
+              <p className="text-[10px] text-[#64748b]">
+                {isThai ? 'โรงงานหลัก' : 'Main Plant'} • {isThai ? 'เจ้าหน้าที่ความปลอดภัย (จป.)' : 'H&S Officer'}
+              </p>
             </div>
             <button
               type="button"
@@ -294,7 +304,7 @@ export default function Layout({ children }) {
               </span>
               <span className="opacity-75 shrink-0">|</span>
               <Link to="/alerts" className="underline font-semibold hover:opacity-90 ml-1 shrink-0">
-                View alert
+                {lang === 'TH' ? 'ดูการแจ้งเตือน' : 'View alert'}
               </Link>
             </div>
             <button
@@ -451,7 +461,7 @@ export default function Layout({ children }) {
                 onClick={() => setToastAlert(null)}
                 className="inline-block mt-2 text-[12px] font-semibold text-[#004ac6] hover:underline"
               >
-                ดูรายละเอียดที่หน้า Alerts →
+                {lang === 'TH' ? 'ดูรายละเอียดที่หน้าการแจ้งเตือน →' : 'View alert details →'}
               </Link>
             </div>
 

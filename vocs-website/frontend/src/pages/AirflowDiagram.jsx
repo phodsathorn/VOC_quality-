@@ -4,8 +4,10 @@ import {
   Radio, Thermometer, Filter, Cloud, ShieldCheck
 } from 'lucide-react';
 import { API } from '../config';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function AirflowDiagram() {
+  const { t, isThai } = useLanguage();
   const [viewMode, setViewMode] = useState('factory'); // 'factory' (Factory ventilation) | 'sensorbox' (Sensor box pneumatic circuit)
   const [isScrubberDrawerOpen, setIsScrubberDrawerOpen] = useState(false);
   const [showExhaustPopover, setShowExhaustPopover] = useState(true);
@@ -45,56 +47,86 @@ export default function AirflowDiagram() {
   const sensorBoxStages = [
     {
       id: 'intake',
-      name: 'Intake',
-      role: 'Sample Probe',
+      name: isThai ? 'ท่อดักอากาศตัวอย่าง' : 'Intake',
+      role: isThai ? 'หัววัดอากาศเข้า' : 'Sample Probe',
       value: '0.45',
       unit: 'L/min',
-      metric: 'Aspiration Rate',
+      metric: isThai ? 'อัตราการดูดอากาศ' : 'Aspiration Rate',
       bgIcon: 'bg-[#dbe1ff] text-[#00174b]',
     },
     {
       id: 'hepa',
-      name: 'HEPA Pre-Filter',
-      role: 'Particulate Trap',
+      name: isThai ? 'แผ่นกรองขั้นต้น (HEPA)' : 'HEPA Pre-Filter',
+      role: isThai ? 'ดักจับละอองฝุ่น' : 'Particulate Trap',
       value: '99.8%',
-      metric: 'PM Separation',
+      metric: isThai ? 'การแยกฝุ่น PM' : 'PM Separation',
       bgIcon: 'bg-[#d3e4fe] text-[#0b1c30]',
     },
     {
       id: 'chamber',
-      name: 'Sensor Chamber',
-      role: 'Gas Cell',
-      value: '4 Sensors',
-      metric: 'Active Matrix',
+      name: isThai ? 'ห้องตรวจวัดก๊าซ' : 'Sensor Chamber',
+      role: isThai ? 'เซลล์ก๊าซ' : 'Gas Cell',
+      value: isThai ? '4 เซนเซอร์' : '4 Sensors',
+      metric: isThai ? 'แผงเซนเซอร์ตรวจจับ' : 'Active Matrix',
       bgIcon: 'bg-[#dbe1ff] text-[#004ac6]',
-      chips: ['MQ-135 1.2 V', 'MQ-3 0.8 V', 'PM2.5 14', 'NOx — Simulated'],
+      chips: ['MQ-135 1.2 V', 'MQ-3 0.8 V', 'PM2.5 14', isThai ? 'NOx — จำลอง' : 'NOx — Simulated'],
     },
     {
       id: 'mcu',
-      name: 'Microcontroller',
-      role: 'ESP32 Core',
+      name: isThai ? 'ไมโครคอนโทรลเลอร์' : 'Microcontroller',
+      role: isThai ? 'แกนประมวลผล ESP32' : 'ESP32 Core',
       value: '100',
       unit: 'Hz',
-      metric: 'Sampling Rate',
+      metric: isThai ? 'อัตราการสุ่มตัวอย่าง' : 'Sampling Rate',
       bgIcon: 'bg-[#d3e4fe] text-[#0b1c30]',
     },
     {
       id: 'exhaust',
-      name: 'Exhaust',
-      role: 'Micro Vent',
-      value: 'Passive',
-      metric: 'Discharge',
+      name: isThai ? 'ช่องระบายอากาศย่อย' : 'Exhaust',
+      role: isThai ? 'ช่องปล่อยไมโคร' : 'Micro Vent',
+      value: isThai ? 'พาสซีฟ' : 'Passive',
+      metric: isThai ? 'การระบายออก' : 'Discharge',
       bgIcon: 'bg-[#e2e7ff] text-[#131b2e]',
     },
   ];
 
   // Telemetry drawer probes matching screenshots 1 & 5
   const probeRows = [
-    { id: 'MQ-135', loc: 'Booth Inflow', val: '48 ppb', thresh: '100 ppb', status: 'Normal' },
-    { id: 'MQ-137', loc: 'Vent Exhaust', val: '32 ppb', thresh: '80 ppb', status: 'Normal' },
-    { id: 'PID', loc: 'Primary Chamber', val: '64 ppb', thresh: '120 ppb', status: 'Normal' },
-    { id: 'SGP40', loc: 'Curing Zone', val: '18 ppb', thresh: '50 ppb', status: 'Normal' },
-    { id: 'TGS2602', loc: 'Recirculation Line', val: '55 ppb', thresh: '90 ppb', status: 'Normal' },
+    {
+      id: 'MQ-135',
+      loc: isThai ? 'ช่องลมเข้าห้องพ่นสี' : 'Booth Inflow',
+      val: '48 ppb',
+      thresh: '100 ppb',
+      status: isThai ? 'ปกติ' : 'Normal',
+    },
+    {
+      id: 'MQ-137',
+      loc: isThai ? 'ปล่องระบายอากาศ' : 'Vent Exhaust',
+      val: '32 ppb',
+      thresh: '80 ppb',
+      status: isThai ? 'ปกติ' : 'Normal',
+    },
+    {
+      id: 'PID',
+      loc: isThai ? 'ห้องตรวจวัดหลัก' : 'Primary Chamber',
+      val: '64 ppb',
+      thresh: '120 ppb',
+      status: isThai ? 'ปกติ' : 'Normal',
+    },
+    {
+      id: 'SGP40',
+      loc: isThai ? 'โซนอบแห้งเคลือบสี' : 'Curing Zone',
+      val: '18 ppb',
+      thresh: '50 ppb',
+      status: isThai ? 'ปกติ' : 'Normal',
+    },
+    {
+      id: 'TGS2602',
+      loc: isThai ? 'ท่อหมุนเวียนอากาศ' : 'Recirculation Line',
+      val: '55 ppb',
+      thresh: '90 ppb',
+      status: isThai ? 'ปกติ' : 'Normal',
+    },
   ];
 
   return (
@@ -103,12 +135,12 @@ export default function AirflowDiagram() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5 text-[#434655] text-[13px] uppercase tracking-widest font-semibold mb-1">
-            <span>Booth 01</span>
+            <span>{isThai ? 'ห้องพ่นสี 01' : 'Booth 01'}</span>
             <span>/</span>
-            <span>Aero Exhaust</span>
+            <span>{isThai ? 'ระบบระบายอากาศไอเสีย' : 'Aero Exhaust'}</span>
           </div>
           <h1 className="text-[28px] md:text-[36px] font-bold text-[#131b2e] tracking-tight">
-            Airflow Telemetry
+            {isThai ? 'แผนผังการไหลของลมและไอระเหย' : 'Airflow Telemetry'}
           </h1>
         </div>
 
@@ -124,7 +156,7 @@ export default function AirflowDiagram() {
                   : 'text-[#434655] hover:text-[#131b2e]'
               }`}
             >
-              Factory ventilation
+              {isThai ? 'ระบบระบายอากาศโรงงาน' : 'Factory ventilation'}
             </button>
             <button
               type="button"
@@ -135,7 +167,7 @@ export default function AirflowDiagram() {
                   : 'text-[#434655] hover:text-[#131b2e]'
               }`}
             >
-              Sensor box
+              {isThai ? 'วงจรนิวเมติกส์กล่องเซนเซอร์' : 'Sensor box'}
             </button>
           </div>
 
@@ -145,7 +177,7 @@ export default function AirflowDiagram() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[#004ac6]" />
             </span>
             <span className="text-[12px] font-bold text-[#131b2e]">
-              Laminar Sync Active
+              {isThai ? 'ระบบไหลแบบราบเรียบทำงานปกติ' : 'Laminar Sync Active'}
             </span>
           </div>
         </div>
@@ -157,11 +189,11 @@ export default function AirflowDiagram() {
           <div className="relative bg-white rounded-3xl p-8 shadow-sm overflow-hidden border border-[#eaedff]">
             <div className="flex items-center justify-between mb-8">
               <span className="text-[13px] font-semibold text-[#434655] uppercase tracking-wider">
-                Airstream Pathway
+                {isThai ? 'เส้นทางการระบายไอระเหย' : 'Airstream Pathway'}
               </span>
               <div className="flex items-center gap-1.5 text-[#434655] text-[12px] font-semibold">
                 <Wind size={16} className="text-[#004ac6]" />
-                <span>1,850 m³/h volumetric mass</span>
+                <span>{isThai ? 'อัตราไหลเชิงปริมาตร 1,850 m³/h' : '1,850 m³/h volumetric mass'}</span>
               </div>
             </div>
 
@@ -174,12 +206,12 @@ export default function AirflowDiagram() {
                     <div className="w-12 h-12 rounded-full bg-[#dbe1ff] flex items-center justify-center text-[#00174b] mb-3 transition-transform duration-300 group-hover:scale-110">
                       <span className="material-symbols-outlined text-[24px]">precision_manufacturing</span>
                     </div>
-                    <span className="text-[14px] font-bold text-[#131b2e]">Spray Booth</span>
-                    <span className="text-[12px] text-[#434655] mt-0.5 font-medium">Source Intake</span>
+                    <span className="text-[14px] font-bold text-[#131b2e]">{isThai ? 'ห้องพ่นสี' : 'Spray Booth'}</span>
+                    <span className="text-[12px] text-[#434655] mt-0.5 font-medium">{isThai ? 'จุดดึงอากาศต้นทาง' : 'Source Intake'}</span>
                   </div>
                   <div className="mt-4 flex flex-col items-center">
                     <span className="text-[28px] font-bold text-[#131b2e] leading-tight">100%</span>
-                    <span className="text-[13px] text-[#434655]">Inflow capture</span>
+                    <span className="text-[13px] text-[#434655]">{isThai ? 'การดักจับอากาศเข้า' : 'Inflow capture'}</span>
                   </div>
                 </div>
 
@@ -189,14 +221,14 @@ export default function AirflowDiagram() {
                     <div className="w-12 h-12 rounded-full bg-[#d3e4fe] flex items-center justify-center text-[#0b1c30] mb-3 transition-transform duration-300 group-hover:scale-110">
                       <span className="material-symbols-outlined text-[24px]">cyclone</span>
                     </div>
-                    <span className="text-[14px] font-bold text-[#131b2e]">Duct</span>
-                    <span className="text-[12px] text-[#434655] mt-0.5 font-medium">Transit Line A</span>
+                    <span className="text-[14px] font-bold text-[#131b2e]">{isThai ? 'ท่อส่งลมไอเสีย' : 'Duct'}</span>
+                    <span className="text-[12px] text-[#434655] mt-0.5 font-medium">{isThai ? 'แนวท่อส่งลมสาย A' : 'Transit Line A'}</span>
                   </div>
                   <div className="mt-4 flex flex-col items-center">
                     <span className="text-[28px] font-bold text-[#131b2e] leading-tight">
                       18.4 <span className="text-[14px] font-normal text-[#434655]">m/s</span>
                     </span>
-                    <span className="text-[13px] text-[#434655]">Airflow velocity</span>
+                    <span className="text-[13px] text-[#434655]">{isThai ? 'ความเร็วลมระบาย' : 'Airflow velocity'}</span>
                   </div>
                 </div>
 
@@ -214,15 +246,15 @@ export default function AirflowDiagram() {
                     <div className="w-12 h-12 rounded-full bg-[#004ac6] flex items-center justify-center text-white mb-3 transition-transform duration-300 group-hover:scale-110 shadow-sm">
                       <span className="material-symbols-outlined text-[24px]">filter_alt</span>
                     </div>
-                    <span className="text-[14px] font-bold text-[#131b2e]">Carbon Scrubber</span>
+                    <span className="text-[14px] font-bold text-[#131b2e]">{isThai ? 'ชุดถ่านกัมมันต์ดูดซับ' : 'Carbon Scrubber'}</span>
                     <span className="text-[12px] text-[#004ac6] font-semibold mt-0.5 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6] inline-block" />
-                      Active Inspection
+                      {isThai ? 'ตรวจความพร้อมทำงาน' : 'Active Inspection'}
                     </span>
                   </button>
                   <div className="mt-4 flex flex-col items-center">
                     <span className="text-[28px] font-bold text-[#131b2e] leading-tight">94%</span>
-                    <span className="text-[13px] text-[#434655]">Efficiency</span>
+                    <span className="text-[13px] text-[#434655]">{isThai ? 'ประสิทธิภาพการดูดซับ' : 'Efficiency'}</span>
                   </div>
                 </div>
 
@@ -236,8 +268,8 @@ export default function AirflowDiagram() {
                     <div className="w-12 h-12 rounded-full bg-[#e2e7ff] flex items-center justify-center text-[#131b2e] mb-3 transition-transform duration-300 group-hover:scale-110">
                       <span className="material-symbols-outlined text-[24px]">cloud_done</span>
                     </div>
-                    <span className="text-[14px] font-bold text-[#131b2e]">Exhaust Stack</span>
-                    <span className="text-[12px] text-[#434655] mt-0.5 font-medium">Atmospheric Port</span>
+                    <span className="text-[14px] font-bold text-[#131b2e]">{isThai ? 'ปล่องระบายอากาศ' : 'Exhaust Stack'}</span>
+                    <span className="text-[12px] text-[#434655] mt-0.5 font-medium">{isThai ? 'ช่องระบายออกสู่บรรยากาศ' : 'Atmospheric Port'}</span>
                   </button>
 
                   {/* Popover */}
@@ -246,7 +278,7 @@ export default function AirflowDiagram() {
                       <div className="bg-[#283044] text-[#eef0ff] px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 border border-[#737686]/20">
                         <span className="w-2 h-2 rounded-full bg-[#b4c5ff] inline-block" />
                         <span className="text-[11px] font-medium tracking-wide whitespace-nowrap">
-                          Stack output: <strong className="text-[#b4c5ff] font-bold">{residualVoc} ppb</strong>
+                          {isThai ? 'ปล่อยออกสู่ภายนอก: ' : 'Stack output: '}<strong className="text-[#b4c5ff] font-bold">{residualVoc} ppb</strong>
                         </span>
                         <button
                           type="button"
@@ -267,7 +299,7 @@ export default function AirflowDiagram() {
                     <span className="text-[28px] font-bold text-[#131b2e] leading-tight">
                       {residualVoc} <span className="text-[14px] font-normal text-[#434655]">ppb</span>
                     </span>
-                    <span className="text-[13px] text-[#943700] font-medium">Residual VOC</span>
+                    <span className="text-[13px] text-[#943700] font-medium">{isThai ? 'สารระเหยตกค้าง' : 'Residual VOC'}</span>
                   </div>
                 </div>
               </div>
@@ -282,7 +314,7 @@ export default function AirflowDiagram() {
                   <circle cx="625" cy="16" fill="#2563eb" r="4" />
                   <polygon fill="#2563eb" points="633,16 627,13 627,19" />
                   <circle cx="875" cy="16" fill="#2563eb" r="4" />
-                  <polygon fill="#2563eb" points="883,16 877,13 877,19" />
+                  <polygon fill="#875,16" points="883,16 877,13 877,19" />
                 </svg>
               </div>
 
@@ -295,7 +327,7 @@ export default function AirflowDiagram() {
                       <div className="absolute -top-12 flex flex-col items-center transition-all duration-200 pointer-events-auto">
                         <div className="bg-[#283044] text-[#eef0ff] px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-2 border border-[#737686]/20 whitespace-nowrap text-left">
                           <Wind size={14} className="text-[#b4c5ff]" />
-                          <span className="text-[12px] font-medium">Velocity <strong className="text-[#b4c5ff] font-bold">18.4 m/s</strong></span>
+                          <span className="text-[12px] font-medium">{isThai ? 'ความเร็วลมท่อส่งลม: ' : 'Velocity '}<strong className="text-[#b4c5ff] font-bold">18.4 m/s</strong></span>
                         </div>
                         <div className="w-2 h-2 bg-[#283044] rotate-45 -mt-1 border-r border-b border-[#737686]/20" />
                       </div>
@@ -304,7 +336,7 @@ export default function AirflowDiagram() {
                       type="button"
                       onClick={() => setActiveTooltipDot(activeTooltipDot === 1 ? null : 1)}
                       className="w-6 h-6 rounded-full bg-white border-2 border-[#004ac6] text-[#004ac6] flex items-center justify-center shadow-md hover:scale-125 transition-transform cursor-pointer relative"
-                      title="Duct intake telemetry: Velocity 18.4 m/s"
+                      title={isThai ? 'ความเร็วลมท่อส่งลม: 18.4 m/s' : 'Duct intake telemetry: Velocity 18.4 m/s'}
                     >
                       <span className="text-[11px] font-bold leading-none">i</span>
                     </button>
@@ -315,7 +347,12 @@ export default function AirflowDiagram() {
                     {activeTooltipDot === 2 && (
                       <div className="absolute -top-12 flex flex-col items-center transition-all duration-200 pointer-events-auto">
                         <div className="bg-[#283044] text-[#eef0ff] px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-2 border border-[#737686]/20 whitespace-nowrap text-left">
-                          <span className="text-[12px] font-medium">Scrubber inlet: <strong className="text-[#b4c5ff] font-bold">Transit Line A stable</strong></span>
+                          <span className="text-[12px] font-medium">
+                            {isThai ? 'ทางเข้าชุดดูดซับ: ' : 'Scrubber inlet: '}
+                            <strong className="text-[#b4c5ff] font-bold">
+                              {isThai ? 'ท่อส่งลมสาย A เสถียร' : 'Transit Line A stable'}
+                            </strong>
+                          </span>
                         </div>
                         <div className="w-2 h-2 bg-[#283044] rotate-45 -mt-1 border-r border-b border-[#737686]/20" />
                       </div>
@@ -324,7 +361,7 @@ export default function AirflowDiagram() {
                       type="button"
                       onClick={() => setActiveTooltipDot(activeTooltipDot === 2 ? null : 2)}
                       className="w-6 h-6 rounded-full bg-white border-2 border-[#004ac6] text-[#004ac6] flex items-center justify-center shadow-md hover:scale-125 transition-transform cursor-pointer relative"
-                      title="Scrubber inlet: Transit Line A stable"
+                      title={isThai ? 'ทางเข้าชุดดูดซับ: ท่อส่งลม A เสถียร' : 'Scrubber inlet: Transit Line A stable'}
                     >
                       <span className="text-[11px] font-bold leading-none">i</span>
                     </button>
@@ -335,7 +372,12 @@ export default function AirflowDiagram() {
                     {activeTooltipDot === 3 && (
                       <div className="absolute -top-12 flex flex-col items-center transition-all duration-200 pointer-events-auto">
                         <div className="bg-[#283044] text-[#eef0ff] px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-2 border border-[#737686]/20 whitespace-nowrap text-left">
-                          <span className="text-[12px] font-medium">Exhaust transfer: <strong className="text-[#b4c5ff] font-bold">VOC filter active</strong></span>
+                          <span className="text-[12px] font-medium">
+                            {isThai ? 'การส่งผ่านไอเสีย: ' : 'Exhaust transfer: '}
+                            <strong className="text-[#b4c5ff] font-bold">
+                              {isThai ? 'ตัวกรอง VOC ทำงาน' : 'VOC filter active'}
+                            </strong>
+                          </span>
                         </div>
                         <div className="w-2 h-2 bg-[#283044] rotate-45 -mt-1 border-r border-b border-[#737686]/20" />
                       </div>
@@ -344,7 +386,7 @@ export default function AirflowDiagram() {
                       type="button"
                       onClick={() => setActiveTooltipDot(activeTooltipDot === 3 ? null : 3)}
                       className="w-6 h-6 rounded-full bg-white border-2 border-[#004ac6] text-[#004ac6] flex items-center justify-center shadow-md hover:scale-125 transition-transform cursor-pointer relative"
-                      title="Exhaust duct transfer: VOC filter active"
+                      title={isThai ? 'การส่งผ่านไอเสีย: ตัวกรอง VOC ทำงาน' : 'Exhaust duct transfer: VOC filter active'}
                     >
                       <span className="text-[11px] font-bold leading-none">i</span>
                     </button>
@@ -359,7 +401,7 @@ export default function AirflowDiagram() {
                 onClick={() => setIsScrubberDrawerOpen(true)}
                 className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-[#004ac6] hover:underline cursor-pointer group"
               >
-                <span>Aero-pathway telemetry logs</span>
+                <span>{isThai ? 'บันทึกโทรมาตรเส้นทางลมไอเสีย' : 'Aero-pathway telemetry logs'}</span>
                 <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
               </button>
             </div>
@@ -370,11 +412,11 @@ export default function AirflowDiagram() {
             <div className="bg-white rounded-3xl p-8 shadow-sm flex flex-col justify-between border border-[#eaedff]">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-[13px] font-semibold text-[#434655] uppercase tracking-wider">
-                  Filter Pressure
+                  {isThai ? 'แรงดันตกคร่อมตัวกรอง' : 'Filter Pressure'}
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#eaedff] text-[12px] font-semibold text-[#004ac6]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6]" />
-                  Normal
+                  {isThai ? 'ปกติ' : 'Normal'}
                 </span>
               </div>
               <div className="my-2">
@@ -385,17 +427,19 @@ export default function AirflowDiagram() {
                   <span className="text-[20px] font-normal text-[#434655]">Pa</span>
                 </div>
                 <span className="text-[14px] text-[#434655] mt-1 block">
-                  Differential pressure across stage 2 filter pack
+                  {isThai ? 'แรงดันตกคร่อมชุดตัวกรองขั้นที่ 2' : 'Differential pressure across stage 2 filter pack'}
                 </span>
               </div>
               <div className="pt-4 flex items-center justify-between border-t border-[#f1f5f9]">
-                <span className="text-[12px] text-[#434655]">Threshold: 450 Pa</span>
+                <span className="text-[12px] text-[#434655]">
+                  {isThai ? 'เกณฑ์กำหนด: 450 Pa' : 'Threshold: 450 Pa'}
+                </span>
                 <button
                   type="button"
                   onClick={() => setIsScrubberDrawerOpen(true)}
                   className="text-[13px] font-bold text-[#004ac6] hover:underline cursor-pointer inline-flex items-center gap-1"
                 >
-                  View details →
+                  {isThai ? 'ดูรายละเอียด →' : 'View details →'}
                 </button>
               </div>
             </div>
@@ -403,11 +447,11 @@ export default function AirflowDiagram() {
             <div className="bg-white rounded-3xl p-8 shadow-sm flex flex-col justify-between border border-[#eaedff]">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-[13px] font-semibold text-[#434655] uppercase tracking-wider">
-                  Fan RPM
+                  {isThai ? 'รอบหมุนพัดลมดูดอากาศ' : 'Fan RPM'}
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#eaedff] text-[12px] font-semibold text-[#131b2e]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6]" />
-                  Synchronized
+                  {isThai ? 'ซิงโครไนซ์' : 'Synchronized'}
                 </span>
               </div>
               <div className="my-2">
@@ -418,17 +462,19 @@ export default function AirflowDiagram() {
                   <span className="text-[20px] font-normal text-[#434655]">rpm</span>
                 </div>
                 <span className="text-[14px] text-[#434655] mt-1 block">
-                  VFD target locked at 82% rated inverter output
+                  {isThai ? 'อินเวอร์เตอร์ล็อกเป้าหมายที่ 82% ของกำลังพิกัด' : 'VFD target locked at 82% rated inverter output'}
                 </span>
               </div>
               <div className="pt-4 flex items-center justify-between border-t border-[#f1f5f9]">
-                <span className="text-[12px] text-[#434655]">Target: 1,400 rpm</span>
+                <span className="text-[12px] text-[#434655]">
+                  {isThai ? 'เป้าหมาย: 1,400 rpm' : 'Target: 1,400 rpm'}
+                </span>
                 <button
                   type="button"
                   onClick={() => setIsScrubberDrawerOpen(true)}
                   className="text-[13px] font-bold text-[#004ac6] hover:underline cursor-pointer inline-flex items-center gap-1"
                 >
-                  View details →
+                  {isThai ? 'ดูรายละเอียด →' : 'View details →'}
                 </button>
               </div>
             </div>
@@ -436,11 +482,11 @@ export default function AirflowDiagram() {
             <div className="bg-white rounded-3xl p-8 shadow-sm flex flex-col justify-between border border-[#eaedff]">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-[13px] font-semibold text-[#434655] uppercase tracking-wider">
-                  Bed Temperature
+                  {isThai ? 'อุณหภูมิชั้นถ่านกัมมันต์' : 'Bed Temperature'}
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#eaedff] text-[12px] font-semibold text-[#004ac6]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6]" />
-                  Optimal
+                  {isThai ? 'เหมาะสม' : 'Optimal'}
                 </span>
               </div>
               <div className="my-2">
@@ -451,17 +497,19 @@ export default function AirflowDiagram() {
                   <span className="text-[20px] font-normal text-[#434655]">°C</span>
                 </div>
                 <span className="text-[14px] text-[#434655] mt-1 block">
-                  Adsorption active region thermally stabilized
+                  {isThai ? 'โซนดูดซับสารเคมีอยู่ในเกณฑ์อุณหภูมิเสถียร' : 'Adsorption active region thermally stabilized'}
                 </span>
               </div>
               <div className="pt-4 flex items-center justify-between border-t border-[#f1f5f9]">
-                <span className="text-[12px] text-[#434655]">Safe range: 18 - 28°C</span>
+                <span className="text-[12px] text-[#434655]">
+                  {isThai ? 'เกณฑ์ปลอดภัย: 18 - 28°C' : 'Safe range: 18 - 28°C'}
+                </span>
                 <button
                   type="button"
                   onClick={() => setIsScrubberDrawerOpen(true)}
                   className="text-[13px] font-bold text-[#004ac6] hover:underline cursor-pointer inline-flex items-center gap-1"
                 >
-                  View details →
+                  {isThai ? 'ดูรายละเอียด →' : 'View details →'}
                 </button>
               </div>
             </div>
@@ -675,11 +723,11 @@ export default function AirflowDiagram() {
                 </div>
                 <div className="flex flex-col">
                   <h2 className="text-[20px] font-bold text-[#131b2e] leading-tight">
-                    Carbon Scrubber Telemetry
+                    {isThai ? 'โทรมาตรสครับเบอร์ถ่านกัมมันต์' : 'Carbon Scrubber Telemetry'}
                   </h2>
                   <span className="text-[12px] text-[#434655] mt-1 flex items-center gap-1.5 font-medium">
                     <span className="w-2 h-2 rounded-full bg-[#004ac6] inline-block" />
-                    Adsorption Bed Line 01 • Real-time
+                    {isThai ? 'ชุดถ่านกัมมันต์สายที่ 01 • เรียลไทม์' : 'Adsorption Bed Line 01 • Real-time'}
                   </span>
                 </div>
               </div>
@@ -697,7 +745,7 @@ export default function AirflowDiagram() {
               {/* Number 1: Differential Pressure 312 Pa */}
               <div className="flex flex-col p-6 rounded-2xl bg-[#f2f3ff]/60 hover:bg-[#f2f3ff] transition-colors border border-[#eaedff]">
                 <span className="text-[12px] font-semibold text-[#434655] uppercase tracking-widest mb-1">
-                  Differential pressure
+                  {isThai ? 'แรงดันตกคร่อม' : 'Differential pressure'}
                 </span>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-[54px] font-bold text-[#131b2e] tracking-tight leading-none tabular-nums">
@@ -707,14 +755,14 @@ export default function AirflowDiagram() {
                 </div>
                 <span className="text-[12px] text-[#004ac6] font-medium mt-2 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6] inline-block" />
-                  Nominal resistance
+                  {isThai ? 'แรงต้านการไหลปกติ' : 'Nominal resistance'}
                 </span>
               </div>
 
               {/* Number 2: Efficiency 94.2% */}
               <div className="flex flex-col p-6 rounded-2xl bg-[#f2f3ff]/60 hover:bg-[#f2f3ff] transition-colors border border-[#eaedff]">
                 <span className="text-[12px] font-semibold text-[#434655] uppercase tracking-widest mb-1">
-                  Efficiency
+                  {isThai ? 'ประสิทธิภาพการดูดซับ' : 'Efficiency'}
                 </span>
                 <div className="flex items-baseline gap-1 mt-1">
                   <span className="text-[54px] font-bold text-[#131b2e] tracking-tight leading-none tabular-nums">
@@ -724,14 +772,14 @@ export default function AirflowDiagram() {
                 </div>
                 <span className="text-[12px] text-[#004ac6] font-medium mt-2 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6] inline-block" />
-                  Hydrocarbon adsorption yield
+                  {isThai ? 'อัตราดูดซับสารไฮโดรคาร์บอน' : 'Hydrocarbon adsorption yield'}
                 </span>
               </div>
 
               {/* Number 3: Filter life 42% */}
               <div className="flex flex-col p-6 rounded-2xl bg-[#f2f3ff]/60 hover:bg-[#f2f3ff] transition-colors border border-[#eaedff]">
                 <span className="text-[12px] font-semibold text-[#434655] uppercase tracking-widest mb-1">
-                  Filter life
+                  {isThai ? 'อายุการใช้งานชั้นถ่าน' : 'Filter life'}
                 </span>
                 <div className="flex items-baseline gap-1 mt-1">
                   <span className="text-[54px] font-bold text-[#131b2e] tracking-tight leading-none tabular-nums">
@@ -741,20 +789,22 @@ export default function AirflowDiagram() {
                 </div>
                 <span className="text-[12px] text-[#434655] font-medium mt-2 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#505f76] inline-block" />
-                  1,280 operating hours remaining
+                  {isThai ? 'เหลืออายุการทำงาน 1,280 ชั่วโมง' : '1,280 operating hours remaining'}
                 </span>
               </div>
             </div>
 
             {/* Footer */}
             <div className="p-8 border-t border-[#eaedff] bg-[#faf8ff]/30 flex items-center justify-between">
-              <span className="text-[12px] text-[#434655]">Updated 3s ago</span>
+              <span className="text-[12px] text-[#434655]">
+                {isThai ? 'อัปเดต 3 วินาทีที่แล้ว' : 'Updated 3s ago'}
+              </span>
               <button
                 type="button"
                 onClick={() => setIsScrubberDrawerOpen(false)}
                 className="px-6 py-2 rounded-full bg-[#e2e7ff] hover:bg-[#d0e1fb] text-[#131b2e] font-semibold text-[13px] transition-colors cursor-pointer"
               >
-                Dismiss
+                {isThai ? 'ปิดหน้าต่าง' : 'Dismiss'}
               </button>
             </div>
           </aside>
@@ -777,10 +827,10 @@ export default function AirflowDiagram() {
                 </div>
                 <div>
                   <h2 className="text-[18px] font-bold text-[#131b2e] leading-tight">
-                    Live sensor telemetry
+                    {isThai ? 'โทรมาตรเซนเซอร์เรียลไทม์' : 'Live sensor telemetry'}
                   </h2>
                   <span className="text-[11px] text-[#505f76]">
-                    Powder Coating Booth 1 • 5 Active Probes
+                    {isThai ? 'ห้องพ่นสีที่ 1 • 5 หัววัดทำงาน' : 'Powder Coating Booth 1 • 5 Active Probes'}
                   </span>
                 </div>
               </div>
@@ -797,11 +847,11 @@ export default function AirflowDiagram() {
             <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] uppercase tracking-wider text-[#505f76] font-semibold">
-                  Real-time probe readings
+                  {isThai ? 'ค่าตรวจวัดหัววัดเรียลไทม์' : 'Real-time probe readings'}
                 </span>
                 <div className="flex items-center gap-1.5 text-[11px] text-[#00AA55] font-semibold">
                   <span className="w-2 h-2 rounded-full bg-[#00CC66] animate-pulse" />
-                  All systems nominal
+                  {isThai ? 'ทุกระบบทำงานปกติ' : 'All systems nominal'}
                 </div>
               </div>
 
@@ -810,11 +860,11 @@ export default function AirflowDiagram() {
                 <table className="w-full text-left text-[13px] border-collapse">
                   <thead>
                     <tr className="bg-[#f2f3ff] border-b border-[#eaedff] text-[#505f76] font-medium text-xs">
-                      <th className="py-2.5 px-4">Sensor ID</th>
-                      <th className="py-2.5 px-4">Location</th>
-                      <th className="py-2.5 px-4 text-right">Value</th>
-                      <th className="py-2.5 px-4 text-right">Threshold</th>
-                      <th className="py-2.5 px-4 text-center">Status</th>
+                      <th className="py-2.5 px-4">{isThai ? 'รหัสเซนเซอร์' : 'Sensor ID'}</th>
+                      <th className="py-2.5 px-4">{isThai ? 'ตำแหน่ง' : 'Location'}</th>
+                      <th className="py-2.5 px-4 text-right">{isThai ? 'ค่าที่อ่านได้' : 'Value'}</th>
+                      <th className="py-2.5 px-4 text-right">{isThai ? 'เกณฑ์กำหนด' : 'Threshold'}</th>
+                      <th className="py-2.5 px-4 text-center">{isThai ? 'สถานะ' : 'Status'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#eaedff] text-[#131b2e]">
@@ -838,14 +888,14 @@ export default function AirflowDiagram() {
               {/* Sampling Rate Banner */}
               <div className="p-4 rounded-2xl bg-[#f2f3ff] border border-[#eaedff]">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-[#131b2e]">Sampling Rate</span>
-                  <span className="text-xs text-[#505f76] font-medium">2.5 Hz (Continuous)</span>
+                  <span className="text-xs font-semibold text-[#131b2e]">{isThai ? 'อัตราการสุ่มตัวอย่าง' : 'Sampling Rate'}</span>
+                  <span className="text-xs text-[#505f76] font-medium">{isThai ? '2.5 Hz (ต่อเนื่อง)' : '2.5 Hz (Continuous)'}</span>
                 </div>
                 <div className="w-full bg-[#eaedff] h-1.5 rounded-full overflow-hidden">
                   <div className="bg-[#004ac6] h-full rounded-full w-full" />
                 </div>
                 <p className="text-[11px] text-[#505f76] mt-2">
-                  Latest synchronization occurred 3 seconds ago via Modbus TCP gateway.
+                  {isThai ? 'ซิงโครไนซ์ล่าสุดเมื่อ 3 วินาทีที่แล้วผ่านเกตเวย์ Modbus TCP' : 'Latest synchronization occurred 3 seconds ago via Modbus TCP gateway.'}
                 </p>
               </div>
             </div>
@@ -853,14 +903,14 @@ export default function AirflowDiagram() {
             {/* Footer */}
             <div className="p-6 border-t border-[#eaedff] bg-white flex items-center justify-between shrink-0">
               <span className="text-xs text-[#505f76]">
-                Array ID: <strong className="font-mono text-[#131b2e]">BOX-001</strong>
+                {isThai ? 'รหัสแผงอุปกรณ์: ' : 'Array ID: '}<strong className="font-mono text-[#131b2e]">BOX-001</strong>
               </span>
               <button
                 type="button"
                 onClick={() => setIsSensorBoxTelemetryOpen(false)}
                 className="px-5 py-2 rounded-2xl bg-[#eaedff] text-[#131b2e] text-xs font-semibold hover:bg-[#dbe1ff] transition-colors cursor-pointer"
               >
-                Dismiss
+                {isThai ? 'ปิดหน้าต่าง' : 'Dismiss'}
               </button>
             </div>
           </aside>

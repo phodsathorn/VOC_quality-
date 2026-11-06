@@ -202,116 +202,116 @@ export default function Dashboard() {
   const allProbes = useMemo(() => [
     {
       id: 'CCS811 (TVOC)',
-      name: 'TVOC Gas Sensor',
-      loc: 'Primary Chamber',
+      name: isThai ? t('descTvocGasSensor') : 'TVOC Gas Sensor',
+      loc: isThai ? t('locPrimaryChamber') : 'Primary Chamber',
       val: reading.tvoc != null ? `${Math.round(reading.tvoc)} ppb` : '64 ppb',
       thresh: '120 ppb',
-      status: (reading.tvoc != null && reading.tvoc > 120) ? 'Warning' : 'Normal',
+      status: (reading.tvoc != null && reading.tvoc > 120) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
       type: 'VOC MEMS',
     },
     {
       id: 'CCS811 (eCO₂)',
-      name: 'Equivalent CO₂',
-      loc: 'Exhaust Return',
+      name: isThai ? t('descEquivalentCo2') : 'Equivalent CO₂',
+      loc: isThai ? t('locExhaustReturn') : 'Exhaust Return',
       val: reading.eco2 != null ? `${Math.round(reading.eco2)} ppm` : '450 ppm',
       thresh: '1000 ppm',
-      status: (reading.eco2 != null && reading.eco2 > 1000) ? 'Warning' : 'Normal',
+      status: (reading.eco2 != null && reading.eco2 > 1000) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
       type: 'CO₂ Equiv',
     },
     {
       id: 'MQ-135',
-      name: 'Air Quality / Benzene',
-      loc: 'Booth Inflow',
+      name: isThai ? t('descAirQualityBenzene') : 'Air Quality / Benzene',
+      loc: isThai ? t('locBoothInflow') : 'Booth Inflow',
       val: reading.mq135 != null ? `${reading.mq135} ADC` : '1420 ADC',
       thresh: '2500 ADC',
-      status: (reading.mq135 != null && reading.mq135 > 2500) ? 'Warning' : 'Normal',
+      status: (reading.mq135 != null && reading.mq135 > 2500) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
       type: 'MOS Gas',
     },
     {
       id: 'MQ-3',
-      name: 'Alcohol / Thinner / Solvents',
-      loc: 'Solvent Spray Zone',
+      name: isThai ? t('descAlcoholThinner') : 'Alcohol / Thinner / Solvents',
+      loc: isThai ? t('locSolventSprayZone') : 'Solvent Spray Zone',
       val: reading.mq3 != null ? `${reading.mq3} ADC` : '2100 ADC',
       thresh: '2800 ADC',
-      status: (reading.mq3 != null && reading.mq3 > 2800) ? 'Warning' : 'Normal',
+      status: (reading.mq3 != null && reading.mq3 > 2800) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
       type: 'MOS Gas',
     },
     {
       id: 'MQ-2',
-      name: 'Combustible / Smoke / LPG',
-      loc: 'Curing Line',
+      name: isThai ? t('descCombustibleSmoke') : 'Combustible / Smoke / LPG',
+      loc: isThai ? t('locCuringLine') : 'Curing Line',
       val: reading.mq2 != null ? `${reading.mq2} ADC` : '1180 ADC',
       thresh: '2000 ADC',
-      status: (reading.mq2 != null && reading.mq2 > 2000) ? 'Warning' : 'Normal',
+      status: (reading.mq2 != null && reading.mq2 > 2000) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
       type: 'MOS Gas',
     },
     {
       id: 'MQ-8',
-      name: 'Hydrogen / Flammable Gas',
-      loc: 'Recirculation Line',
+      name: isThai ? t('descHydrogenFlammable') : 'Hydrogen / Flammable Gas',
+      loc: isThai ? t('locRecirculationLine') : 'Recirculation Line',
       val: reading.mq8 != null ? `${reading.mq8} ADC` : '1650 ADC',
       thresh: '1800 ADC',
-      status: (reading.mq8 != null && reading.mq8 > 1800) ? 'Warning' : 'Normal',
+      status: (reading.mq8 != null && reading.mq8 > 1800) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
       type: 'MOS Gas',
     },
     {
       id: 'MiCS-6814 (CO)',
-      name: 'Carbon Monoxide',
-      loc: 'Burner / Heater Bed',
+      name: isThai ? t('descCarbonMonoxide') : 'Carbon Monoxide',
+      loc: isThai ? t('locBurnerHeaterBed') : 'Burner / Heater Bed',
       val: reading.mics_co != null ? `${reading.mics_co} mV` : '1100 mV',
       thresh: '1500 mV',
-      status: (reading.mics_co != null && reading.mics_co > 1500) ? 'Warning' : 'Normal',
+      status: (reading.mics_co != null && reading.mics_co > 1500) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
       type: 'Multi-MEMS',
     },
     {
       id: 'MiCS-6814 (NO₂)',
-      name: 'Nitrogen Dioxide',
-      loc: 'Vent Exhaust',
+      name: isThai ? t('descNitrogenDioxide') : 'Nitrogen Dioxide',
+      loc: isThai ? t('locVentExhaust') : 'Vent Exhaust',
       val: reading.no2 != null ? `${reading.no2} mV` : '820 mV',
       thresh: '1200 mV',
-      status: (reading.no2 != null && reading.no2 > 1200) ? 'Warning' : 'Normal',
+      status: (reading.no2 != null && reading.no2 > 1200) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
       type: 'Multi-MEMS',
     },
     {
       id: 'MiCS-6814 (NH₃)',
-      name: 'Ammonia Channel',
-      loc: 'Pre-treatment Wash',
+      name: isThai ? t('descAmmoniaChannel') : 'Ammonia Channel',
+      loc: isThai ? t('locPretreatmentWash') : 'Pre-treatment Wash',
       val: reading.nh3 != null ? `${reading.nh3} mV` : '1380 mV',
       thresh: '1400 mV',
-      status: (reading.nh3 != null && reading.nh3 > 1400) ? 'Warning' : 'Normal',
+      status: (reading.nh3 != null && reading.nh3 > 1400) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
       type: 'Multi-MEMS',
     },
     {
       id: 'PMS5003',
-      name: 'PM2.5 Particle Counter',
-      loc: 'Booth Filter Intake',
+      name: isThai ? t('descPm25ParticleCounter') : 'PM2.5 Particle Counter',
+      loc: isThai ? t('locBoothFilterIntake') : 'Booth Filter Intake',
       val: reading.pm25 != null ? `${Number(reading.pm25).toFixed(1)} µg/m³` : '12.0 µg/m³',
       thresh: '37.5 µg/m³',
-      status: (reading.pm25 != null && reading.pm25 > 37.5) ? 'Warning' : 'Normal',
+      status: (reading.pm25 != null && reading.pm25 > 37.5) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
       type: 'Optical Laser',
     },
     {
       id: 'DHT22 (Temp)',
-      name: 'Chamber Temperature',
-      loc: 'Coating Line Ambient',
+      name: isThai ? t('descChamberTemperature') : 'Chamber Temperature',
+      loc: isThai ? t('locCoatingLineAmbient') : 'Coating Line Ambient',
       val: reading.temp != null ? `${Number(reading.temp).toFixed(1)} °C` : '28.5 °C',
       thresh: '38.0 °C',
-      status: (reading.temp != null && reading.temp > 38) ? 'Warning' : 'Normal',
+      status: (reading.temp != null && reading.temp > 38) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
       type: 'Capacitive/RTD',
     },
     {
       id: 'DHT22 (Humidity)',
-      name: 'Relative Humidity',
-      loc: 'Coating Line Ambient',
+      name: isThai ? t('descRelativeHumidity') : 'Relative Humidity',
+      loc: isThai ? t('locCoatingLineAmbient') : 'Coating Line Ambient',
       val: reading.rh != null ? `${Number(reading.rh).toFixed(1)} %RH` : '55.2 %RH',
       thresh: '75.0 %RH',
-      status: (reading.rh != null && reading.rh > 75) ? 'Warning' : 'Normal',
+      status: (reading.rh != null && reading.rh > 75) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
       type: 'Capacitive/RTD',
     },
   ], [
     reading.tvoc, reading.eco2, reading.mq135, reading.mq3,
     reading.mq2, reading.mq8, reading.mics_co, reading.no2,
-    reading.nh3, reading.pm25, reading.temp, reading.rh
+    reading.nh3, reading.pm25, reading.temp, reading.rh, isThai, t
   ]);
 
   const hasWarning = allProbes.some((p) => p.status === 'Warning');
@@ -322,10 +322,12 @@ export default function Dashboard() {
 
   // Safe alert time parser to prevent "Invalid Date Today"
   const formatAlertTime = (rawTime) => {
-    if (!rawTime) return 'เมื่อสักครู่';
+    if (!rawTime) return isThai ? 'เมื่อสักครู่' : 'Just now';
     const d = new Date(rawTime);
-    if (isNaN(d.getTime())) return 'เมื่อสักครู่';
-    return `${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Today`;
+    if (isNaN(d.getTime())) return isThai ? 'เมื่อสักครู่' : 'Just now';
+    return isThai
+      ? `${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} วันนี้`
+      : `${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Today`;
   };
 
   // Recent alerts formatted (Safe date and field fallback)
@@ -333,27 +335,27 @@ export default function Dashboard() {
     ? alerts.slice(0, 3).map((a, idx) => ({
         id: a.id || idx,
         color: a.level === 'Critical' ? '#ba1a1a' : a.level === 'High' ? '#F59E0B' : '#00CC66',
-        text: a.message || a.title || 'Exhaust velocity verified',
+        text: a.message || a.title || (isThai ? 'ตรวจสอบความเร็วลมระบายอากาศอยู่ในเกณฑ์ปกติ' : 'Exhaust velocity verified'),
         time: formatAlertTime(a.created_at || a.time || a.timestamp),
       }))
     : [
         {
           id: 1,
           color: '#00CC66',
-          text: 'Exhaust velocity verified at nominal airflow',
-          time: '14:20 Today',
+          text: isThai ? 'ตรวจสอบความเร็วลมระบายอากาศอยู่ในเกณฑ์ปกติ' : 'Exhaust velocity verified at nominal airflow',
+          time: isThai ? '14:20 วันนี้' : '14:20 Today',
         },
         {
           id: 2,
           color: '#F59E0B',
-          text: 'Transient VOC spike normalized in Booth 1',
-          time: '11:45 Today',
+          text: isThai ? 'ระดับสารระเหย VOC กลับสู่เกณฑ์ปกติในห้องพ่นสีที่ 1' : 'Transient VOC spike normalized in Booth 1',
+          time: isThai ? '11:45 วันนี้' : '11:45 Today',
         },
         {
           id: 3,
-          color: '#2563EB',
-          text: 'Sensor array automatic self-calibration completed',
-          time: '09:15 Today',
+          color: '#00CC66',
+          text: isThai ? 'ระบบฟอกอากาศทำงานที่ประสิทธิภาพ 94.2%' : 'Scrubber efficiency stabilized at 94.2%',
+          time: isThai ? '09:15 วันนี้' : '09:15 Today',
         },
       ];
 
@@ -374,16 +376,18 @@ export default function Dashboard() {
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#131b2e] bg-[#eaedff]">
                 <span className="w-2 h-2 rounded-full bg-[#00CC66]" />
-                {t('good', 'Good')}
+                {isThai ? (aqiCategory?.labelTh || 'ดีมาก') : (aqiCategory?.labelEn || 'Good')}
               </span>
             </div>
-            <span className="text-[11px] text-[#505f76]">Source: MQ-135 (PM2.5 / eCO2)</span>
+            <span className="text-[11px] text-[#505f76]">
+              {isThai ? 'แหล่งข้อมูล: MQ-135 (PM2.5 / eCO₂)' : 'Source: MQ-135 (PM2.5 / eCO2)'}
+            </span>
           </div>
 
           {/* Center Metric */}
           <div className="flex items-baseline">
             <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight">
-              38
+              {currentAqi}
             </span>
           </div>
 
@@ -391,8 +395,11 @@ export default function Dashboard() {
           <div className="flex flex-col gap-1.5">
             <div className="relative w-full h-1.5 rounded-full bg-[#eaedff] overflow-visible">
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#00CC66] via-[#F59E0B] to-[#ba1a1a] opacity-80" />
-              {/* Dynamic Pip positioned according to AQI 38 */}
-              <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 left-[38%] w-3 h-3 bg-white rounded-full shadow-md flex items-center justify-center">
+              {/* Dynamic Pip positioned according to AQI */}
+              <div
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-md flex items-center justify-center"
+                style={{ left: `${aqiPipPercent}%` }}
+              >
                 <div className="w-1.5 h-1.5 rounded-full bg-[#131b2e]" />
               </div>
             </div>
@@ -400,6 +407,13 @@ export default function Dashboard() {
               <span>0</span>
               <span>50</span>
               <span>100+</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-[#505f76] pt-0.5">
+              <span>PM2.5 {Math.round(pm25Value)} µg/m³</span>
+              <span className="inline-flex items-center gap-1 text-[#009944] font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00CC66]" />
+                {isThai ? 'ปลอดภัย' : 'Safe'}
+              </span>
             </div>
           </div>
         </div>
@@ -420,20 +434,24 @@ export default function Dashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M7.8 14.5a6 6 0 0 1 8.4 0M4.93 11.64a10 10 0 0 1 14.14 0" />
               </svg>
             </div>
-            <span className="text-[11px] text-[#505f76]">Source: MQ-3</span>
+            <span className="text-[11px] text-[#505f76]">
+              {isThai ? 'แหล่งข้อมูล: MQ-3' : 'Source: MQ-3'}
+            </span>
           </div>
 
           {/* Center Metric */}
           <div className="flex items-baseline gap-2">
             <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight">
-              64
+              {tvocValue}
             </span>
             <span className="text-[20px] font-semibold text-[#505f76]">ppb</span>
           </div>
 
           {/* Bottom Descriptor */}
           <div>
-            <span className="text-[14px] text-[#505f76]">{t('normalUnder100', 'Normal range under 100')}</span>
+            <span className="text-[14px] text-[#505f76]">
+              {isThai ? 'เกณฑ์ปกติ: ต่ำกว่า 100' : 'Normal range under 100'}
+            </span>
           </div>
         </div>
 
@@ -447,20 +465,22 @@ export default function Dashboard() {
               </span>
               <span className="w-2.5 h-2.5 rounded-full bg-[#00CC66] shadow-[0_0_8px_rgba(0,204,102,0.6)]" />
             </div>
-            <span className="text-[11px] text-[#505f76]">Source: Pitot sensor</span>
+            <span className="text-[11px] text-[#505f76]">
+              {isThai ? 'แหล่งข้อมูล: ท่อวัดพิทอต (Pitot)' : 'Source: Pitot sensor'}
+            </span>
           </div>
 
           {/* Center Metric */}
           <div className="flex items-baseline gap-3">
             <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight">
-              ON
+              {isThai ? 'เปิด' : 'ON'}
             </span>
           </div>
 
           {/* Bottom Descriptor */}
           <div>
             <span className="text-[14px] text-[#434655] font-medium">
-              100% {t('running', 'running')}
+              {isThai ? 'ทำงาน 100%' : '100% running'}
             </span>
           </div>
         </div>
@@ -471,14 +491,16 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-                {t('eco2', 'eCO₂ (estimated)')}
+                {isThai ? 'ก๊าซคาร์บอนไดออกไซด์ (eCO₂)' : 'ECO₂ (ESTIMATED)'}
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#131b2e] bg-[#eaedff]">
                 <span className="w-2 h-2 rounded-full bg-[#00CC66]" />
-                {t('nominal', 'Nominal')}
+                {isThai ? 'ปกติ' : 'Nominal'}
               </span>
             </div>
-            <span className="text-[11px] text-[#505f76]">Source: MiCS-5524</span>
+            <span className="text-[11px] text-[#505f76]">
+              {isThai ? 'แหล่งข้อมูล: MiCS-5524' : 'Source: MiCS-5524'}
+            </span>
           </div>
 
           {/* Center Metric */}
@@ -492,7 +514,9 @@ export default function Dashboard() {
           {/* Bottom Descriptor */}
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#00CC66]" />
-            <span className="text-[14px] text-[#505f76]">{t('targetBelow1000', 'Target below 1,000 ppm')}</span>
+            <span className="text-[14px] text-[#505f76]">
+              {isThai ? 'เกณฑ์เป้าหมายต่ำกว่า 1,000 ppm' : 'Target below 1,000 ppm'}
+            </span>
           </div>
         </div>
       </section>
@@ -510,15 +534,15 @@ export default function Dashboard() {
               <div className="flex items-center gap-3 text-[11px] font-medium">
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-0.5 bg-[#F59E0B]" />
-                  <span className="text-[#F59E0B]">{t('warning', 'Warning')} 80 ppb</span>
+                  <span className="text-[#F59E0B]">{isThai ? 'เฝ้าระวัง 80 ppb' : 'Warning 80 ppb'}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-0.5 bg-[#ba1a1a]" />
-                  <span className="text-[#ba1a1a]">{t('critical', 'Critical')} 120 ppb</span>
+                  <span className="text-[#ba1a1a]">{isThai ? 'วิกฤต 120 ppb' : 'Critical 120 ppb'}</span>
                 </div>
               </div>
               <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#eaedff] text-[#131b2e] text-[12px] font-medium cursor-pointer hover:bg-[#dbe1ff] transition-colors">
-                <span>Metric: TVOC</span>
+                <span>{isThai ? 'ตัวชี้วัด: TVOC' : 'Metric: TVOC'}</span>
                 <ChevronRight size={14} className="rotate-90 text-[#505f76]" />
               </div>
             </div>
@@ -554,7 +578,7 @@ export default function Dashboard() {
               <span>06:00</span>
               <span>12:00</span>
               <span>18:00</span>
-              <span className="text-[#004ac6] font-semibold">Now</span>
+              <span className="text-[#004ac6] font-semibold">{isThai ? 'ตอนนี้' : 'Now'}</span>
             </div>
           </div>
         </div>
@@ -567,14 +591,14 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-                {t('detectedSolvent', 'Detected solvent')}
+                {isThai ? 'สารทำละลายที่ตรวจพบ' : 'DETECTED SOLVENT'}
               </span>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-semibold text-[#004ac6] bg-[#004ac6]/10">
-                87% match
+                {isThai ? 'ความตรงกัน 87%' : '87% match'}
               </span>
             </div>
             <div className="text-[44px] font-semibold text-[#131b2e] leading-tight tracking-tight">
-              Toluene
+              {isThai ? (solventName === 'Toluene' ? 'โทลูอีน' : solventName === 'Thinner' ? 'ทินเนอร์' : solventName) : solventName}
             </div>
           </div>
 
@@ -620,7 +644,7 @@ export default function Dashboard() {
           <div className="flex flex-col gap-2.5 pt-1">
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-[11px]">
-                <span className="text-[#131b2e] font-medium">Toluene</span>
+                <span className="text-[#131b2e] font-medium">{t('tolueneText')}</span>
                 <span className="text-[#004ac6] font-semibold">87%</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-[#eaedff]">
@@ -629,7 +653,7 @@ export default function Dashboard() {
             </div>
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-[11px]">
-                <span className="text-[#434655] font-medium">Thinner</span>
+                <span className="text-[#434655] font-medium">{t('thinnerText')}</span>
                 <span className="text-[#505f76] font-medium">9%</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-[#eaedff]">
@@ -638,7 +662,7 @@ export default function Dashboard() {
             </div>
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-[11px]">
-                <span className="text-[#434655] font-medium">Ambient</span>
+                <span className="text-[#434655] font-medium">{t('ambientText')}</span>
                 <span className="text-[#505f76] font-medium">4%</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-[#eaedff]">
@@ -646,8 +670,8 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex justify-between items-center text-[11px] text-[#505f76] pt-1 border-t border-[#eaedff]">
-              <span>Reference ISO-16000 • Electrostatic Array</span>
-              <span className="text-[#434655] font-medium">Model v1.3</span>
+              <span>{t('iso16000RefText')}</span>
+              <span className="text-[#434655] font-medium">{t('modelVerText')}</span>
             </div>
           </div>
         </div>
@@ -708,10 +732,10 @@ export default function Dashboard() {
               </div>
               <div>
                 <h2 className="text-[18px] font-semibold leading-tight text-[#131b2e]">
-                  Live sensor telemetry
+                  {t('liveTelemetryTitle')}
                 </h2>
                 <span className="text-[11px] text-[#505f76]">
-                  Powder Coating Booth 1 · {allProbes.length} Active Probes
+                  {t('location', 'Powder Coating Booth 1')} · {allProbes.length} {isThai ? 'หัววัดกำลังทำงาน' : 'Active Probes'}
                 </span>
               </div>
             </div>
@@ -728,17 +752,17 @@ export default function Dashboard() {
           <div className="flex-1 overflow-y-auto p-4 sm:p-5">
             <div className="flex items-center justify-between mb-4">
               <span className="text-[11px] uppercase tracking-wider text-[#505f76] font-medium">
-                Real-time probe readings
+                {t('realtimeProbeReadings')}
               </span>
               {hasWarning ? (
                 <div className="flex items-center gap-1.5 text-[11px] text-[#943700] font-medium">
                   <span className="w-2 h-2 rounded-full bg-[#f97316] animate-pulse" />
-                  Warning threshold exceeded
+                  {t('warningExceeded')}
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 text-[11px] text-[#00AA55] font-medium">
                   <span className="w-2 h-2 rounded-full bg-[#00CC66] animate-pulse" />
-                  All systems nominal
+                  {t('allSystemsNominal')}
                 </div>
               )}
             </div>
@@ -747,11 +771,11 @@ export default function Dashboard() {
               <table className="w-full text-left border-collapse text-[13px] min-w-[440px]">
                 <thead>
                   <tr className="bg-[#f2f3ff] border-b border-[#eaedff] text-[#505f76] font-medium text-[12px]">
-                    <th className="py-2.5 px-3 whitespace-nowrap">Sensor ID</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap">Location</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap">Value</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap">Threshold</th>
-                    <th className="py-2.5 px-3 text-center whitespace-nowrap">Status</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">{t('sensorIdCol')}</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">{t('locationCol')}</th>
+                    <th className="py-2.5 px-3 text-right whitespace-nowrap">{t('valueCol')}</th>
+                    <th className="py-2.5 px-3 text-right whitespace-nowrap">{t('thresholdCol')}</th>
+                    <th className="py-2.5 px-3 text-center whitespace-nowrap">{t('statusCol')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#eaedff] text-[#131b2e]">
@@ -769,7 +793,7 @@ export default function Dashboard() {
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap ${
-                            probe.status === 'Warning'
+                            probe.status === 'Warning' || probe.status === 'เฝ้าระวัง'
                               ? 'bg-[#ffdbcd] text-[#943700]'
                               : 'bg-[#00CC66]/10 text-[#009944]'
                           }`}
@@ -786,14 +810,14 @@ export default function Dashboard() {
             {/* Quick Summary Card inside Drawer */}
             <div className="mt-5 p-4 rounded-2xl bg-[#f2f3ff] border border-[#eaedff]">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[12px] font-semibold text-[#131b2e]">Sampling Rate</span>
-                <span className="text-[12px] text-[#505f76]">2.5 Hz (Continuous)</span>
+                <span className="text-[12px] font-semibold text-[#131b2e]">{t('samplingRateLabel')}</span>
+                <span className="text-[12px] text-[#505f76]">{t('samplingRateContinuous')}</span>
               </div>
               <div className="w-full bg-[#e2e7ff] h-1.5 rounded-full overflow-hidden">
                 <div className="bg-[#004ac6] h-full rounded-full w-full" />
               </div>
               <p className="text-[11px] text-[#505f76] mt-2">
-                Latest synchronization: {reading.recorded_at ? new Date(reading.recorded_at).toLocaleTimeString() : '3 seconds ago'} via Modbus TCP gateway.
+                {t('latestSyncNotice')}: {reading.recorded_at ? new Date(reading.recorded_at).toLocaleTimeString() : (isThai ? '3 วินาทีที่แล้ว' : '3 seconds ago')} {isThai ? 'ผ่านเกตเวย์ Modbus TCP' : 'via Modbus TCP gateway'}.
               </p>
             </div>
           </div>
@@ -801,14 +825,14 @@ export default function Dashboard() {
           {/* Drawer Footer */}
           <div className="p-4 sm:p-5 border-t border-[#eaedff] bg-white shrink-0 flex items-center justify-between">
             <span className="text-[12px] text-[#505f76]">
-              Array ID: <span className="font-mono text-[#131b2e] font-medium">{data?.box_id || 'SN-98442-E'}</span>
+              {t('arrayIdLabel')}: <span className="font-mono text-[#131b2e] font-medium">{data?.box_id || 'SN-98442-E'}</span>
             </span>
             <button
               type="button"
               onClick={() => toggleTelemetryDrawer(false)}
               className="px-4 py-2 rounded-xl bg-[#eaedff] text-[#131b2e] text-[13px] font-medium hover:bg-[#dae2fd] transition-colors cursor-pointer"
             >
-              Dismiss
+              {t('dismiss')}
             </button>
           </div>
         </div>
@@ -826,16 +850,16 @@ export default function Dashboard() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[11px] uppercase tracking-wider text-[#505f76] font-medium">
-                    Chemical Fingerprint Analysis
+                    {isThai ? 'การวิเคราะห์ลายนิ้วมือสารเคมี' : 'Chemical Fingerprint Analysis'}
                   </span>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-semibold text-[#004ac6] bg-[#004ac6]/10">
-                    {solventMatch}% match
+                    {isThai ? `ตรงกัน ${solventMatch}%` : `${solventMatch}% match`}
                   </span>
                 </div>
                 <h3 className="text-[32px] font-bold text-[#131b2e] leading-tight">
-                  {solventName}{' '}
+                  {isThai ? (solventName === 'Toluene' ? 'โทลูอีน' : solventName === 'Thinner' ? 'ทินเนอร์' : solventName) : solventName}{' '}
                   <span className="text-[20px] text-[#505f76] font-normal font-sans">
-                    {solventMatch}% match
+                    {isThai ? `ความสอดคล้อง ${solventMatch}%` : `${solventMatch}% match`}
                   </span>
                 </h3>
               </div>
@@ -849,7 +873,9 @@ export default function Dashboard() {
             </div>
 
             <p className="text-[13px] text-[#505f76] mb-4">
-              Expanded 8-channel metal-oxide sensor matrix comparison against reference NIST VOC signature library.
+              {isThai
+                ? 'การเปรียบเทียบสัญญาณแผงเซนเซอร์ตรวจวัดไอระเหยโลหะออกไซด์ 8 ช่องสัญญาณเทียบกับฐานข้อมูลลายเซ็นสารระเหย NIST'
+                : 'Expanded 8-channel metal-oxide sensor matrix comparison against reference NIST VOC signature library.'}
             </p>
 
             {/* Large 8-Channel Radar Chart */}
@@ -924,13 +950,13 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-4 flex items-center justify-between text-[12px] text-[#505f76]">
-              <span>Standard: C7H8 Aromatics</span>
+              <span>{isThai ? 'สารมาตรฐาน: ไอระเหยอะโรมาติก C7H8' : 'Standard: C7H8 Aromatics'}</span>
               <button
                 type="button"
                 onClick={() => setIsRadarModalOpen(false)}
                 className="px-4 py-2 rounded-xl bg-[#004ac6] text-white text-[13px] font-medium hover:bg-[#2563eb] transition-colors cursor-pointer"
               >
-                Done
+                {t('done', 'Done')}
               </button>
             </div>
           </div>

@@ -1,9 +1,11 @@
+import { useLanguage } from '../../context/LanguageContext';
 import { getAqiCategory } from '../../utils/aqiHelper';
 
 /**
  * Operational Air Quality Status Badge (OSHA / ISO 16000)
  */
 export default function AqiBadge({ aqi, pm25 = null, showRange = false, style = {} }) {
+  const { isThai } = useLanguage();
   const category = getAqiCategory(aqi);
 
   return (
@@ -20,7 +22,7 @@ export default function AqiBadge({ aqi, pm25 = null, showRange = false, style = 
         className="w-2 h-2 rounded-full animate-pulse"
         style={{ backgroundColor: category.color }}
       />
-      <span>{category.labelEn}</span>
+      <span>{isThai ? category.labelTh : category.labelEn}</span>
       {showRange && (
         <span className="opacity-75 text-[10px]">({category.rangeStr})</span>
       )}
