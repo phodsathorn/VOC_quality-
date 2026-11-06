@@ -440,6 +440,47 @@
 - `npm --prefix vocs-website/frontend run build`: สำเร็จใน 198ms (0 errors)
 - `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
 
+### สถานะ
+- [x] หน้าที่ 7/15: Devices รองรับ TH/EN และ Drawer/Modal ตรงตาม Stitch 100%
+- [x] หน้าที่ 8/15: Data Collection รองรับ TH/EN และ 3 แท็บตรงตาม Stitch 100%
+- [ ] เตรียมต่อหน้าที่ 9/15: Settings (`/settings`)
+
+---
+
+## 2026-11-07 04:15 — ปรับปรุงหน้า 8/15: Data Collection (`/data-collection`) ตรงตาม Stitch AI 100% พร้อมระบบสองภาษา TH/EN
+
+### สิ่งที่เปลี่ยน
+1. **หน้า 8/15: Data Collection (`DataCollection.jsx`):**
+   - ส่วนหัวหน้า: Breadcrumb `Model Training / Sensor Array Acquisition` (การฝึกฝนโมเดล / การบันทึกสัญญาณแผงเซนเซอร์) และป้ายสถานะสภาพแวดล้อมห้องพ่น `Chamber Temp 23.4°C · RH 42%`
+   - **การ์ดซ้าย (Acquisition Initiation - 4 คอลัมน์):**
+     - หัวเรื่อง `New Sample` พร้อมไอคอนขวดทดลอง
+     - ตัวเลือกสารเคมี (Chemical Compound): Ambient, Thinner, Acetone, IPA, Ethanol, Toluene
+     - ช่องระบุความเข้มข้น (Concentration ppm) พร้อมป้าย `Target Calibrated`
+     - รหัสตัวอย่าง (Sample ID Auto-generated)
+     - ชื่อผู้ปฏิบัติการ (Operator) และบันทึกเพิ่มเติม (Note)
+     - ข้อมูลอัตโนมัติ `Auto-recorded: 28° / 52%`
+     - ปุ่มควบคุมการเก็บตัวอย่าง: สลับสถานะ `Start sampling` / `Stop sampling`
+   - **การ์ดขวา (Dynamic Sensor Response Telemetry - 8 คอลัมน์):**
+     - แถบสลับ 3 แท็บ: `Live`, `Past sessions`, `Model` และป้ายโปรไฟล์ `Active Profile: Standard VOC Array`
+     - **แท็บ 1 (Live):**
+       - ป้ายสถานะ `Acquiring array transient` พร้อมอนิเมชันจุดกะพริบ
+       - Stepper 3 เฟส: Phase 1: Completed `✓ Baseline 30s`, Phase 2: Active `Exposure 60s` (พร้อมเลขนับวินาที), Phase 3: Pending `Recovery 90s`
+       - กราฟ SVG แสดงเส้นการตอบสนองพลวัตของเซนเซอร์ 6 แชนแนล (0s ถึง 180s) พร้อมเส้นตั้งบอกจุดสัมผัสก๊าซ 30s และจุดล้างฟื้นฟู 90s
+       - คำอธิบายสีเซนเซอร์ 6 ตัว: MQ-3 (Alcohol), MQ-2 (Combustibles), MQ-135 (Fumes), MQ-8 (H2), MiCS-5524 (CO), MiCS-6814 (NO2)
+     - **แท็บ 2 (Past sessions):**
+       - ตารางบันทึกรอบที่ผ่านมา: Sample ID, Compound, Quality (OK, Suspect), Profile, ปุ่ม Relabel, Flag, Delete และปุ่ม Export CSV
+     - **แท็บ 3 (Model):**
+       - ป้ายเตือน `Trained on a different sensor set`
+       - กล่องสถิติโมเดล: Model v1.3, Validation Accuracy 94%, 5 Target Classes
+       - เมทริกซ์ความสับสน 5x5 (Confusion Matrix): Predicted vs Actual ของ 5 สารเคมี
+
+2. **ระบบสองภาษา (`LanguageContext.jsx`):**
+   - เพิ่มคำศัพท์ภาษาไทยล้วนและภาษาอังกฤษแท้สำหรับ Data Collection ครบถ้วนทุกข้อความ
+
+### การตรวจสอบ
+- `npm --prefix vocs-website/frontend run build`: สำเร็จใน 225ms (0 errors)
+- `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
+
 
 
 

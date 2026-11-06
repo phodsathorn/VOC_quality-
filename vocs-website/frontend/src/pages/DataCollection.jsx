@@ -1,40 +1,42 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  Play, Square, ChevronDown, CheckCircle2, RotateCcw,
-  Sparkles, Sliders, ArrowRight, Tag, FlaskConical, Check, Download,
-  Activity, Clock, Cpu, BarChart2
+  Play, Square, ChevronDown, Check, Download,
+  Activity, Tag, FlaskConical, AlertTriangle, CheckCircle2,
+  Sliders, User, Edit3, Thermometer
 } from 'lucide-react';
 import { API } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function DataCollection() {
   const { user } = useAuth();
+  const { t, lang } = useLanguage();
+
   const [compound, setCompound] = useState('Ambient');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [concentration, setConcentration] = useState('50');
   const [sampleId, setSampleId] = useState('SMP-2025-0842');
+  const [operator, setOperator] = useState('E. Mitchell');
+  const [note, setNote] = useState('');
   const [isSampling, setIsSampling] = useState(false);
-  const [timerSeconds, setTimerSeconds] = useState(42);
+  const [timerSeconds, setTimerSeconds] = useState(34);
   const timerRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState('live'); // 'live' | 'past' | 'model'
   const [toastMsg, setToastMsg] = useState(null);
 
-  const chemicals = [
-    { name: 'Ambient', formula: 'Clean Air Baseline', desc: 'Reference zero baseline' },
-    { name: 'Thinner', formula: 'Mixed Solvents', desc: 'Solvent thinner for spray booth' },
-    { name: 'Acetone', formula: 'C3H6O', desc: 'Solvent cleaner 58.08 g/mol' },
-    { name: 'IPA', formula: 'C3H8O', desc: 'Isopropanol wipe alcohol' },
-    { name: 'Ethanol', formula: 'C2H6O', desc: 'Ethanol denatured 46.07 g/mol' },
-    { name: 'Toluene', formula: 'C7H8', desc: 'Aromatic solvent 92.14 g/mol' },
+  const compounds = [
+    { id: 'Ambient', labelEn: 'Ambient', labelTh: 'อากาศแวดล้อม (Ambient)' },
+    { id: 'Thinner', labelEn: 'Thinner', labelTh: 'ทินเนอร์ (Thinner)' },
+    { id: 'Acetone', labelEn: 'Acetone', labelTh: 'อะซิโตน (Acetone)' },
+    { id: 'IPA', labelEn: 'IPA', labelTh: 'ไอโซโพรพิลแอลกอฮอล์ (IPA)' },
+    { id: 'Ethanol', labelEn: 'Ethanol', labelTh: 'เอทานอล (Ethanol)' },
+    { id: 'Toluene', labelEn: 'Toluene', labelTh: 'โทลูอีน (Toluene)' },
   ];
 
   const [pastSessions, setPastSessions] = useState([
-    { id: 'SMP-2025-0841', chemical: 'Toluene', ppm: '50 ppm', duration: '120s', date: 'Oct 24, 14:15', status: 'Completed' },
-    { id: 'SMP-2025-0840', chemical: 'Acetone', ppm: '120 ppm', duration: '90s', date: 'Oct 24, 11:30', status: 'Completed' },
-    { id: 'SMP-2025-0839', chemical: 'IPA', ppm: '75 ppm', duration: '120s', date: 'Oct 23, 16:45', status: 'Completed' },
-    { id: 'SMP-2025-0838', chemical: 'Thinner', ppm: '40 ppm', duration: '180s', date: 'Oct 23, 09:20', status: 'Completed' },
-    { id: 'SMP-2025-0837', chemical: 'Ethanol', ppm: '100 ppm', duration: '120s', date: 'Oct 22, 15:10', status: 'Completed' },
+    { id: 'SMP-2025-0841', compound: 'Toluene', compoundTh: 'โทลูอีน', quality: 'OK', isSuspect: false, profile: 'P-Standard' },
+    { id: 'SMP-2025-0840', compound: 'Thinner', compoundTh: 'ทินเนอร์', quality: 'Suspect', isSuspect: true, profile: 'P-HighTemp' },
+    { id: 'SMP-2025-0839', compound: 'IPA', compoundTh: 'ไอโซโพรพิลแอลกอฮอล์', quality: 'OK', isSuspect: false, profile: 'P-Standard' },
   ]);
 
   function showToast(msg) {
@@ -42,11 +44,11 @@ export default function DataCollection() {
     setTimeout(() => setToastMsg(null), 2500);
   }
 
-  // Timer effect for sampling
+  // Live timer for active sampling
   useEffect(() => {
     if (isSampling) {
       timerRef.current = setInterval(() => {
-        setTimerSeconds((prev) => prev + 1);
+        setTimerSeconds((prev) => (prev >= 180 ? 0 : prev + 1));
       }, 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -67,11 +69,11 @@ export default function DataCollection() {
           if (Array.isArray(list) && list.length > 0) {
             const mapped = list.map((s) => ({
               id: `SMP-${s.id}`,
-              chemical: s.label || 'Toluene',
-              ppm: s.target_ppm ? `${s.target_ppm} ppm` : '50 ppm',
-              duration: '120s',
-              date: s.started_at ? new Date(s.started_at).toLocaleDateString() : 'Today',
-              status: 'Completed',
+              compound: s.label || 'Toluene',
+              compoundTh: s.label || 'โทลูอีน',
+              quality: 'OK',
+              isSuspect: false,
+              profile: 'P-Standard',
             }));
             setPastSessions(mapped);
           }
@@ -89,8 +91,9 @@ export default function DataCollection() {
 
     if (nextState) {
       setTimerSeconds(0);
-      setSampleId(`SMP-2025-${Math.floor(Math.random() * 900 + 100)}`);
-      showToast('Started data acquisition session...');
+      const newId = `SMP-2025-${Math.floor(Math.random() * 900 + 100)}`;
+      setSampleId(newId);
+      showToast(lang === 'TH' ? 'เริ่มกระบวนการบันทึกข้อมูลตัวอย่างแล้ว...' : 'Started data acquisition session...');
 
       try {
         await fetch(`${API}/api/training/sessions`, {
@@ -109,133 +112,137 @@ export default function DataCollection() {
         console.warn('Start session API notice:', err);
       }
     } else {
-      showToast('Acquisition stopped and sample saved ✓');
+      showToast(lang === 'TH' ? 'สิ้นสุดการเก็บตัวอย่างและบันทึกข้อมูลแล้ว ✓' : 'Acquisition stopped and sample saved ✓');
       const newSession = {
         id: sampleId,
-        chemical: compound,
-        ppm: `${concentration} ppm`,
-        duration: `${timerSeconds}s`,
-        date: 'Just now',
-        status: 'Completed',
+        compound: compound,
+        compoundTh: compound,
+        quality: 'OK',
+        isSuspect: false,
+        profile: 'P-Standard',
       };
       setPastSessions((prev) => [newSession, ...prev]);
     }
   }
 
-  function handleExportPastSessions() {
-    const csvContent = 'data:text/csv;charset=utf-8,' +
-      'Sample_ID,Chemical,Concentration,Duration,Timestamp,Status\n' +
-      pastSessions.map((s) => `${s.id},${s.chemical},${s.ppm},${s.duration},${s.date},${s.status}`).join('\n');
+  function handleRelabel(id) {
+    const target = pastSessions.find((s) => s.id === id);
+    if (!target) return;
+    const newCompound = prompt(lang === 'TH' ? 'ระบุชื่อสารเคมีใหม่:' : 'Enter new chemical compound:', target.compound);
+    if (newCompound) {
+      setPastSessions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, compound: newCompound, compoundTh: newCompound } : s))
+      );
+      showToast(lang === 'TH' ? 'อัปเดตป้ายชื่อตัวอย่างแล้ว ✓' : 'Sample relabeled successfully ✓');
+    }
+  }
+
+  function handleDelete(id) {
+    setPastSessions((prev) => prev.filter((s) => s.id !== id));
+    showToast(lang === 'TH' ? 'ลบข้อมูลตัวอย่างแล้ว' : 'Sample deleted');
+  }
+
+  function handleFlag(id) {
+    setPastSessions((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, quality: s.quality === 'Suspect' ? 'OK' : 'Suspect', isSuspect: !s.isSuspect } : s))
+    );
+    showToast(lang === 'TH' ? 'เปลี่ยนสถานะตรวจสอบแล้ว' : 'Sample flag toggled');
+  }
+
+  function handleExportCsv() {
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      'Sample_ID,Compound,Quality,Profile\n' +
+      pastSessions.map((s) => `${s.id},${s.compound},${s.quality},${s.profile}`).join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', 'sensor_acquisition_sessions.csv');
+    link.setAttribute('download', 'past_acquisition_runs.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('Exported CSV successfully ✓');
+    showToast(lang === 'TH' ? 'ส่งออกไฟล์ CSV สำเร็จแล้ว ✓' : 'Exported CSV successfully ✓');
   }
 
-  const formatTimer = (sec) => {
-    const mins = Math.floor(sec / 60);
-    const secs = sec % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
   return (
-    <div className="flex flex-col w-full gap-6 max-w-7xl mx-auto">
-      {/* ── Breadcrumb & Header Bar matching Stitch ── */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-2">
+    <div className="flex flex-col w-full gap-8 max-w-7xl mx-auto">
+      {/* ── Breadcrumb & Header Bar matching Stitch AI ── */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
         <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider font-semibold">
-            <span className="text-[#004ac6]">Model Training</span>
+          <div className="flex items-center gap-1.5 text-[#505f76] text-[11px] font-semibold tracking-wider uppercase">
+            <span className="text-[#004ac6]">{t('modelTraining', 'Model Training')}</span>
             <span className="text-[#c3c6d7]">/</span>
-            <span className="text-[#505f76] font-medium">Sensor Array Acquisition</span>
+            <span>{t('sensorArrayAcquisition', 'Sensor Array Acquisition')}</span>
           </div>
-          <h1 className="text-[28px] font-bold text-[#131b2e] tracking-tight mt-0.5">
-            Data Collection
+          <h1 className="text-[20px] font-semibold text-[#131b2e] tracking-tight mt-1">
+            {t('dataCollection', 'Data Collection')}
           </h1>
         </div>
-
-        <div className="inline-flex items-center gap-2 self-start md:self-auto px-4 py-1.5 rounded-full bg-white shadow-2xs border border-[#eaedff]">
+        <div className="inline-flex items-center gap-2 self-start md:self-auto px-3.5 py-1.5 rounded-full bg-white shadow-xs border border-[#eaedff]">
           <span className="w-2 h-2 rounded-full bg-[#004ac6] animate-pulse" />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#505f76]">
-            Chamber Temp 23.4°C · RH 42%
+          <span className="text-[11px] text-[#505f76] font-medium uppercase tracking-wider">
+            {t('chamberStatusPill', 'Chamber Temp 23.4°C · RH 42%')}
           </span>
         </div>
       </div>
 
       {/* ── Strict 2-Card Layout (Left ~1/3, Right ~2/3) matching Stitch ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* LEFT CARD: Acquisition Initiation (col-span-4) */}
-        <div className="lg:col-span-4 bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-[#eaedff] flex flex-col justify-between min-h-[520px]">
+        {/* LEFT CARD: Acquisition Initiation (4 cols) */}
+        <div className="lg:col-span-4 bg-white rounded-3xl p-6 sm:p-7 shadow-xs border border-[#eaedff] flex flex-col justify-between min-h-[520px]">
           <div>
-            <div className="flex items-center justify-between pb-6">
-              <span className="text-xs uppercase tracking-widest text-[#505f76] font-semibold">
-                New Sample
+            <div className="flex items-center justify-between pb-5 border-b border-[#f2f3ff]">
+              <span className="text-[12px] uppercase tracking-widest text-[#505f76] font-semibold">
+                {t('newSample', 'New Sample')}
               </span>
-              <span className="text-[#737686]">
-                <Sliders size={18} />
-              </span>
+              <FlaskConical size={18} className="text-[#737686]" />
             </div>
 
-            <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
-              {/* Field 1: Chemical Selector with custom dropdown matching sub-state */}
-              <div className="flex flex-col gap-1.5 relative z-30">
-                <label className="text-[11px] uppercase tracking-wider text-[#505f76] font-semibold">
-                  Chemical Compound
+            <form className="space-y-4 pt-5" onSubmit={(e) => e.preventDefault()}>
+              {/* Field 1: Chemical Selector */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-[#505f76]" htmlFor="chem-select">
+                  {t('chemicalCompound', 'Chemical Compound')}
                 </label>
                 <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsDropdownOpen((prev) => !prev)}
-                    className="w-full bg-[#f2f3ff] text-[#131b2e] font-medium text-[14px] rounded-2xl px-4 py-2.5 flex items-center justify-between focus:outline-none focus:bg-[#eaedff] transition-all cursor-pointer text-left border border-[#eaedff]"
+                  <select
+                    id="chem-select"
+                    value={compound}
+                    onChange={(e) => setCompound(e.target.value)}
+                    className="w-full bg-[#f2f3ff] text-[#131b2e] text-[14px] font-medium rounded-2xl px-4 py-3 appearance-none focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 cursor-pointer"
                   >
-                    <span className="font-semibold">{compound}</span>
-                    <ChevronDown size={18} className={`text-[#505f76] transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {isDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl shadow-xl border border-[#eaedff] p-2 flex flex-col gap-1 z-50 animate-fade-in">
-                      {chemicals.map((c) => (
-                        <div
-                          key={c.name}
-                          onClick={() => {
-                            setCompound(c.name);
-                            setIsDropdownOpen(false);
-                          }}
-                          className={`p-2.5 rounded-xl flex flex-col cursor-pointer transition-colors ${
-                            compound === c.name ? 'bg-[#f2f3ff] text-[#004ac6]' : 'hover:bg-[#f2f3ff]/60 text-[#131b2e]'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-[13px] font-semibold">{c.name}</span>
-                            <span className="text-[11px] font-mono text-[#505f76]">{c.formula}</span>
-                          </div>
-                          <span className="text-[11px] text-[#505f76]">{c.desc}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                    {compounds.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {lang === 'TH' ? c.labelTh : c.labelEn}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={18}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#505f76] pointer-events-none"
+                  />
                 </div>
               </div>
 
               {/* Field 2: Concentration */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="text-[11px] uppercase tracking-wider text-[#505f76] font-semibold">
-                    Concentration
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-[#505f76]" htmlFor="ppm-input">
+                    {t('concentration', 'Concentration')}
                   </label>
-                  <span className="text-[11px] font-bold text-[#004ac6]">Target Calibrated</span>
+                  <span className="text-[11px] text-[#004ac6] font-semibold">
+                    {t('targetCalibrated', 'Target Calibrated')}
+                  </span>
                 </div>
                 <div className="relative flex items-center">
                   <input
+                    id="ppm-input"
                     type="number"
                     value={concentration}
                     onChange={(e) => setConcentration(e.target.value)}
-                    className="w-full bg-[#f2f3ff] text-[#131b2e] font-semibold text-[14px] rounded-2xl px-4 py-2.5 pr-14 focus:outline-none focus:bg-[#eaedff] transition-all font-mono tabular-nums border border-[#eaedff]"
+                    className="w-full bg-[#f2f3ff] text-[#131b2e] text-[14px] font-medium rounded-2xl px-4 py-3 pr-14 focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 font-mono tabular-nums"
                   />
-                  <span className="absolute right-4 text-[#505f76] font-medium text-[12px] pointer-events-none">
+                  <span className="absolute right-4 text-[#505f76] pointer-events-none font-medium text-[12px]">
                     ppm
                   </span>
                 </div>
@@ -244,235 +251,369 @@ export default function DataCollection() {
               {/* Field 3: Sample ID */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="text-[11px] uppercase tracking-wider text-[#505f76] font-semibold">
-                    Sample ID
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-[#505f76]" htmlFor="sample-id">
+                    {t('sampleId', 'Sample ID')}
                   </label>
-                  <span className="text-[10px] text-[#505f76] tracking-wider uppercase font-semibold">
-                    Auto-Generated
+                  <span className="text-[10px] text-[#505f76] uppercase tracking-wider">
+                    {t('autoGenerated', 'Auto-Generated')}
                   </span>
                 </div>
                 <div className="relative flex items-center">
                   <input
+                    id="sample-id"
                     type="text"
-                    value={sampleId}
                     readOnly
-                    className="w-full bg-[#f2f3ff] text-[#131b2e] font-semibold text-[13px] rounded-2xl px-4 py-2.5 font-mono tracking-wider select-all cursor-default border border-[#eaedff]"
+                    value={sampleId}
+                    className="w-full bg-[#f2f3ff] text-[#131b2e] text-[13px] font-mono tracking-wider rounded-2xl px-4 py-3 select-all cursor-default"
                   />
                   <Tag size={16} className="absolute right-4 text-[#505f76]" />
                 </div>
               </div>
+
+              {/* Field 4: Operator */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-[#505f76]" htmlFor="operator-input">
+                  {t('operator', 'Operator')}
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    id="operator-input"
+                    type="text"
+                    value={operator}
+                    onChange={(e) => setOperator(e.target.value)}
+                    className="w-full bg-[#f2f3ff] text-[#131b2e] text-[14px] font-medium rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20"
+                  />
+                  <User size={16} className="absolute right-4 text-[#505f76]" />
+                </div>
+              </div>
+
+              {/* Field 5: Note */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-[#505f76]" htmlFor="note-input">
+                  {t('note', 'Note')}
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    id="note-input"
+                    type="text"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder={lang === 'TH' ? 'เช่น ตรวจสอบจุดฐานชุดผลิต #4' : 'e.g. Batch #4 baseline check'}
+                    className="w-full bg-[#f2f3ff] text-[#131b2e] text-[14px] font-medium rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20"
+                  />
+                  <Edit3 size={16} className="absolute right-4 text-[#505f76]" />
+                </div>
+              </div>
+
+              <div className="pt-1 flex items-center gap-1.5 text-[11px] text-[#737686] font-medium">
+                <Thermometer size={14} />
+                <span>{t('autoRecordedTempRh', 'Auto-recorded: 28° / 52%')}</span>
+              </div>
             </form>
           </div>
 
-          {/* Action Button: Start / Stop Recording with Active Timer */}
-          <div className="pt-8">
+          {/* Action Button matching Stitch */}
+          <div className="pt-6 mt-4">
             <button
               type="button"
               onClick={toggleSampling}
-              className={`w-full py-3.5 px-6 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.99] cursor-pointer ${
+              className={`w-full py-3.5 px-6 rounded-2xl font-medium text-[14px] flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.99] ${
                 isSampling
-                  ? 'bg-[#ba1a1a] hover:bg-[#93000a] text-white shadow-md'
-                  : 'bg-[#004ac6] hover:bg-[#003ea8] text-white'
+                  ? 'bg-[#ba1a1a] text-white hover:bg-[#93000a]'
+                  : 'bg-[#004ac6] text-white hover:bg-[#003ea8]'
               }`}
             >
               {isSampling ? (
                 <>
                   <Square size={18} fill="currentColor" />
-                  <span>Stop recording ({formatTimer(timerSeconds)})</span>
+                  <span className="font-semibold tracking-wide">
+                    {t('stopSampling', 'Stop sampling')}
+                  </span>
                 </>
               ) : (
                 <>
                   <Play size={18} fill="currentColor" />
-                  <span>Start recording</span>
+                  <span className="font-semibold tracking-wide">
+                    {t('startSampling', 'Start sampling')}
+                  </span>
                 </>
               )}
             </button>
           </div>
         </div>
 
-        {/* RIGHT CARD: Sensor Response & Tabs (col-span-8) */}
-        <div className="lg:col-span-8 bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-[#eaedff] flex flex-col justify-between min-h-[520px]">
+        {/* RIGHT CARD: Dynamic Sensor Response Telemetry (8 cols) */}
+        <div className="lg:col-span-8 bg-white rounded-3xl p-6 sm:p-7 shadow-xs border border-[#eaedff] flex flex-col justify-between min-h-[520px]">
           <div>
-            {/* Top Bar: Title, Tabs & Status Badge */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#004ac6]" />
-                  <h2 className="text-[16px] font-bold text-[#131b2e] tracking-tight">
-                    Sensor response (Rs/R0)
-                  </h2>
-                </div>
-
-                {/* Segmented Tab Switcher */}
-                <div className="inline-flex items-center p-0.5 rounded-full bg-[#f2f3ff] border border-[#eaedff]">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('live')}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                      activeTab === 'live'
-                        ? 'bg-[#004ac6] text-white shadow-xs'
-                        : 'text-[#505f76] hover:text-[#131b2e]'
-                    }`}
-                  >
-                    Live
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('past')}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                      activeTab === 'past'
-                        ? 'bg-[#004ac6] text-white shadow-xs'
-                        : 'text-[#505f76] hover:text-[#131b2e]'
-                    }`}
-                  >
-                    Past sessions
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('model')}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                      activeTab === 'model'
-                        ? 'bg-[#004ac6] text-white shadow-xs'
-                        : 'text-[#505f76] hover:text-[#131b2e]'
-                    }`}
-                  >
-                    Model status
-                  </button>
-                </div>
+            {/* Top Bar: Tabs & Active Profile */}
+            <div className="flex items-center justify-between border-b border-[#eaedff] pb-3 mb-4">
+              <div className="inline-flex p-1 rounded-2xl bg-[#f2f3ff] gap-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('live')}
+                  className={`px-3 py-1 rounded-xl text-[12px] font-medium transition-all cursor-pointer ${
+                    activeTab === 'live'
+                      ? 'bg-white text-[#004ac6] shadow-xs'
+                      : 'text-[#505f76] hover:text-[#131b2e]'
+                  }`}
+                >
+                  {t('live', 'Live')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('past')}
+                  className={`px-3 py-1 rounded-xl text-[12px] font-medium transition-all cursor-pointer ${
+                    activeTab === 'past'
+                      ? 'bg-white text-[#004ac6] shadow-xs'
+                      : 'text-[#505f76] hover:text-[#131b2e]'
+                  }`}
+                >
+                  {t('pastSessions', 'Past sessions')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('model')}
+                  className={`px-3 py-1 rounded-xl text-[12px] font-medium transition-all cursor-pointer ${
+                    activeTab === 'model'
+                      ? 'bg-white text-[#004ac6] shadow-xs'
+                      : 'text-[#505f76] hover:text-[#131b2e]'
+                  }`}
+                >
+                  {t('model', 'Model')}
+                </button>
               </div>
 
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f2f3ff] text-[#505f76] text-xs font-semibold self-start sm:self-auto">
-                <span className={`w-1.5 h-1.5 rounded-full ${isSampling ? 'bg-[#ba1a1a] animate-pulse' : 'bg-[#004ac6]'}`} />
-                <span>{isSampling ? 'Acquiring...' : 'Standby'}</span>
+              <div className="text-[11px] text-[#505f76] font-medium hidden sm:flex items-center gap-1.5">
+                <Sliders size={14} className="text-[#004ac6]" />
+                <span>{t('activeProfile', 'Active Profile: Standard VOC Array')}</span>
               </div>
             </div>
 
-            {/* ── Tab 1: Live Transient Response Graph ── */}
+            {/* TAB 1: LIVE matching Stitch 1:1 */}
             {activeTab === 'live' && (
               <div className="flex flex-col gap-4">
-                {/* SVG Graph Canvas matching Stitch */}
-                <div className="w-full h-64 bg-[#faf8ff] rounded-2xl p-4 border border-[#eaedff] relative flex flex-col justify-between overflow-hidden">
-                  <div className="absolute inset-0 flex flex-col justify-between p-4 pointer-events-none opacity-40">
-                    <div className="w-full border-b border-dashed border-[#c3c6d7]" />
-                    <div className="w-full border-b border-dashed border-[#c3c6d7]" />
-                    <div className="w-full border-b border-dashed border-[#c3c6d7]" />
-                    <div className="w-full border-b border-dashed border-[#c3c6d7]" />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#004ac6]" />
+                    <h2 className="text-[14px] font-semibold text-[#131b2e] tracking-tight">
+                      {t('sensorResponse', 'Sensor response (Rs/R0)')}
+                    </h2>
                   </div>
-
-                  {/* SVG Multi-Sensor Curves */}
-                  <svg className="w-full h-full relative z-10" viewBox="0 0 500 180" preserveAspectRatio="none">
-                    {/* Grid lines */}
-                    <line x1="0" y1="180" x2="500" y2="180" stroke="#c3c6d7" strokeWidth="1" />
-                    {/* Curve 1: MQ-135 (Blue) */}
-                    <path
-                      d={isSampling ? "M0,160 C50,150 100,60 180,45 C260,35 380,38 500,40" : "M0,150 C80,148 200,146 320,147 C420,148 500,148 500,148"}
-                      fill="none"
-                      stroke="#004ac6"
-                      strokeWidth="2.5"
-                    />
-                    {/* Curve 2: MQ-3 (Orange) */}
-                    <path
-                      d={isSampling ? "M0,165 C60,160 120,80 200,65 C280,55 380,58 500,60" : "M0,155 C90,154 210,152 330,153 C430,154 500,154 500,154"}
-                      fill="none"
-                      stroke="#f97316"
-                      strokeWidth="2"
-                    />
-                    {/* Curve 3: MQ-2 (Purple) */}
-                    <path
-                      d={isSampling ? "M0,170 C70,165 140,110 220,100 C300,95 400,98 500,100" : "M0,160 C100,159 220,158 340,158 C440,159 500,159 500,159"}
-                      fill="none"
-                      stroke="#8b5cf6"
-                      strokeWidth="2"
-                    />
-                    {/* Curve 4: MQ-8 (Green) */}
-                    <path
-                      d={isSampling ? "M0,175 C80,170 160,130 240,125 C320,120 420,122 500,124" : "M0,165 C110,164 230,163 350,163 C450,164 500,164 500,164"}
-                      fill="none"
-                      stroke="#10b981"
-                      strokeWidth="2"
-                    />
-                    {/* Active point indicator when sampling */}
-                    {isSampling && (
-                      <>
-                        <circle cx="280" cy="35" r="4" fill="#004ac6" className="animate-ping" />
-                        <circle cx="280" cy="35" r="4" fill="#004ac6" />
-                      </>
-                    )}
-                  </svg>
-
-                  {/* X Axis Time Labels */}
-                  <div className="flex justify-between text-[11px] text-[#505f76] font-mono relative z-10 pt-1">
-                    <span>0s</span>
-                    <span>30s</span>
-                    <span>60s</span>
-                    <span>90s</span>
-                    <span>120s</span>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#d0e1fb] text-[#0b1c30] text-[11px] font-semibold self-start sm:self-auto">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6] animate-ping" />
+                    <span>{t('acquiringArrayTransient', 'Acquiring array transient')}</span>
                   </div>
                 </div>
 
-                {/* Sensor Legend Pills */}
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f2f3ff] text-xs font-semibold text-[#131b2e]">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#004ac6]" />
-                    <span>MQ-135 (0.28)</span>
+                {/* 3-Phase Stepper Tracker */}
+                <div className="w-full pt-1">
+                  <div className="grid grid-cols-3 gap-2 text-[12px] mb-2 font-medium">
+                    {/* Phase 1: Completed */}
+                    <div className="flex items-center gap-1.5 text-[#131b2e]">
+                      <span className="w-4 h-4 rounded-full bg-[#e2e7ff] flex items-center justify-center text-[#004ac6] text-[10px] font-bold">
+                        ✓
+                      </span>
+                      <span className="text-[#505f76]">
+                        {t('baseline', 'Baseline')} <span className="font-mono text-[11px]">30s</span>
+                      </span>
+                    </div>
+                    {/* Phase 2: Active */}
+                    <div className="flex items-center justify-center gap-1.5 text-[#004ac6] font-semibold">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#004ac6] opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-[#004ac6]" />
+                      </span>
+                      <span>
+                        {t('exposure', 'Exposure')} <span className="font-mono text-[11px]">60s</span>
+                      </span>
+                      <span className="hidden sm:inline-block px-1.5 py-0.2 rounded bg-[#dbe1ff] text-[#00174b] font-mono text-[10px]">
+                        {timerSeconds}s
+                      </span>
+                    </div>
+                    {/* Phase 3: Pending */}
+                    <div className="flex items-center justify-end gap-1.5 text-[#737686]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#c3c6d7]" />
+                      <span>
+                        {t('recovery', 'Recovery')} <span className="font-mono text-[11px]">90s</span>
+                      </span>
+                    </div>
                   </div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f2f3ff] text-xs font-semibold text-[#131b2e]">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#f97316]" />
-                    <span>MQ-3 (0.42)</span>
+                  {/* Progress bar */}
+                  <div className="w-full h-1 bg-[#eaedff] rounded-full overflow-hidden flex">
+                    <div className="h-full bg-[#004ac6]" style={{ width: '35.5%' }} />
+                    <div className="h-full bg-[#004ac6]/30" style={{ width: '17.5%' }} />
+                    <div className="h-full bg-transparent flex-1" />
                   </div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f2f3ff] text-xs font-semibold text-[#131b2e]">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />
-                    <span>MQ-2 (0.64)</span>
+                </div>
+
+                {/* Multi-Channel Line Graph (SVG) matching Stitch */}
+                <div className="relative w-full h-[260px] my-2 flex items-center">
+                  <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 720 240">
+                    <defs>
+                      <linearGradient id="ch1-fade" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#2563EB" stopOpacity="0.12" />
+                        <stop offset="100%" stopColor="#2563EB" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    <line stroke="#E2E8F0" strokeDasharray="3 3" strokeWidth="1.5" x1="120" x2="120" y1="10" y2="210" />
+                    <line stroke="#E2E8F0" strokeDasharray="3 3" strokeWidth="1.5" x1="360" x2="360" y1="10" y2="210" />
+                    <line stroke="#F1F5F9" strokeWidth="1" x1="45" x2="710" y1="30" y2="30" />
+                    <line stroke="#F1F5F9" strokeWidth="1" x1="45" x2="710" y1="75" y2="75" />
+                    <line stroke="#F1F5F9" strokeWidth="1" x1="45" x2="710" y1="120" y2="120" />
+                    <line stroke="#F1F5F9" strokeWidth="1" x1="45" x2="710" y1="165" y2="165" />
+                    <line stroke="#E2E8F0" strokeWidth="1" x1="45" x2="710" y1="210" y2="210" />
+                    
+                    {/* Y-axis labels */}
+                    <text fill="#64748B" fontFamily="Inter" fontSize="11" textAnchor="end" x="35" y="34">2.4</text>
+                    <text fill="#64748B" fontFamily="Inter" fontSize="11" textAnchor="end" x="35" y="79">2.0</text>
+                    <text fill="#64748B" fontFamily="Inter" fontSize="11" textAnchor="end" x="35" y="124">1.6</text>
+                    <text fill="#64748B" fontFamily="Inter" fontSize="11" textAnchor="end" x="35" y="169">1.2</text>
+                    <text fill="#64748B" fontFamily="Inter" fontSize="11" textAnchor="end" x="35" y="214">0.8</text>
+                    
+                    {/* X-axis labels */}
+                    <text fill="#64748B" fontFamily="Inter" fontSize="11" textAnchor="start" x="45" y="232">0s</text>
+                    <text fill="#2563EB" fontFamily="Inter" fontSize="11" fontWeight="600" textAnchor="middle" x="120" y="232">
+                      30s ({t('exposureStart', 'Exposure start')})
+                    </text>
+                    <text fill="#64748B" fontFamily="Inter" fontSize="11" textAnchor="middle" x="360" y="232">
+                      90s ({t('purgeRecovery', 'Purge recovery')})
+                    </text>
+                    <text fill="#64748B" fontFamily="Inter" fontSize="11" textAnchor="end" x="700" y="232">180s</text>
+                    
+                    {/* Curves for 6 sensors */}
+                    <path d="M 45 208 L 120 208 C 160 205 190 40 360 42 C 430 45 520 185 710 204" fill="none" stroke="#2563EB" strokeLinecap="round" strokeWidth="2.5" />
+                    <path d="M 45 206 L 120 206 C 160 200 210 115 360 118 C 440 120 540 195 710 206" fill="none" stroke="#00CC66" strokeLinecap="round" strokeWidth="2" />
+                    <path d="M 45 210 L 120 210 C 160 208 215 142 360 144 C 450 147 560 200 710 209" fill="none" stroke="#00C0FF" strokeLinecap="round" strokeWidth="2" />
+                    <path d="M 45 207 L 120 207 C 160 204 220 85 360 88 C 430 92 530 190 710 205" fill="none" stroke="#FF7E00" strokeLinecap="round" strokeWidth="2" />
+                    <path d="M 45 209 L 120 209 C 160 207 230 166 360 168 C 460 170 580 202 710 208" fill="none" stroke="#8B5CF6" strokeLinecap="round" strokeWidth="2" />
+                    <path d="M 45 208 L 120 208 C 160 206 225 125 360 128 C 455 132 550 198 710 207" fill="none" stroke="#BA1A1A" strokeLinecap="round" strokeWidth="2" />
+                    
+                    {/* Active timestamp indicator line & circle */}
+                    <line stroke="#2563EB" strokeDasharray="2 2" strokeWidth="1.5" x1="256" x2="256" y1="20" y2="210" />
+                    <circle cx="256" cy="46" fill="#2563EB" r="4.5" stroke="#FFFFFF" strokeWidth="2" />
+                  </svg>
+                </div>
+
+                {/* Sensor Channels Legend matching Stitch */}
+                <div className="pt-2 flex flex-wrap items-center justify-between gap-y-2 gap-x-4">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB]" />
+                    <span className="text-[12px] font-semibold text-[#131b2e]">
+                      MQ-3 <span className="text-[#505f76] font-normal">(Alcohol)</span>
+                    </span>
                   </div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f2f3ff] text-xs font-semibold text-[#131b2e]">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
-                    <span>MQ-8 (0.81)</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#00CC66]" />
+                    <span className="text-[12px] font-semibold text-[#131b2e]">
+                      MQ-2 <span className="text-[#505f76] font-normal">(Combustibles)</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#00C0FF]" />
+                    <span className="text-[12px] font-semibold text-[#131b2e]">
+                      MQ-135 <span className="text-[#505f76] font-normal">(Fumes)</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#FF7E00]" />
+                    <span className="text-[12px] font-semibold text-[#131b2e]">
+                      MQ-8 <span className="text-[#505f76] font-normal">(H2)</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6]" />
+                    <span className="text-[12px] font-semibold text-[#131b2e]">
+                      MiCS-5524 <span className="text-[#505f76] font-normal">(CO)</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#BA1A1A]" />
+                    <span className="text-[12px] font-semibold text-[#131b2e]">
+                      MiCS-6814 <span className="text-[#505f76] font-normal">(NO2)</span>
+                    </span>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* ── Tab 2: Past Sessions Table ── */}
+            {/* TAB 2: PAST SESSIONS matching Stitch */}
             {activeTab === 'past' && (
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between pb-2">
-                  <span className="text-xs text-[#505f76] font-semibold uppercase tracking-wider">
-                    {pastSessions.length} Recorded Sessions
-                  </span>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between pb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-semibold text-[#131b2e]">
+                      {t('pastAcquisitionRuns', 'Past Acquisition Runs')}
+                    </span>
+                    <span className="text-[11px] text-[#505f76] font-mono">
+                      ({pastSessions.length} {t('runsRecorded', 'runs recorded')})
+                    </span>
+                  </div>
                   <button
                     type="button"
-                    onClick={handleExportPastSessions}
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-[#f2f3ff] hover:bg-[#eaedff] text-xs font-semibold text-[#004ac6] transition-colors cursor-pointer"
+                    onClick={handleExportCsv}
+                    className="inline-flex items-center gap-1 text-[12px] font-medium text-[#004ac6] hover:underline cursor-pointer"
                   >
                     <Download size={14} />
-                    <span>Export CSV</span>
+                    <span>{t('exportCsv', 'Export CSV')}</span>
                   </button>
                 </div>
 
-                <div className="border border-[#eaedff] rounded-2xl overflow-hidden bg-white shadow-2xs">
-                  <table className="w-full text-left text-[13px]">
-                    <thead>
-                      <tr className="bg-[#f2f3ff] border-b border-[#eaedff] text-[#505f76] font-medium text-xs">
-                        <th className="py-2.5 px-4">Sample ID</th>
-                        <th className="py-2.5 px-4">Chemical</th>
-                        <th className="py-2.5 px-4">Conc.</th>
-                        <th className="py-2.5 px-4">Duration</th>
-                        <th className="py-2.5 px-4">Date</th>
-                        <th className="py-2.5 px-4 text-right">Status</th>
+                <div className="overflow-x-auto rounded-2xl border border-[#eaedff]">
+                  <table className="w-full text-left text-[12px]">
+                    <thead className="bg-[#f2f3ff] text-[#505f76] uppercase font-semibold text-[10px] tracking-wider">
+                      <tr>
+                        <th className="px-4 py-3 rounded-l-xl">{t('sampleId', 'Sample ID')}</th>
+                        <th className="px-4 py-3">{t('compound', 'Compound')}</th>
+                        <th className="px-4 py-3">{t('quality', 'Quality')}</th>
+                        <th className="px-4 py-3">{t('profile', 'Profile')}</th>
+                        <th className="px-4 py-3 text-right rounded-r-xl">{t('actions', 'Actions')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#eaedff] text-[#131b2e]">
-                      {pastSessions.map((s) => (
-                        <tr key={s.id} className="hover:bg-[#f2f3ff]/40 transition-colors">
-                          <td className="py-3 px-4 font-mono font-semibold text-[#004ac6]">{s.id}</td>
-                          <td className="py-3 px-4 font-medium">{s.chemical}</td>
-                          <td className="py-3 px-4 font-mono text-[#505f76]">{s.ppm}</td>
-                          <td className="py-3 px-4 text-[#505f76]">{s.duration}</td>
-                          <td className="py-3 px-4 text-[#505f76] text-xs">{s.date}</td>
-                          <td className="py-3 px-4 text-right">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#00CC66]/10 text-[#009944]">
-                              {s.status}
+                      {pastSessions.map((run) => (
+                        <tr key={run.id} className="hover:bg-[#f2f3ff]/60 transition-colors">
+                          <td className="px-4 py-3 font-mono font-medium text-[#131b2e]">{run.id}</td>
+                          <td className="px-4 py-3 font-medium">{lang === 'TH' ? run.compoundTh : run.compound}</td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                run.isSuspect
+                                  ? 'bg-[#FF7E00]/15 text-[#c45a00]'
+                                  : 'bg-[#00CC66]/15 text-[#008a44]'
+                              }`}
+                            >
+                              {run.quality}
                             </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] bg-[#eaedff] font-mono text-[#505f76]">
+                              {run.profile}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="inline-flex items-center gap-1.5 justify-end">
+                              <button
+                                type="button"
+                                onClick={() => handleRelabel(run.id)}
+                                className="px-2 py-0.5 rounded text-[11px] font-medium text-[#004ac6] hover:bg-[#eaedff] transition-colors cursor-pointer"
+                              >
+                                {t('relabel', 'Relabel')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleFlag(run.id)}
+                                className="px-2 py-0.5 rounded text-[11px] font-medium text-[#505f76] hover:bg-[#eaedff] transition-colors cursor-pointer"
+                              >
+                                {t('flag', 'Flag')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(run.id)}
+                                className="px-2 py-0.5 rounded text-[11px] font-medium text-[#ba1a1a] hover:bg-[#ba1a1a]/10 transition-colors cursor-pointer"
+                              >
+                                {t('delete', 'Delete')}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -482,44 +623,105 @@ export default function DataCollection() {
               </div>
             )}
 
-            {/* ── Tab 3: Model Status Tab ── */}
+            {/* TAB 3: MODEL matching Stitch */}
             {activeTab === 'model' && (
-              <div className="flex flex-col gap-5 p-2">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-2xl bg-[#f2f3ff] border border-[#eaedff] flex flex-col justify-between">
-                    <span className="text-xs uppercase tracking-wider text-[#505f76] font-semibold">Classifier Accuracy</span>
-                    <div className="text-[32px] font-bold text-[#004ac6] leading-none my-2">94.2%</div>
-                    <span className="text-[11px] text-[#505f76]">Support Vector Machine (RBF)</span>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-[#f2f3ff] border border-[#eaedff] flex flex-col justify-between">
-                    <span className="text-xs uppercase tracking-wider text-[#505f76] font-semibold">Dataset Samples</span>
-                    <div className="text-[32px] font-bold text-[#131b2e] leading-none my-2">842</div>
-                    <span className="text-[11px] text-[#505f76]">5 Target Chemical Classes</span>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-[#f2f3ff] border border-[#eaedff] flex flex-col justify-between">
-                    <span className="text-xs uppercase tracking-wider text-[#505f76] font-semibold">Last Retrained</span>
-                    <div className="text-[20px] font-bold text-[#131b2e] leading-tight my-2">Today 04:30</div>
-                    <span className="text-[11px] text-[#009944] font-semibold">Model active &amp; loaded</span>
-                  </div>
+              <div className="flex flex-col gap-4">
+                <div className="p-3 rounded-2xl bg-[#ffdad6]/40 border border-[#ffdad6] flex items-center gap-2 text-[#93000a] text-[12px]">
+                  <AlertTriangle size={18} className="text-[#ba1a1a]" />
+                  <span className="font-medium">
+                    {t('trainedOnDifferentSensor', 'Trained on a different sensor set')}
+                  </span>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-[#faf8ff] border border-[#eaedff] flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#d0e1fb] flex items-center justify-center text-[#004ac6]">
-                      <Cpu size={20} />
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                  <div className="md:col-span-4 bg-[#f2f3ff] p-4 rounded-2xl flex flex-col justify-between gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] uppercase tracking-wider font-semibold text-[#505f76]">
+                        {t('model', 'Model')}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-[#dbe1ff] text-[#00174b] text-[11px] font-mono font-semibold">
+                        v1.3
+                      </span>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-[#131b2e]">Retrain Chemical Classifier</h4>
-                      <p className="text-xs text-[#505f76]">Run hyperparameter optimization with latest acquired sessions.</p>
+                    <div className="flex flex-col">
+                      <span className="text-[32px] font-bold text-[#131b2e] leading-tight">94%</span>
+                      <span className="text-[11px] text-[#505f76] font-medium">
+                        {t('validationAccuracy', 'Validation Accuracy')}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-[#434655] flex items-center gap-1 font-medium">
+                      <CheckCircle2 size={14} className="text-[#004ac6]" />
+                      <span>5 {t('targetClasses', 'Target Classes')}</span>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => showToast('Triggered model training job in background...')}
-                    className="px-4 py-2 rounded-2xl bg-[#004ac6] text-white text-xs font-semibold hover:bg-[#003ea8] transition-colors cursor-pointer"
-                  >
-                    Start retrain
-                  </button>
+
+                  <div className="md:col-span-8 bg-[#f2f3ff] p-4 rounded-2xl flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-[#505f76] uppercase tracking-wider">
+                        {t('confusionMatrix', '5x5 Confusion Matrix')}
+                      </span>
+                      <span className="text-[10px] text-[#737686] font-mono">
+                        {t('predictedVsActual', 'Predicted vs Actual')}
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-center text-[11px] font-mono border-collapse">
+                        <thead>
+                          <tr className="text-[#505f76]">
+                            <th className="p-1.5 text-left font-medium"></th>
+                            <th className="p-1.5 font-semibold text-[#004ac6]">Amb</th>
+                            <th className="p-1.5 font-semibold text-[#004ac6]">Thn</th>
+                            <th className="p-1.5 font-semibold text-[#004ac6]">Ace</th>
+                            <th className="p-1.5 font-semibold text-[#004ac6]">IPA</th>
+                            <th className="p-1.5 font-semibold text-[#004ac6]">Eth</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-t border-[#eaedff]">
+                            <td className="p-1.5 text-left font-semibold text-[#505f76]">Amb</td>
+                            <td className="p-1.5 bg-[#004ac6]/20 text-[#004ac6] font-bold rounded-lg">98%</td>
+                            <td className="p-1.5 text-[#737686]">1%</td>
+                            <td className="p-1.5 text-[#737686]">0%</td>
+                            <td className="p-1.5 text-[#737686]">1%</td>
+                            <td className="p-1.5 text-[#737686]">0%</td>
+                          </tr>
+                          <tr className="border-t border-[#eaedff]">
+                            <td className="p-1.5 text-left font-semibold text-[#505f76]">Thn</td>
+                            <td className="p-1.5 text-[#737686]">2%</td>
+                            <td className="p-1.5 bg-[#004ac6]/20 text-[#004ac6] font-bold rounded-lg">93%</td>
+                            <td className="p-1.5 text-[#737686]">2%</td>
+                            <td className="p-1.5 text-[#737686]">3%</td>
+                            <td className="p-1.5 text-[#737686]">0%</td>
+                          </tr>
+                          <tr className="border-t border-[#eaedff]">
+                            <td className="p-1.5 text-left font-semibold text-[#505f76]">Ace</td>
+                            <td className="p-1.5 text-[#737686]">0%</td>
+                            <td className="p-1.5 text-[#737686]">1%</td>
+                            <td className="p-1.5 bg-[#004ac6]/20 text-[#004ac6] font-bold rounded-lg">96%</td>
+                            <td className="p-1.5 text-[#737686]">2%</td>
+                            <td className="p-1.5 text-[#737686]">1%</td>
+                          </tr>
+                          <tr className="border-t border-[#eaedff]">
+                            <td className="p-1.5 text-left font-semibold text-[#505f76]">IPA</td>
+                            <td className="p-1.5 text-[#737686]">1%</td>
+                            <td className="p-1.5 text-[#737686]">2%</td>
+                            <td className="p-1.5 text-[#737686]">2%</td>
+                            <td className="p-1.5 bg-[#004ac6]/20 text-[#004ac6] font-bold rounded-lg">92%</td>
+                            <td className="p-1.5 text-[#737686]">3%</td>
+                          </tr>
+                          <tr className="border-t border-[#eaedff]">
+                            <td className="p-1.5 text-left font-semibold text-[#505f76]">Eth</td>
+                            <td className="p-1.5 text-[#737686]">0%</td>
+                            <td className="p-1.5 text-[#737686]">1%</td>
+                            <td className="p-1.5 text-[#737686]">3%</td>
+                            <td className="p-1.5 text-[#737686]">3%</td>
+                            <td className="p-1.5 bg-[#004ac6]/20 text-[#004ac6] font-bold rounded-lg">93%</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -527,7 +729,7 @@ export default function DataCollection() {
         </div>
       </div>
 
-      {/* Toast Feedback */}
+      {/* Toast Alert */}
       {toastMsg && (
         <div className="fixed bottom-6 right-6 bg-[#131b2e] text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 text-[14px] z-50 animate-fade-in">
           <Check size={18} className="text-[#00CC66]" />
