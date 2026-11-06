@@ -1,0 +1,131 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-dim":"#d2d9f4","on-secondary":"#ffffff","on-surface":"#131b2e","secondary-fixed-dim":"#b7c8e1","tertiary-container":"#bc4800","on-secondary-fixed-variant":"#38485d","error-container":"#ffdad6","background":"#faf8ff","outline-variant":"#c3c6d7","tertiary-fixed-dim":"#ffb596","inverse-primary":"#b4c5ff","surface-container-high":"#e2e7ff","tertiary":"#943700","primary-fixed-dim":"#b4c5ff","on-primary-fixed":"#00174b","on-primary":"#ffffff","surface-tint":"#0053db","on-secondary-container":"#54647a","primary":"#004ac6","on-error":"#ffffff","surface":"#faf8ff","surface-bright":"#faf8ff","on-secondary-fixed":"#0b1c30","outline":"#737686","on-surface-variant":"#434655","surface-container-highest":"#dae2fd","surface-container-lowest":"#ffffff","surface-variant":"#dae2fd","primary-container":"#2563eb","inverse-on-surface":"#eef0ff","on-tertiary":"#ffffff","inverse-surface":"#283044","primary-fixed":"#dbe1ff","on-background":"#131b2e","on-primary-fixed-variant":"#003ea8","on-primary-container":"#eeefff","on-tertiary-fixed":"#360f00","surface-container-low":"#f2f3ff","secondary-fixed":"#d3e4fe","on-error-container":"#93000a","secondary":"#505f76","secondary-container":"#d0e1fb","surface-container":"#eaedff","on-tertiary-container":"#ffede6","tertiary-fixed":"#ffdbcd","on-tertiary-fixed-variant":"#7d2d00","error":"#ba1a1a"},"borderRadius":{"DEFAULT":"1rem","lg":"2rem","xl":"3rem","full":"9999px"},"spacing":{"space-md":"1rem","space-2xl":"3rem","space-xl":"2rem","space-xs":"0.25rem","margin":"2rem","space-sm":"0.5rem","gutter":"1.5rem","space-lg":"1.5rem"},"fontFamily":{"metric-large":["Inter"],"card-label":["Inter"],"display-metric":["Inter"],"detail-link":["Inter"],"badge-label":["Inter"],"body-medium":["Inter"],"body-default":["Inter"],"headline-sm":["Inter"]},"fontSize":{"metric-large":["44px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"600"}],"card-label":["14px",{"lineHeight":"20px","letterSpacing":"0.05em","fontWeight":"500"}],"display-metric":["56px",{"lineHeight":"60px","letterSpacing":"-0.03em","fontWeight":"700"}],"detail-link":["14px",{"lineHeight":"20px","fontWeight":"500"}],"badge-label":["12px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"600"}],"body-medium":["14px",{"lineHeight":"20px","fontWeight":"500"}],"body-default":["14px",{"lineHeight":"20px","fontWeight":"400"}],"headline-sm":["20px",{"lineHeight":"28px","letterSpacing":"-0.01em","fontWeight":"600"}]}}}}</script></head><body class="bg-surface font-body-default text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-[240px] bg-surface-container-lowest z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)] overflow-y-auto"><div class="flex flex-col"><div class="h-16 px-space-lg flex items-center gap-space-sm shrink-0"><div class="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center text-on-primary"><span class="material-symbols-outlined text-[20px]">air</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm tracking-tight text-on-surface leading-none">VOC / E-Nose</span><span class="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mt-0.5">Telemetry System</span></div></div><nav class="flex flex-col gap-space-xs px-space-sm pt-space-md" data-active-classes="bg-surface-container-high text-primary font-body-medium"><a aria-current="page" class="flex items-center gap-space-sm px-space-md py-2.5 rounded-DEFAULT transition-all bg-surface-container-high text-primary font-body-medium" data-path="dashboard" href="#"><span class="material-symbols-outlined text-[20px]">dashboard</span><span class="font-body-default text-body-default">Dashboard</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="kiosk" href="#"><span class="material-symbols-outlined text-[20px]">desktop_windows</span><span class="font-body-default text-body-default">Kiosk</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="alerts" href="#"><span class="material-symbols-outlined text-[20px]">notification_important</span><span class="font-body-default text-body-default">Alerts</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="airflow" href="#"><span class="material-symbols-outlined text-[20px]">cyclone</span><span class="font-body-default text-body-default">Airflow</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="history" href="#"><span class="material-symbols-outlined text-[20px]">history</span><span class="font-body-default text-body-default">History</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="maintenance" href="#"><span class="material-symbols-outlined text-[20px]">build</span><span class="font-body-default text-body-default">Maintenance</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="devices" href="#"><span class="material-symbols-outlined text-[20px]">sensors</span><span class="font-body-default text-body-default">Devices</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="data-collection" href="#"><span class="material-symbols-outlined text-[20px]">database</span><span class="font-body-default text-body-default">Data Collection</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="settings" href="#"><span class="material-symbols-outlined text-[20px]">settings</span><span class="font-body-default text-body-default">Settings</span></a><div class="text-[11px] uppercase tracking-wider text-secondary font-medium px-3 pt-4 pb-1.5">More</div><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="air-quality-guide" href="#"><span class="material-symbols-outlined text-[20px]">menu_book</span><span class="font-body-default text-body-default">Air Quality Guide</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="emissions" href="#"><span class="material-symbols-outlined text-[20px]">cloud</span><span class="font-body-default text-body-default">Emissions</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all" data-path="user-guide" href="#"><span class="material-symbols-outlined text-[20px]">help_outline</span><span class="font-body-default text-body-default">User Guide</span></a></nav></div><div class="p-space-md m-space-sm rounded-DEFAULT bg-surface-container-low flex items-center justify-between shrink-0"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="flex flex-col"><span class="font-body-medium text-body-medium text-on-surface leading-tight">E. Mitchell</span><span class="text-[11px] text-on-surface-variant leading-none">H&amp;S Officer</span></div></div><button class="text-on-surface-variant hover:text-on-surface flex items-center" type="button"><span class="material-symbols-outlined text-[18px]">more_vert</span></button></div></aside><div class="pl-[240px]"><div class="fixed top-0 left-[240px] right-0 h-8 bg-error text-on-error z-50 px-space-xl flex items-center justify-between text-[12px] font-medium shadow-sm"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px]">warning</span><span class="">TVOC above critical limit in Booth 1</span><span class="opacity-75">|</span><a href="#" class="underline font-semibold hover:opacity-90 ml-1">View alert</a></div><button type="button" class="hover:opacity-80 flex items-center p-0.5" aria-label="Dismiss"><span class="material-symbols-outlined text-[16px]">close</span></button></div><header class="fixed top-8 left-[240px] right-0 h-16 bg-surface/90 backdrop-blur-xl z-40 shadow-[0_1px_8px_rgba(0,0,0,0.04)] px-space-xl flex items-center justify-between"><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-sm bg-surface-container-lowest px-space-md py-1.5 rounded-full shadow-[0_2px_8px_rgba(15,23,42,0.04)]"><span class="material-symbols-outlined text-primary text-[18px]">precision_manufacturing</span><span class="font-card-label text-card-label text-on-surface">Powder Coating Booth 1</span></div><div class="inline-flex items-center gap-1.5 px-space-sm py-0.5 rounded-full bg-surface-container"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span></span><span class="font-badge-label text-badge-label text-primary uppercase tracking-wide">Online</span></div></div><div class="flex items-center gap-space-lg"><div class="flex items-center gap-space-sm"><span class="text-[12px] font-medium text-secondary">Updated 12:04:31</span><div class="flex items-center p-0.5 bg-surface-container rounded-full text-[11px] font-semibold"><button type="button" class="px-2 py-0.5 rounded-full text-secondary hover:text-on-surface transition-colors">TH</button><button type="button" class="px-2 py-0.5 rounded-full bg-surface-container-lowest text-primary shadow-sm transition-colors">EN</button></div></div><button aria-label="Notifications" class="relative p-2 rounded-full hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error"></span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="relative pt-24 w-full px-space-xl py-space-xl"><div class="flex flex-col w-full">
+<!-- Content Area: Strictly adhering to 4-Block Maximum & Clinical Airflow Whitespace -->
+<div class="flex flex-col gap-6 max-w-7xl mx-auto w-full">
+<!-- Block 1: 3-Metric Primary Telemetry Row -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"><!-- Card 1: Air Quality Index --><div class="bg-surface-container-lowest rounded-lg p-space-xl shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden"><div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-primary-container/5 blur-2xl pointer-events-none"></div><div><div class="flex items-center justify-between"><span class="font-card-label text-card-label text-secondary uppercase tracking-wider">Air Quality</span><span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-badge-label font-badge-label text-on-surface bg-surface-container"><span class="w-2 h-2 rounded-full bg-[#00CC66]"></span>Good</span></div><span class="text-[11px] text-secondary">Source: MQ-135 (PM2.5 / eCO2)</span></div><div class="flex items-baseline"><span class="font-display-metric text-display-metric text-on-surface">38</span></div><div class="flex flex-col gap-1.5"><div class="relative w-full h-1.5 rounded-full bg-surface-container-high overflow-visible"><div class="absolute inset-0 rounded-full bg-gradient-to-r from-[#00CC66] via-[#F59E0B] to-error opacity-80"></div><div class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 left-[38%] w-3 h-3 bg-surface-container-lowest rounded-full shadow-md"><div class="w-full h-full rounded-full bg-on-surface scale-50"></div></div></div><div class="flex justify-between items-center text-[11px] text-secondary font-medium tracking-wide"><span class="">0</span><span class="">50</span><span class="">100+</span></div></div></div><!-- Card 2: TVOC Real-time Concentration --><div class="bg-surface-container-lowest rounded-lg p-space-xl shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden"><div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-primary/5 blur-2xl pointer-events-none"></div><div><div class="flex items-center justify-between"><span class="font-card-label text-card-label text-secondary uppercase tracking-wider">TVOC</span><span class="material-symbols-outlined text-secondary text-[18px]">sensors</span></div><span class="text-[11px] text-secondary">Source: MQ-3</span></div><div class="flex items-baseline gap-2"><span class="font-display-metric text-display-metric text-on-surface">64</span><span class="font-headline-sm text-headline-sm text-secondary">ppb</span></div><div><span class="font-body-default text-body-default text-secondary">Normal range under 100</span></div></div><!-- Card 3: Exhaust Fan State --><div class="bg-surface-container-lowest rounded-lg p-space-xl shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden"><div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-primary-container/5 blur-2xl pointer-events-none"></div><div><div class="flex items-center justify-between"><span class="font-card-label text-card-label text-secondary uppercase tracking-wider">Exhaust Fan</span><span class="w-2.5 h-2.5 rounded-full bg-[#00CC66] shadow-[0_0_8px_rgba(0,204,102,0.6)]"></span></div><span class="text-[11px] text-secondary">Source: Pitot sensor</span></div><div class="flex items-baseline gap-3"><span class="font-display-metric text-display-metric text-on-surface">ON</span></div><div><span class="font-body-default text-body-default text-on-surface-variant font-medium">100% running</span></div></div><!-- Card 4: eCO2 Warming up State --><div class="bg-surface-container-lowest rounded-lg p-space-xl shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden border border-dashed border-outline-variant"><div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-surface-container blur-2xl pointer-events-none"></div><div><div class="flex items-center justify-between"><span class="font-card-label text-card-label text-secondary uppercase tracking-wider">eCO2 (estimated)</span><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-secondary bg-surface-container"><span class="material-symbols-outlined text-[13px] animate-spin">progress_activity</span>Warming up</span></div><span class="text-[11px] text-secondary">Source: MiCS-5524</span></div><div class="flex items-baseline gap-2"><span class="font-display-metric text-display-metric text-secondary/40">--</span><span class="font-headline-sm text-headline-sm text-secondary/40">ppm</span></div><div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-[#F59E0B] animate-pulse"></span><span class="font-body-default text-body-default text-secondary">Sensor stabilising (45s)</span></div></div></section>
+<!-- Block 2 & 3: Combined Analytics Grid (Trend Line + Chemical Fingerprint) -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- Block 2: Line Chart (col-span-8) -->
+<div class="lg:col-span-8 bg-surface-container-lowest rounded-lg p-space-xl shadow-sm flex flex-col justify-between min-h-[320px]">
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2"><span class="font-card-label text-card-label text-secondary uppercase tracking-wider">TVOC, last 24 hours</span><div class="flex items-center gap-4"><div class="flex items-center gap-3 text-[11px] font-medium"><div class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-[#F59E0B]"></span><span class="text-[#F59E0B]">Warning 80 ppb</span></div><div class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-error"></span><span class="text-error">Critical 120 ppb</span></div></div><div class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface text-[12px] font-medium cursor-pointer hover:bg-surface-container-high transition-colors"><span class="">Metric: TVOC</span><span class="material-symbols-outlined text-[16px] text-secondary">expand_more</span></div></div></div>
+<!-- SVG Line Chart Canvas -->
+<div class="w-full flex-1 flex flex-col justify-end">
+<div class="relative w-full h-44">
+<svg class="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 700 160">
+<defs>
+<linearGradient id="tvocAreaGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#2563EB" stop-opacity="0.12"></stop>
+<stop offset="100%" stop-color="#2563EB" stop-opacity="0.0"></stop>
+</linearGradient>
+</defs>
+<!-- Threshold line: 120 ppb marked at y=36 -->
+<!-- Warning threshold line: 80 ppb marked at y=76 --><line stroke="#F59E0B" stroke-dasharray="4 4" stroke-opacity="0.8" stroke-width="1.2" x1="0" x2="700" y1="76" y2="76"></line><!-- Critical threshold line: 120 ppb marked at y=36 --><line stroke="#EF4444" stroke-dasharray="4 4" stroke-opacity="0.8" stroke-width="1.5" x1="0" x2="700" y1="36" y2="36"></line>
+<!-- Area Fill Under Curve -->
+<path d="M 0,130 C 70,125 120,95 180,98 C 240,102 280,118 350,112 C 420,106 480,52 540,65 C 600,78 650,88 700,82 L 700,160 L 0,160 Z" fill="url(#tvocAreaGradient)"></path>
+<!-- Primary Trend Stroke (Strict 2px) -->
+<path d="M 0,130 C 70,125 120,95 180,98 C 240,102 280,118 350,112 C 420,106 480,52 540,65 C 600,78 650,88 700,82" fill="none" stroke="#2563EB" stroke-linecap="round" stroke-width="2"></path>
+<!-- Live Telemetry Active Pulse Node -->
+<circle cx="700" cy="82" fill="#2563EB" r="4"></circle>
+<circle cx="700" cy="82" fill="#2563EB" opacity="0.25" r="8"></circle>
+</svg>
+</div>
+<!-- Bottom Axis Time Labels -->
+<div class="flex justify-between items-center pt-4 text-[12px] font-medium text-secondary">
+<span class="">00:00</span>
+<span class="">06:00</span>
+<span class="">12:00</span>
+<span class="">18:00</span>
+<span class="text-primary font-semibold">Now</span>
+</div>
+</div>
+</div>
+<!-- Block 3: Fingerprint / Detected Solvent (col-span-4) -->
+<div class="lg:col-span-4 bg-surface-container-lowest rounded-lg p-space-xl shadow-sm flex flex-col justify-between min-h-[320px]">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="font-card-label text-card-label text-secondary uppercase tracking-wider">Detected solvent</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-badge-label font-badge-label text-primary bg-primary/10">87% match</span>
+</div>
+<div class="font-metric-large text-metric-large text-on-surface">Toluene</div>
+</div>
+<!-- Clean 5-channel E-Nose Sensor Radar -->
+<div class="flex items-center justify-center py-2">
+<div class="w-40 h-40"><svg class="w-full h-full overflow-visible" viewBox="0 0 160 160">
+<!-- Concentric Hexagon Reference Grids -->
+<!-- Outer reference hexagon (r = 55) -->
+<polygon fill="none" points="80,25 127.6,52.5 127.6,107.5 80,135 32.4,107.5 32.4,52.5" stroke="#E2E8F0" stroke-width="1"></polygon>
+<!-- Mid reference hexagon (r = 35) -->
+<polygon fill="none" points="80,45 110.3,62.5 110.3,97.5 80,115 49.7,97.5 49.7,62.5" stroke="#E2E8F0" stroke-width="1"></polygon>
+<!-- Inner reference hexagon (r = 18) -->
+<polygon fill="none" points="80,62 95.6,71 95.6,89 80,98 64.4,89 64.4,71" stroke="#E2E8F0" stroke-width="1"></polygon>
+<!-- 6 Sensor Channel Axes (from center 80,80) -->
+<line stroke="#E2E8F0" stroke-width="1" x1="80" x2="80" y1="80" y2="25"></line>
+<line stroke="#E2E8F0" stroke-width="1" x1="80" x2="127.6" y1="80" y2="52.5"></line>
+<line stroke="#E2E8F0" stroke-width="1" x1="80" x2="127.6" y1="80" y2="107.5"></line>
+<line stroke="#E2E8F0" stroke-width="1" x1="80" x2="80" y1="80" y2="135"></line>
+<line stroke="#E2E8F0" stroke-width="1" x1="80" x2="32.4" y1="80" y2="107.5"></line>
+<line stroke="#E2E8F0" stroke-width="1" x1="80" x2="32.4" y1="80" y2="52.5"></line>
+<!-- Solvent Fingerprint Profile Overlay (6 points) -->
+<polygon fill="#2563EB" fill-opacity="0.15" points="80,32 120.7,56.5 106.8,95.5 80,123 44.5,100.5 45.4,60" stroke="#2563EB" stroke-width="2"></polygon>
+<!-- Vertex Accent Points -->
+<circle cx="80" cy="32" fill="#2563EB" r="2.5"></circle>
+<circle cx="120.7" cy="56.5" fill="#2563EB" r="2.5"></circle>
+<circle cx="106.8" cy="95.5" fill="#2563EB" r="2.5"></circle>
+<circle cx="80" cy="123" fill="#2563EB" r="2.5"></circle>
+<circle cx="44.5" cy="100.5" fill="#2563EB" r="2.5"></circle>
+<circle cx="45.4" cy="60" fill="#2563EB" r="2.5"></circle>
+<!-- 6 Sensor Axis Labels -->
+<text class="fill-secondary text-[9px] font-medium" text-anchor="middle" x="80" y="16">MQ-3</text>
+<text class="fill-secondary text-[9px] font-medium" text-anchor="start" x="132" y="52">MQ-2</text>
+<text class="fill-secondary text-[9px] font-medium" text-anchor="start" x="132" y="114">MQ-135</text>
+<text class="fill-secondary text-[9px] font-medium" text-anchor="middle" x="80" y="147">MQ-8</text>
+<text class="fill-secondary text-[9px] font-medium" text-anchor="end" x="28" y="114">MiCS-5524</text>
+<text class="fill-secondary text-[9px] font-medium" text-anchor="end" x="28" y="52">MiCS-6814</text>
+</svg></div>
+</div>
+<div class="flex flex-col gap-2.5 pt-1"><div class="flex flex-col gap-1.5"><div class="flex items-center justify-between text-[11px]"><span class="text-on-surface font-medium">Toluene</span><span class="text-primary font-semibold">87%</span></div><div class="w-full h-1.5 rounded-full bg-surface-container"><div class="h-full rounded-full bg-primary" style="width: 87%"></div></div></div><div class="flex flex-col gap-1.5"><div class="flex items-center justify-between text-[11px]"><span class="text-on-surface-variant font-medium">Thinner</span><span class="text-secondary font-medium">9%</span></div><div class="w-full h-1.5 rounded-full bg-surface-container"><div class="h-full rounded-full bg-secondary-fixed-dim" style="width: 9%"></div></div></div><div class="flex flex-col gap-1.5"><div class="flex items-center justify-between text-[11px]"><span class="text-on-surface-variant font-medium">Ambient</span><span class="text-secondary font-medium">4%</span></div><div class="w-full h-1.5 rounded-full bg-surface-container"><div class="h-full rounded-full bg-outline-variant" style="width: 4%"></div></div></div><div class="flex justify-between items-center text-[11px] text-secondary pt-1 border-t border-surface-container"><span class="">Reference ISO-16000 • Electrostatic Array</span><span class="text-on-surface-variant font-medium">Model v1.3</span></div></div>
+</div>
+</section>
+<!-- Block 4: Recent Alerts (Strictly 3 Items) -->
+<section class="bg-surface-container-lowest rounded-lg p-space-xl shadow-sm">
+<div class="mb-4">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Recent alerts</h2>
+</div>
+<div class="flex flex-col">
+<!-- Alert 1 -->
+<div class="flex items-center justify-between py-3.5 border-b border-surface-container">
+<div class="flex items-center gap-3">
+<span class="w-2.5 h-2.5 rounded-full bg-[#00CC66] shrink-0"></span>
+<span class="font-body-default text-body-default text-on-surface">Exhaust velocity verified at nominal airflow</span>
+</div>
+<span class="text-[12px] text-secondary font-medium shrink-0 ml-4">14:20 Today</span>
+</div>
+<!-- Alert 2 -->
+<div class="flex items-center justify-between py-3.5 border-b border-surface-container">
+<div class="flex items-center gap-3">
+<span class="w-2.5 h-2.5 rounded-full bg-[#F59E0B] shrink-0"></span>
+<span class="font-body-default text-body-default text-on-surface">Transient VOC spike normalized in Booth 1</span>
+</div>
+<span class="text-[12px] text-secondary font-medium shrink-0 ml-4">11:45 Today</span>
+</div>
+<!-- Alert 3 -->
+<div class="flex items-center justify-between py-3.5 pt-3.5">
+<div class="flex items-center gap-3">
+<span class="w-2.5 h-2.5 rounded-full bg-primary-container shrink-0"></span>
+<span class="font-body-default text-body-default text-on-surface">Sensor array automatic self-calibration completed</span>
+</div>
+<span class="text-[12px] text-secondary font-medium shrink-0 ml-4">09:15 Today</span>
+</div>
+</div>
+</section>
+</div>
+</div></main></div>
+
+
+
+
+
+
+
+</body></html>

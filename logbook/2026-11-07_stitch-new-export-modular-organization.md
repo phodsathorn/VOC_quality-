@@ -77,4 +77,48 @@
 - ตรวจสอบ linter: `npm run lint` ผ่าน (0 errors)
 - คอมไพล์โปรดักชัน: `npm run build` ผ่าน 100% (241ms)
 
+---
+
+## 2026-11-07 02:18 — ปรับปรุงทดแทนหน้าเว็บทั้งชุดตามแบบ Stitch AI ล่าสุด 100%
+
+### สิ่งที่เปลี่ยน
+1. **`pages/DataCollection.jsx`**:
+   - ปรับตามแบบ `data_collection_dropdown_open_past_sessions_table_stop_state` แบบ 2-Card Layout (ซ้าย: สารเคมี + ค่าความเข้มข้น + รหัสตัวอย่างอัตโนมัติ + ควบคุม Start/Stop พร้อมตัวจับเวลาสด; ขวา: 3 แท็บ Live Graph Rs/R0, Past Sessions, Model Status)
+   - แก้ไขการ import ไอคอนที่ไม่มีใน lucide-react (`Science` -> `FlaskConical`) ทำให้ build ผ่านราบรื่น
+
+2. **`pages/History.jsx`**:
+   - ปรับตามแบบ `history_custom_range_expanded_telemetry_table`
+   - เพิ่ม Range Selector (Today, 7d, 30d, Custom Range พร้อม Popover ปฏิทินวันเริ่มต้น-สิ้นสุด)
+   - เพิ่ม Export CSV Popover พร้อมช่องติ๊กเลือก 6 เซนเซอร์
+   - กราฟแนวโน้ม TVOC ประจำวัน (TVOC Average per Day) พร้อมการ์ดสรุปสถิติประจำวัน
+   - ตาราง Expanded Sensor Telemetry Table แสดงข้อมูล Time, TVOC, MQ-3, MQ-135, MQ-2, MQ-8, MiCS-5524, MiCS-6814, Temp, RH และ Quality Pill
+
+3. **`pages/EmissionsReport.jsx`**:
+   - ปรับตามแบบ `emissions_report_solvent_breakdown_pcd_audit`
+   - เพิ่ม EPA Title V Overview, Q3 Rolling Assessment, CEMS Advisory Banner
+   - เพิ่ม 4 แท็บครบถ้วน: `Overview`, `Inputs & Methodology`, `Solvent Breakdown`, `Lab Reports`
+
+4. **เพิ่มหน้าใหม่ `pages/Roles.jsx` & `pages/SystemStates.jsx`**:
+   - `Roles.jsx`: หน้า Industrial Policy & RBAC Matrix สำหรับ 5 บทบาท (Admin, Engineer, Operator, Safety Officer, Auditor)
+   - `SystemStates.jsx`: หน้ารวมสถานะของระบบตาม Stitch AI (Loading Skeleton, Empty State, Offline/Disconnected, Error 500)
+   - ลงทะเบียน Route `/roles` และ `/system-states` ใน `App.jsx` พร้อมป้องกันด้วย `RoleProtectedRoute`
+
+5. **`components/Layout.jsx`**:
+   - เพิ่มหัวข้อส่วน **MORE** ในแถบเมนูด้านข้าง (Sidebar) เหนือเมนูส่วนเสริม (Air Quality Guide, Emissions, User Guide, Roles & Policy, System States) ให้ตรงกับ Navigation ของ Stitch 1:1
+
+6. **`pages/AirflowDiagram.jsx`**:
+   - ตรวจสอบและปรับแต่ง Drawer "Live sensor telemetry" (Powder Coating Booth 1 • 5 Active Probes / Array ID: `BOX-001`) ให้สีสันและตัวหนาตรงตามภาพต้นแบบ 1:1
+
+7. **จัดระเบียบโฟลเดอร์แบบจำลอง Stitch AI**:
+   - ผสานไฟล์จากโฟลเดอร์นำเข้าซ้อน (`stitch_air_quality_minimal_dashboard/stitch_air_quality_minimal_dashboard`) เข้าสู่ `main_pages/` (variants) และ `sub_states/` อย่างเป็นระเบียบ และลบโฟลเดอร์ซ้อนออกเพื่อป้องกันความสับสน
+
+### การตรวจสอบ
+- Linter: `npm run lint` ผ่าน (0 errors)
+- Vite Production Build: `npm run build` สำเร็จ 100% (252ms)
+
+### สถานะ
+- [x] ทดแทนหน้าเว็บและ Component ทั้งชุดตามดีไซน์ล่าสุดเรียบร้อย
+- [x] บิลด์โปรดักชันผ่านเรียบร้อย พร้อม deploy ขึ้น Vercel และ push ไปยัง remote repositories
+
+
 

@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Activity, Bell, Settings, LayoutDashboard, Box, Database, Wind, BookOpen, CalendarDays,
   X, Volume2, VolumeX, ShieldAlert, AlertTriangle, Info, Wrench,
   User, LogOut, Monitor, Factory, Menu, ShieldCheck, HardHat, FileSearch,
-  CheckCircle2, Radio
+  CheckCircle2, Radio, Layers
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -92,13 +92,16 @@ export default function Layout({ children }) {
     { name: 'Alerts',                path: '/alerts',          icon: Bell,            roles: ['admin', 'engineer', 'operator'], badge: activeAlertsCount },
     { name: 'Airflow',               path: '/airflow',         icon: Wind,            roles: ['admin', 'engineer', 'operator', 'viewer'] },
     { name: 'History',               path: '/history',         icon: CalendarDays,    roles: ['admin', 'engineer', 'operator', 'viewer'] },
-    { name: 'Air Quality Reference', path: '/air-quality-guide', icon: ShieldAlert,   roles: ['admin', 'engineer', 'operator', 'viewer'] },
-    { name: 'User Guide',            path: '/guide',             icon: BookOpen,      roles: ['admin', 'engineer', 'operator', 'viewer'] },
-    { name: 'Emissions Report',      path: '/emissions',       icon: Factory,         roles: ['admin', 'engineer', 'operator', 'viewer'] },
     { name: 'Maintenance',           path: '/maintenance',     icon: Wrench,          roles: ['admin', 'engineer'] },
     { name: 'Devices',               path: '/devices',         icon: Box,             roles: ['admin', 'engineer'] },
     { name: 'Data Collection',       path: '/data-collection', icon: Database,        roles: ['admin', 'engineer'] },
     { name: 'Settings',              path: '/settings',        icon: Settings,        roles: ['admin'] },
+    // MORE Section matching Stitch 1:1
+    { name: 'Air Quality Guide',     path: '/air-quality-guide', icon: ShieldAlert,   roles: ['admin', 'engineer', 'operator', 'viewer'], isMore: true },
+    { name: 'Emissions',             path: '/emissions',       icon: Factory,         roles: ['admin', 'engineer', 'operator', 'viewer'], isMore: true },
+    { name: 'User Guide',            path: '/guide',           icon: BookOpen,        roles: ['admin', 'engineer', 'operator', 'viewer'], isMore: true },
+    { name: 'Roles & Policy',        path: '/roles',           icon: ShieldCheck,     roles: ['admin', 'engineer'], isMore: true },
+    { name: 'System States',         path: '/system-states',   icon: Layers,          roles: ['admin', 'engineer'], isMore: true },
   ];
 
   // กรองเมนูเฉพาะบทบาทที่ได้รับอนุญาต
@@ -162,31 +165,41 @@ export default function Layout({ children }) {
 
       {/* Navigation Items (Scrollable) */}
       <nav className="flex-1 overflow-y-auto px-2.5 py-2 space-y-0.5">
-        {navItems.map((item) => {
+        {navItems.map((item, idx) => {
+          const prevItem = navItems[idx - 1];
+          const showMoreHeader = item.isMore && (!prevItem || !prevItem.isMore);
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
           return (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={onClose ? onClose : undefined}
-              className={`flex items-center justify-between px-3 py-2 rounded-xl text-[13px] font-medium transition-all ${
-                isActive
-                  ? 'bg-[#e2e7ff] text-[#004ac6] font-semibold shadow-xs'
-                  : 'text-[#434655] hover:bg-[#eaedff]/60 hover:text-[#131b2e]'
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <Icon size={18} className={isActive ? 'text-[#004ac6]' : 'text-[#64748b]'} />
-                <span className="truncate">{item.name}</span>
-              </div>
-
-              {item.badge > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-[#ba1a1a] text-white text-[10px] font-bold shrink-0">
-                  {item.badge}
-                </span>
+            <Fragment key={item.path}>
+              {showMoreHeader && (
+                <div className="pt-3 pb-1 px-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">
+                    More
+                  </span>
+                </div>
               )}
-            </Link>
+              <Link
+                to={item.path}
+                onClick={onClose ? onClose : undefined}
+                className={`flex items-center justify-between px-3 py-2 rounded-xl text-[13px] font-medium transition-all ${
+                  isActive
+                    ? 'bg-[#e2e7ff] text-[#004ac6] font-semibold shadow-xs'
+                    : 'text-[#434655] hover:bg-[#eaedff]/60 hover:text-[#131b2e]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Icon size={18} className={isActive ? 'text-[#004ac6]' : 'text-[#64748b]'} />
+                  <span className="truncate">{item.name}</span>
+                </div>
+
+                {item.badge > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-[#ba1a1a] text-white text-[10px] font-bold shrink-0">
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            </Fragment>
           );
         })}
       </nav>

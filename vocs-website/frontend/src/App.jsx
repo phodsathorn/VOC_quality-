@@ -14,6 +14,8 @@ import History from './pages/History';
 import Kiosk from './pages/Kiosk';
 import EmissionsReport from './pages/EmissionsReport';
 import AirQualityGuide from './pages/AirQualityGuide';
+import Roles from './pages/Roles';
+import SystemStates from './pages/SystemStates';
 
 // RBAC Guard Component สำหรับป้องกันเส้นทาง URL โดยตรง
 function RoleProtectedRoute({ allowedRoles, children, fallback = "/" }) {
@@ -45,6 +47,8 @@ function AppContent() {
         <Route path="/aqi-info"           element={<Navigate to="/air-quality-guide" replace />} />
         <Route path="/airflow"            element={<AirflowDiagram />} />
         <Route path="/guide"              element={<Guide />} />
+        <Route path="/roles"              element={<Roles />} />
+        <Route path="/system-states"      element={<SystemStates />} />
 
         {/* หน้าสำหรับ Operator, Engineer, Admin */}
         <Route path="/kiosk" element={

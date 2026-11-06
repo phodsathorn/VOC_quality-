@@ -611,9 +611,9 @@ export default function AirflowDiagram() {
                   <tbody className="divide-y divide-[#eaedff] text-[#131b2e]">
                     {probeRows.map((p) => (
                       <tr key={p.id} className="hover:bg-[#eaedff]/40 transition-colors">
-                        <td className="py-3 px-4 font-bold text-[#004ac6]">{p.id}</td>
+                        <td className="py-3 px-4 font-bold text-[#131b2e]">{p.id}</td>
                         <td className="py-3 px-4 text-[#505f76] text-xs">{p.loc}</td>
-                        <td className="py-3 px-4 text-right font-medium">{p.val}</td>
+                        <td className="py-3 px-4 text-right font-bold text-[#131b2e]">{p.val}</td>
                         <td className="py-3 px-4 text-right text-[#505f76] text-xs">{p.thresh}</td>
                         <td className="py-3 px-4 text-center">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#00CC66]/10 text-[#009944]">
