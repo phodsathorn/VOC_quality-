@@ -540,9 +540,9 @@ export default function Dashboard() {
                 <path d="M 0,130 C 70,125 120,95 180,98 C 240,102 280,118 350,112 C 420,106 480,52 540,65 C 600,78 650,88 700,82 L 700,160 L 0,160 Z" fill="url(#tvocAreaGradient)" />
                 {/* Primary Trend Stroke (Strict 2px) */}
                 <path d="M 0,130 C 70,125 120,95 180,98 C 240,102 280,118 350,112 C 420,106 480,52 540,65 C 600,78 650,88 700,82" fill="none" stroke="#2563EB" strokeLinecap="round" strokeWidth={2} />
-                {/* Live Telemetry Active Pulse Node */}
+                {/* Live Telemetry Active Pulse Node (matching dashboard_2 1:1) */}
                 <circle cx="700" cy="82" fill="#2563EB" r="4" />
-                <circle cx="700" cy="82" fill="#2563EB" opacity={0.25} r="8" className="animate-ping" />
+                <circle cx="700" cy="82" fill="#2563EB" opacity={0.25} r="8" />
               </svg>
             </div>
 
