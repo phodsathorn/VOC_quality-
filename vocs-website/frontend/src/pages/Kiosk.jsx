@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   CheckCircle2, AlertOctagon, Fan, Wrench, ShieldAlert, Check,
-  X, Save, StopCircle, Sliders, AlertTriangle
+  X, Save, StopCircle, Sliders, AlertTriangle, Lock, RefreshCw,
+  Clock, RotateCcw
 } from 'lucide-react';
 import { API } from '../config';
 
@@ -15,10 +16,14 @@ export default function Kiosk() {
     }
   });
 
-  // Modal States from Stitch Sub-state
-  const [activeModal, setActiveModal] = useState(null); // 'state-a' | 'state-b' | 'state-c' | null
-  const [countdown, setCountdown] = useState(10);
+  // Active Multi-State Mode:
+  // 'normal' | 'pin' | 'sending' | 'sent' | 'failed' | 'booster' | 'maintenance'
+  const [currentMode, setCurrentMode] = useState('normal');
+  const [pin, setPin] = useState('');
+  const [fanCountdown, setFanCountdown] = useState(272); // 04:32 (272s)
+  const [isFanRunning, setIsFanRunning] = useState(true);
   const [toastMessage, setToastMessage] = useState(null);
+  const toastTimerRef = useRef(null);
 
   // Maintenance Checklist state
   const [checklist, setChecklist] = useState([
@@ -29,7 +34,7 @@ export default function Kiosk() {
     { id: 5, text: '5. ตรวจสอบท่อระบายอากาศและพัดลมดูด', sub: 'ไม่มีสิ่งอุดตัน', checked: false },
   ]);
 
-  // Auto fetch latest readings
+  // Fetch real-time sensor readings from backend
   useEffect(() => {
     async function fetchKiosk() {
       try {
@@ -47,58 +52,66 @@ export default function Kiosk() {
     return () => clearInterval(timer);
   }, []);
 
-  // Countdown timer for Emergency Cut-off (State A)
+  // Countdown timer for Fan Booster (State B)
   useEffect(() => {
     let t;
-    if (activeModal === 'state-a' && countdown > 0) {
+    if (currentMode === 'booster' && isFanRunning && fanCountdown > 0) {
       t = setInterval(() => {
-        setCountdown((c) => c - 1);
+        setFanCountdown((c) => Math.max(0, c - 1));
       }, 1000);
-    } else if (countdown === 0 && activeModal === 'state-a') {
-      confirmEmergency();
     }
     return () => clearInterval(t);
-  }, [activeModal, countdown]);
+  }, [currentMode, isFanRunning, fanCountdown]);
 
   function triggerFeedback(msg) {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToastMessage(msg);
-    setTimeout(() => {
+    toastTimerRef.current = setTimeout(() => {
       setToastMessage(null);
-    }, 2500);
+    }, 2400);
   }
 
-  function openStateA() {
-    setCountdown(10);
-    setActiveModal('state-a');
+  function handlePinInput(val) {
+    if (val === 'C') {
+      setPin((prev) => prev.slice(0, -1));
+      return;
+    }
+    if (val === 'OK') {
+      if (pin.length >= 4) {
+        submitEmergency();
+      } else {
+        triggerFeedback('กรุณากรอกรหัส PIN 4 หลักให้ครบถ้วน');
+      }
+      return;
+    }
+    if (pin.length < 4) {
+      const nextPin = pin + val;
+      setPin(nextPin);
+      if (nextPin.length === 4) {
+        setTimeout(() => submitEmergency(), 300);
+      }
+    }
   }
 
-  function openStateB() {
-    setActiveModal('state-b');
-  }
-
-  function openStateC() {
-    setActiveModal('state-c');
-  }
-
-  function closeAllModals() {
-    setActiveModal(null);
-  }
-
-  async function confirmEmergency() {
-    closeAllModals();
-    triggerFeedback('⚠️ ตัดระบบและส่งสัญญาณแจ้งเตือนฉุกเฉินแล้ว (LINE OA Triggered)');
+  async function submitEmergency() {
+    setCurrentMode('sending');
     try {
-      await fetch(`${API}/api/alerts`, {
+      const res = await fetch(`${API}/api/alerts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           box_id: 'BOX-001',
           level: 'Critical',
-          message: '🚨 แจ้งเหตุฉุกเฉินสารเคมีรั่วไหลจากหน้าจอ Kiosk หน้างาน',
+          message: '🚨 แจ้งเหตุฉุกเฉินสารเคมีรั่วไหลจากหน้าจอ Kiosk หน้างาน (PIN Verified)',
         }),
       });
-    } catch (e) {
-      console.warn(e);
+      if (res.ok) {
+        setTimeout(() => setCurrentMode('sent'), 1200);
+      } else {
+        setTimeout(() => setCurrentMode('failed'), 1200);
+      }
+    } catch {
+      setTimeout(() => setCurrentMode('failed'), 1200);
     }
   }
 
@@ -109,75 +122,121 @@ export default function Kiosk() {
   }
 
   function saveMaintenanceChecklist() {
-    closeAllModals();
+    setCurrentMode('normal');
     triggerFeedback('✓ บันทึกผลการตรวจสอบซ่อมบำรุงประจำวันเรียบร้อยแล้ว');
   }
 
+  // Values from live readings or standard nominal baseline
   const tvocVal = Math.round(data?.environment?.tvoc ?? data?.latest_reading?.tvoc ?? 64);
   const pm25Val = Math.round(data?.environment?.pm25 ?? data?.latest_reading?.pm25 ?? 14);
+  const tempVal = Math.round(data?.environment?.temp ?? data?.latest_reading?.temp ?? 28);
+  const rhVal = Math.round(data?.environment?.rh ?? data?.latest_reading?.rh ?? 52);
+  const airflowVal = 18.2;
 
   // Circumference for r=78 is ~490.08
   const tvocOffset = Math.max(0, 490.08 - (Math.min(tvocVal, 220) / 220) * 490.08);
   const pm25Offset = Math.max(0, 490.08 - (Math.min(pm25Val, 50) / 50) * 490.08);
+  const airflowOffset = 270; // 18.2 m/s
 
   const isSafe = tvocVal < 120 && pm25Val < 37.5;
 
+  // Format seconds to mm:ss
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
   return (
-    <div className="w-full flex items-center justify-center p-4 md:p-6 min-h-[calc(100vh-6rem)]">
-      <div className="flex flex-col w-full max-w-7xl mx-auto gap-6 select-none">
-        {/* ── Demo State Switcher Bar ── */}
-        <div className="w-full flex items-center justify-between bg-white/90 backdrop-blur rounded-2xl p-2.5 shadow-sm border border-[#eaedff]">
+    <main className="w-full min-h-screen bg-[#faf8ff] flex flex-col justify-start px-4 md:px-6 pt-4 pb-10">
+      <div className="flex flex-col w-full max-w-7xl mx-auto select-none gap-6">
+
+        {/* ── Demo / Simulation Mode State Switcher ── */}
+        <div className="w-full flex items-center justify-between bg-white/80 backdrop-blur rounded-2xl p-2.5 shadow-sm border border-[#e2e8f0]/60 flex-wrap gap-2">
           <div className="flex items-center gap-2 px-3">
             <Sliders size={20} className="text-[#004ac6]" />
-            <span className="font-bold text-[15px] text-[#131b2e]">สถานะ Kiosk (Demo Mode):</span>
+            <span className="font-bold text-[15px] text-[#131b2e]">จำลองสถานะ (Demo Mode):</span>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
-              onClick={closeAllModals}
-              className={`px-3.5 py-1.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeModal === null
-                  ? 'bg-[#004ac6] text-white shadow-xs'
-                  : 'bg-[#f2f3ff] text-[#505f76] hover:text-[#131b2e]'
+              onClick={() => { setCurrentMode('normal'); setPin(''); }}
+              className={`px-3 py-1.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-1 cursor-pointer ${
+                currentMode === 'normal'
+                  ? 'bg-[#004ac6] text-white shadow-sm'
+                  : 'bg-[#eaedff] text-[#505f76] hover:text-[#131b2e]'
               }`}
             >
-              หน้าหลัก (ปกติ)
+              ปกติ
             </button>
             <button
               type="button"
-              onClick={openStateA}
-              className={`px-3.5 py-1.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeModal === 'state-a'
-                  ? 'bg-[#ba1a1a] text-white shadow-xs'
-                  : 'bg-[#f2f3ff] text-[#ba1a1a] hover:bg-[#ffdad6]'
+              onClick={() => { setCurrentMode('pin'); setPin(''); }}
+              className={`px-3 py-1.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-1 cursor-pointer ${
+                currentMode === 'pin'
+                  ? 'bg-[#ba1a1a] text-white shadow-sm'
+                  : 'bg-[#eaedff] text-[#ba1a1a] hover:bg-[#ffdad6]'
               }`}
             >
-              <ShieldAlert size={16} />
-              State A: แจ้งเหตุฉุกเฉิน
+              <Lock size={14} />
+              ยืนยันรหัส PIN
             </button>
             <button
               type="button"
-              onClick={openStateB}
-              className={`px-3.5 py-1.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeModal === 'state-b'
-                  ? 'bg-[#004ac6] text-white shadow-xs'
-                  : 'bg-[#f2f3ff] text-[#004ac6] hover:bg-[#eaedff]'
+              onClick={() => setCurrentMode('sending')}
+              className={`px-3 py-1.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-1 cursor-pointer ${
+                currentMode === 'sending'
+                  ? 'bg-[#004ac6] text-white shadow-sm'
+                  : 'bg-[#eaedff] text-[#505f76] hover:text-[#131b2e]'
               }`}
             >
-              <Fan size={16} />
-              State B: พัดลม 100%
+              กำลังส่ง...
             </button>
             <button
               type="button"
-              onClick={openStateC}
-              className={`px-3.5 py-1.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeModal === 'state-c'
-                  ? 'bg-[#283044] text-white shadow-xs'
-                  : 'bg-[#f2f3ff] text-[#283044] hover:bg-[#eaedff]'
+              onClick={() => setCurrentMode('sent')}
+              className={`px-3 py-1.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-1 cursor-pointer ${
+                currentMode === 'sent'
+                  ? 'bg-[#16a34a] text-white shadow-sm'
+                  : 'bg-[#eaedff] text-[#16a34a] hover:bg-[#dcfce7]'
               }`}
             >
-              <Wrench size={16} />
-              State C: ตรวจสอบซ่อมบำรุง
+              ส่งสำเร็จ
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentMode('failed')}
+              className={`px-3 py-1.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-1 cursor-pointer ${
+                currentMode === 'failed'
+                  ? 'bg-[#ba1a1a] text-white shadow-sm'
+                  : 'bg-[#eaedff] text-[#ba1a1a] hover:bg-[#ffdad6]'
+              }`}
+            >
+              ล้มเหลว
+            </button>
+            <button
+              type="button"
+              onClick={() => { setCurrentMode('booster'); setFanCountdown(272); setIsFanRunning(true); }}
+              className={`px-3 py-1.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-1 cursor-pointer ${
+                currentMode === 'booster'
+                  ? 'bg-[#004ac6] text-white shadow-sm'
+                  : 'bg-[#eaedff] text-[#004ac6] hover:bg-[#d0e1fb]'
+              }`}
+            >
+              <Fan size={14} />
+              บูสเตอร์ 100%
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentMode('maintenance')}
+              className={`px-3 py-1.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-1 cursor-pointer ${
+                currentMode === 'maintenance'
+                  ? 'bg-[#283044] text-white shadow-sm'
+                  : 'bg-[#eaedff] text-[#283044] hover:bg-[#e2e7ff]'
+              }`}
+            >
+              <Wrench size={14} />
+              ซ่อมบำรุง
             </button>
           </div>
         </div>
@@ -189,7 +248,7 @@ export default function Kiosk() {
               isSafe ? 'bg-[#d0e1fb]/40 text-[#004ac6]' : 'bg-[#ffdad6] text-[#ba1a1a]'
             }`}
           >
-            {isSafe ? <CheckCircle2 size={44} /> : <AlertOctagon size={44} />}
+            {isSafe ? <CheckCircle2 size={44} className="text-[#004ac6]" /> : <AlertOctagon size={44} />}
           </div>
           <span className="text-[28px] md:text-[32px] font-bold text-[#131b2e] tracking-tight">
             {isSafe ? 'บรรยากาศปกติ — ปลอดภัย' : 'ตรวจพบไอระเหยสะสม — โปรดระมัดระวัง'}
@@ -201,55 +260,55 @@ export default function Kiosk() {
           {/* Action 1: Emergency Trigger */}
           <button
             type="button"
-            onClick={openStateA}
+            onClick={() => { setCurrentMode('pin'); setPin(''); }}
             className="group relative min-h-[190px] h-48 rounded-3xl bg-[#ba1a1a] text-white p-6 flex flex-col items-center justify-center gap-4 shadow-sm active:scale-[0.98] transition-all duration-150 cursor-pointer text-center hover:bg-[#a01414]"
           >
             <div className="w-16 h-16 rounded-full bg-white/15 flex items-center justify-center">
               <ShieldAlert size={42} />
             </div>
             <span className="text-[26px] font-bold text-white tracking-normal leading-tight">
-              แจ้งเหตุฉุกเฉิน
+              ส่งสัญญาณเตือนภัยฉุกเฉิน
             </span>
           </button>
 
           {/* Action 2: Max Exhaust Booster */}
           <button
             type="button"
-            onClick={openStateB}
+            onClick={() => { setCurrentMode('booster'); setFanCountdown(272); setIsFanRunning(true); }}
             className="group relative min-h-[190px] h-48 rounded-3xl bg-[#004ac6] text-white p-6 flex flex-col items-center justify-center gap-4 shadow-sm active:scale-[0.98] transition-all duration-150 cursor-pointer text-center hover:bg-[#003ea8]"
           >
             <div className="w-16 h-16 rounded-full bg-white/15 flex items-center justify-center">
               <Fan size={42} className="animate-spin-slow" />
             </div>
             <span className="text-[26px] font-bold text-white tracking-normal leading-tight">
-              เร่งพัดลม 100%
+              เปิดพัดลมดูดอากาศ 100% (ฉุกเฉิน)
             </span>
           </button>
 
           {/* Action 3: Maintenance Log Entry */}
           <button
             type="button"
-            onClick={openStateC}
+            onClick={() => setCurrentMode('maintenance')}
             className="group relative min-h-[190px] h-48 rounded-3xl bg-[#283044] text-[#eef0ff] p-6 flex flex-col items-center justify-center gap-4 shadow-sm active:scale-[0.98] transition-all duration-150 cursor-pointer text-center hover:bg-[#1e2434]"
           >
             <div className="w-16 h-16 rounded-full bg-white/15 flex items-center justify-center">
               <Wrench size={38} />
             </div>
             <span className="text-[26px] font-bold text-[#eef0ff] tracking-normal leading-tight">
-              บันทึกงานซ่อมบำรุง
+              บันทึกงานซ่อมบำรุงหน้างาน
             </span>
           </button>
         </div>
 
-        {/* ── Bottom Section: 4 Telemetry Dial Modules ── */}
+        {/* ── Bottom Section: 4 Large Telemetry Dial Modules (Gauges) ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
-          {/* Telemetry Dial 1: TVOC */}
+          {/* Dial 1: TVOC */}
           <div className="bg-white rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between relative overflow-hidden min-h-[290px] border border-[#eaedff]">
             <div className="w-full flex items-center justify-between mb-1">
               <span className="text-[16px] font-bold text-[#505f76] tracking-wide">
                 สารระเหยรวม (TVOC)
               </span>
-              <span className="px-3 py-1 rounded-full bg-[#eaedff] text-[#004ac6] text-[13px] font-bold">
+              <span className="px-3 py-1 rounded-full bg-[#dcfce7] text-[#16a34a] text-[13px] font-bold">
                 ปกติ
               </span>
             </div>
@@ -284,20 +343,20 @@ export default function Kiosk() {
                 <span className="text-[16px] font-semibold text-[#505f76] mt-0.5">ppb</span>
               </div>
             </div>
-            <div className="text-center mt-1">
+            <div className="text-center mt-1 w-full">
               <span className="text-[13px] text-[#505f76] font-medium">
                 เกณฑ์ปลอดภัย: ต่ำกว่า 220 ppb
               </span>
             </div>
           </div>
 
-          {/* Telemetry Dial 2: PM2.5 */}
+          {/* Dial 2: PM2.5 */}
           <div className="bg-white rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between relative overflow-hidden min-h-[290px] border border-[#eaedff]">
             <div className="w-full flex items-center justify-between mb-1">
               <span className="text-[16px] font-bold text-[#505f76] tracking-wide">
                 ฝุ่นละอองละเอียด (PM2.5)
               </span>
-              <span className="px-3 py-1 rounded-full bg-[#eaedff] text-[#004ac6] text-[13px] font-bold">
+              <span className="px-3 py-1 rounded-full bg-[#dcfce7] text-[#16a34a] text-[13px] font-bold">
                 ปกติ
               </span>
             </div>
@@ -332,20 +391,64 @@ export default function Kiosk() {
                 <span className="text-[16px] font-semibold text-[#505f76] mt-0.5">µg/m³</span>
               </div>
             </div>
-            <div className="text-center mt-1">
+            <div className="text-center mt-1 w-full">
               <span className="text-[13px] text-[#505f76] font-medium">
                 เกณฑ์ปลอดภัย: ต่ำกว่า 37.5 µg/m³
               </span>
             </div>
           </div>
 
-          {/* Telemetry Dial 3: Temperature & Humidity */}
+          {/* Dial 3: Temperature & Humidity (Split Dual Module) */}
           <div className="bg-white rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between relative overflow-hidden min-h-[290px] border border-[#eaedff]">
             <div className="w-full flex items-center justify-between mb-1">
               <span className="text-[16px] font-bold text-[#505f76] tracking-wide">
                 อุณหภูมิ / ความชื้น
               </span>
-              <span className="px-3 py-1 rounded-full bg-[#eaedff] text-[#004ac6] text-[13px] font-bold">
+              <span className="px-3 py-1 rounded-full bg-[#dcfce7] text-[#16a34a] text-[13px] font-bold">
+                ปกติ
+              </span>
+            </div>
+            <div className="w-full h-44 flex items-center justify-around my-1 px-2">
+              <div className="flex flex-col items-center justify-center text-center flex-1">
+                <span className="text-[14px] font-medium text-[#505f76] mb-1">อุณหภูมิ</span>
+                <div className="flex items-baseline justify-center">
+                  <span className="text-[44px] leading-[46px] font-bold text-[#131b2e] tracking-tight">
+                    {tempVal}
+                  </span>
+                  <span className="text-[20px] font-bold text-[#505f76] ml-1">°C</span>
+                </div>
+                <span className="text-[12px] font-medium text-[#16a34a] bg-[#dcfce7] px-2.5 py-0.5 rounded-full mt-2">
+                  ปกติ
+                </span>
+              </div>
+              <div className="h-20 w-[1px] bg-[#c3c6d7]/40" />
+              <div className="flex flex-col items-center justify-center text-center flex-1">
+                <span className="text-[14px] font-medium text-[#505f76] mb-1">ความชื้น</span>
+                <div className="flex items-baseline justify-center">
+                  <span className="text-[44px] leading-[46px] font-bold text-[#131b2e] tracking-tight">
+                    {rhVal}
+                  </span>
+                  <span className="text-[20px] font-bold text-[#505f76] ml-1">%RH</span>
+                </div>
+                <span className="text-[12px] font-medium text-[#16a34a] bg-[#dcfce7] px-2.5 py-0.5 rounded-full mt-2">
+                  ปกติ
+                </span>
+              </div>
+            </div>
+            <div className="text-center mt-1 w-full">
+              <span className="text-[13px] text-[#505f76] font-medium">
+                เกณฑ์ปลอดภัย: 20-32° / 40-70%
+              </span>
+            </div>
+          </div>
+
+          {/* Dial 4: Airflow Velocity */}
+          <div className="bg-white rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between relative overflow-hidden min-h-[290px] border border-[#eaedff]">
+            <div className="w-full flex items-center justify-between mb-1">
+              <span className="text-[16px] font-bold text-[#505f76] tracking-wide">
+                ความเร็วลม
+              </span>
+              <span className="px-3 py-1 rounded-full bg-[#dcfce7] text-[#16a34a] text-[13px] font-bold">
                 ปกติ
               </span>
             </div>
@@ -368,155 +471,256 @@ export default function Kiosk() {
                   r="78"
                   stroke="currentColor"
                   strokeDasharray="490.08"
-                  strokeDashoffset="240"
-                  strokeLinecap="round"
-                  strokeWidth="14"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                <span className="text-[34px] leading-[38px] font-bold text-[#131b2e] tracking-tight">
-                  28° / 52%
-                </span>
-                <span className="text-[14px] font-semibold text-[#505f76] mt-0.5">°C / %RH</span>
-              </div>
-            </div>
-            <div className="text-center mt-1">
-              <span className="text-[13px] text-[#505f76] font-medium">
-                เกณฑ์ปลอดภัย: 20-32° / 40-70%
-              </span>
-            </div>
-          </div>
-
-          {/* Telemetry Dial 4: Airflow Velocity */}
-          <div className="bg-white rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between relative overflow-hidden min-h-[290px] border border-[#eaedff]">
-            <div className="w-full flex items-center justify-between mb-1">
-              <span className="text-[16px] font-bold text-[#505f76] tracking-wide">
-                ความเร็วลมระบาย (Airflow)
-              </span>
-              <span className="px-3 py-1 rounded-full bg-[#eaedff] text-[#004ac6] text-[13px] font-bold">
-                ปกติ
-              </span>
-            </div>
-            <div className="relative w-44 h-44 flex items-center justify-center my-1">
-              <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 200 200">
-                <circle
-                  className="text-[#eaedff]"
-                  cx="100"
-                  cy="100"
-                  fill="none"
-                  r="78"
-                  stroke="currentColor"
-                  strokeWidth="14"
-                />
-                <circle
-                  className="text-[#00CC66]"
-                  cx="100"
-                  cy="100"
-                  fill="none"
-                  r="78"
-                  stroke="currentColor"
-                  strokeDasharray="490.08"
-                  strokeDashoffset="180"
+                  strokeDashoffset={airflowOffset}
                   strokeLinecap="round"
                   strokeWidth="14"
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                 <span className="text-[44px] leading-[46px] font-bold text-[#131b2e] tracking-tight">
-                  0.45
+                  {airflowVal}
                 </span>
                 <span className="text-[16px] font-semibold text-[#505f76] mt-0.5">m/s</span>
               </div>
             </div>
-            <div className="text-center mt-1">
+            <div className="text-center mt-1 w-full">
               <span className="text-[13px] text-[#505f76] font-medium">
-                เกณฑ์ห้องพ่น: 0.40 - 0.60 m/s
+                เกณฑ์ปลอดภัย: 15.0 - 22.0 m/s
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── STATE A: Emergency Cut-off Confirmation Modal ── */}
-      {activeModal === 'state-a' && (
+      {/* ── Substate: Emergency PIN Keypad Modal ── */}
+      {currentMode === 'pin' && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 animate-fadeIn">
-          <div className="w-full max-w-2xl bg-white rounded-3xl p-8 shadow-2xl flex flex-col items-center text-center border-4 border-[#ba1a1a]">
-            <div className="w-24 h-24 rounded-full bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center mb-6 animate-bounce">
-              <ShieldAlert size={64} />
+          <div className="w-full max-w-lg bg-white rounded-3xl p-8 flex flex-col items-center text-center shadow-2xl border-2 border-[#e2e8f0]">
+            <div className="w-16 h-16 rounded-full bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center mb-3">
+              <Lock size={36} />
             </div>
-            <h2 className="text-[34px] leading-tight font-bold text-[#131b2e] mb-2">
-              ยืนยันการแจ้งเหตุฉุกเฉินสารเคมีรั่วไหล?
+            <h2 className="text-[28px] font-bold text-[#131b2e] leading-tight mb-1">
+              ใส่รหัสพนักงาน
             </h2>
-            <p className="text-[18px] text-[#505f76] max-w-lg mb-6">
-              ระบบจะทำการเปิดม่านลมฉุกเฉิน, เร่งพัดลมดูด 100%, และส่งสัญญาณเตือนไปยังเจ้าหน้าที่ความปลอดภัย (Safety Officer) ทันที
+            <p className="text-[15px] text-[#505f76] mb-5">
+              กรอกรหัส PIN 4 หลักเพื่อยืนยันการแจ้งเหตุฉุกเฉิน
             </p>
-            <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#ffdad6]/60 border border-[#ffdad6] text-[#ba1a1a] text-[20px] font-bold mb-8">
-              <span>จะดำเนินการตัดระบบอัตโนมัติใน:</span>
-              <span className="text-[32px] font-black underline">{countdown}s</span>
+
+            {/* PIN Dots Indicator */}
+            <div className="flex items-center justify-center gap-4 mb-6">
+              {[0, 1, 2, 3].map((idx) => (
+                <div
+                  key={idx}
+                  className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${
+                    pin.length > idx
+                      ? 'border-[#004ac6] bg-[#004ac6] scale-110'
+                      : 'border-[#c3c6d7] bg-white'
+                  }`}
+                />
+              ))}
             </div>
-            <div className="grid grid-cols-2 gap-5 w-full">
+
+            {/* Numeric Keypad */}
+            <div className="grid grid-cols-3 gap-3 w-full max-w-xs mb-6">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => handlePinInput(String(num))}
+                  className="h-14 rounded-2xl bg-[#eaedff] text-[24px] font-bold text-[#131b2e] hover:bg-[#d0e1fb] transition-all active:scale-95 flex items-center justify-center cursor-pointer shadow-xs"
+                >
+                  {num}
+                </button>
+              ))}
               <button
                 type="button"
-                onClick={closeAllModals}
-                className="min-h-[72px] rounded-2xl bg-[#eaedff] text-[#131b2e] text-[24px] font-bold flex items-center justify-center active:scale-[0.98] cursor-pointer"
+                onClick={() => handlePinInput('C')}
+                className="h-14 rounded-2xl bg-[#eaedff] text-[18px] font-bold text-[#505f76] hover:bg-[#d0e1fb] transition-all active:scale-95 flex items-center justify-center cursor-pointer shadow-xs"
               >
-                ยกเลิก (Cancel)
+                C
               </button>
               <button
                 type="button"
-                onClick={confirmEmergency}
-                className="min-h-[72px] rounded-2xl bg-[#ba1a1a] text-white text-[24px] font-bold flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] cursor-pointer hover:bg-[#a01414]"
+                onClick={() => handlePinInput('0')}
+                className="h-14 rounded-2xl bg-[#eaedff] text-[24px] font-bold text-[#131b2e] hover:bg-[#d0e1fb] transition-all active:scale-95 flex items-center justify-center cursor-pointer shadow-xs"
               >
-                ยืนยันตัดระบบ (Confirm)
+                0
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePinInput('OK')}
+                className="h-14 rounded-2xl bg-[#004ac6] text-white text-[18px] font-bold hover:bg-[#003ea8] transition-all active:scale-95 flex items-center justify-center cursor-pointer shadow-xs"
+              >
+                OK
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => { setCurrentMode('normal'); setPin(''); }}
+              className="min-h-[56px] w-full rounded-2xl bg-[#eaedff] text-[#505f76] text-[18px] font-bold hover:text-[#131b2e] transition-all active:scale-98 cursor-pointer"
+            >
+              ยกเลิก (Cancel)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Substate 2a: Sending State Card ── */}
+      {currentMode === 'sending' && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 animate-fadeIn">
+          <div className="w-full max-w-lg bg-white rounded-3xl p-10 flex flex-col items-center text-center shadow-2xl">
+            <div className="w-20 h-20 rounded-full bg-[#eaedff] text-[#004ac6] flex items-center justify-center mb-6">
+              <RefreshCw size={52} className="animate-spin text-[#004ac6]" />
+            </div>
+            <h2 className="text-[32px] font-bold text-[#131b2e] leading-tight mb-2">
+              กำลังส่ง...
+            </h2>
+            <p className="text-[18px] text-[#505f76] mb-6 leading-relaxed">
+              กำลังเชื่อมต่อระบบ LINE OA และระบบเตือนภัยฉุกเฉินส่วนกลาง
+            </p>
+            <div className="w-full bg-[#eaedff] rounded-full h-3 overflow-hidden mb-6">
+              <div className="bg-[#004ac6] h-full w-2/3 animate-pulse rounded-full" />
+            </div>
+            <button
+              type="button"
+              onClick={() => setCurrentMode('normal')}
+              className="min-h-[56px] px-8 rounded-2xl bg-[#eaedff] text-[#505f76] font-bold text-[16px] hover:text-[#131b2e] transition-all active:scale-98 cursor-pointer"
+            >
+              ปิดหน้าต่าง
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Substate 2b: Sent Success State Card ── */}
+      {currentMode === 'sent' && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 animate-fadeIn">
+          <div className="w-full max-w-lg bg-white rounded-3xl p-10 flex flex-col items-center text-center shadow-2xl border-2 border-[#004ac6]/30">
+            <div className="w-20 h-20 rounded-full bg-[#dcfce7] text-[#16a34a] flex items-center justify-center mb-6">
+              <CheckCircle2 size={56} className="text-[#16a34a]" />
+            </div>
+            <h2 className="text-[32px] font-bold text-[#131b2e] leading-tight mb-2 flex items-center gap-2">
+              ส่งแล้ว ✓
+            </h2>
+            <p className="text-[18px] text-[#505f76] mb-6 leading-relaxed">
+              ส่งข้อความเตือนภัยไปยัง LINE OA เจ้าหน้าที่ความปลอดภัย 18 นายสำเร็จแล้ว
+            </p>
+            <div className="w-full bg-[#eaedff] p-4 rounded-2xl text-left mb-6 flex items-center gap-3">
+              <Clock size={24} className="text-[#004ac6] shrink-0" />
+              <span className="text-[15px] font-medium text-[#131b2e]">
+                เวลาที่ส่ง: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} น. (SLA Dispatching Active)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCurrentMode('normal')}
+              className="min-h-[56px] w-full rounded-2xl bg-[#004ac6] text-white text-[20px] font-bold shadow-md hover:bg-[#003ea8] transition-all active:scale-98 cursor-pointer"
+            >
+              ตกลง (กลับหน้าหลัก)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Substate 2c: Failed Retry State Card ── */}
+      {currentMode === 'failed' && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 animate-fadeIn">
+          <div className="w-full max-w-lg bg-white rounded-3xl p-10 flex flex-col items-center text-center shadow-2xl border-2 border-[#ba1a1a]">
+            <div className="w-20 h-20 rounded-full bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center mb-6">
+              <AlertOctagon size={56} className="text-[#ba1a1a]" />
+            </div>
+            <h2 className="text-[28px] font-bold text-[#ba1a1a] leading-tight mb-2">
+              ส่งไม่สำเร็จ — ลองอีกครั้ง
+            </h2>
+            <p className="text-[17px] text-[#505f76] mb-6 leading-relaxed">
+              เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ LINE OA กรุณากดลองอีกครั้ง
+            </p>
+            <div className="grid grid-cols-2 gap-4 w-full">
+              <button
+                type="button"
+                onClick={() => setCurrentMode('normal')}
+                className="min-h-[60px] rounded-2xl bg-[#eaedff] text-[#131b2e] text-[18px] font-bold hover:bg-[#d0e1fb] transition-all active:scale-98 cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={submitEmergency}
+                className="min-h-[60px] rounded-2xl bg-[#ba1a1a] text-white text-[18px] font-bold shadow-md hover:bg-[#a01414] transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <RotateCcw size={22} />
+                ลองอีกครั้ง
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── STATE B: Max Exhaust Booster Modal ── */}
-      {activeModal === 'state-b' && (
+      {/* ── STATE B: Max Fan 100% Booster Overlay ── */}
+      {currentMode === 'booster' && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 animate-fadeIn">
-          <div className="w-full max-w-2xl bg-white rounded-3xl p-8 shadow-2xl flex flex-col items-center text-center border-4 border-[#004ac6]">
-            <div className="w-24 h-24 rounded-full bg-[#d0e1fb] text-[#004ac6] flex items-center justify-center mb-6">
-              <Fan size={64} className="animate-spin" />
+          <div className="w-full max-w-xl bg-white rounded-3xl p-10 flex flex-col items-center text-center shadow-2xl border-2 border-[#004ac6]/30">
+            <div className="flex items-center gap-3 text-[#2563eb] mb-4">
+              <Fan size={36} className="animate-spin text-[#004ac6]" />
+              <span className="text-[24px] font-bold text-[#131b2e]">เร่งพัดลมระบายอากาศ 100% ทำงาน</span>
             </div>
-            <h2 className="text-[36px] font-bold text-[#131b2e] mb-2 leading-tight">
-              สั่งการพัดลมดูดอากาศ 100%
-            </h2>
-            <p className="text-[20px] text-[#505f76] mb-6">
-              Exhaust Fan กำลังทำงานที่กำลังสูงสุดเพื่อเจือจางสารระเหย
+
+            {/* Radial Progress & Countdown */}
+            <div className="relative w-64 h-64 flex items-center justify-center my-4">
+              <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 200 200">
+                <circle
+                  className="text-[#eaedff]"
+                  cx="100"
+                  cy="100"
+                  fill="none"
+                  r="82"
+                  stroke="currentColor"
+                  strokeWidth="14"
+                />
+                <circle
+                  className="text-[#004ac6]"
+                  cx="100"
+                  cy="100"
+                  fill="none"
+                  r="82"
+                  stroke="currentColor"
+                  strokeDasharray="515.22"
+                  strokeDashoffset={Math.max(0, 515.22 - (fanCountdown / 300) * 515.22)}
+                  strokeLinecap="round"
+                  strokeWidth="14"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-[18px] font-semibold text-[#505f76]">เหลือเวลา</span>
+                <span className="text-[52px] leading-[56px] font-bold text-[#131b2e] tracking-tight mt-1 tabular-nums">
+                  {formatTime(fanCountdown)}
+                </span>
+                <span className="text-[16px] text-[#004ac6] font-bold mt-1">กำลังระบายอากาศสูงสุด</span>
+              </div>
+            </div>
+
+            <p className="text-[18px] text-[#505f76] mb-8">
+              รอบพัดลม: 2,850 RPM | อัตราถ่ายเทอากาศ 4,200 CFM
             </p>
-            <div className="w-full bg-[#f2f3ff] rounded-2xl p-6 mb-8 flex flex-col gap-3">
-              <div className="flex justify-between text-[18px] font-bold text-[#131b2e]">
-                <span>ความเร็วรอบพัดลม (RPM):</span>
-                <span className="text-[#004ac6] tabular-nums">2,400 RPM (MAX)</span>
-              </div>
-              <div className="w-full bg-[#e2e7ff] h-4 rounded-full overflow-hidden">
-                <div className="bg-[#004ac6] h-full rounded-full w-full animate-pulse" />
-              </div>
-              <div className="flex justify-between text-[14px] text-[#505f76] font-medium">
-                <span>อัตราการไหลเวียนอากาศ: 12,500 m³/h</span>
-                <span>สถานะ: ทำงานเต็มกำลัง</span>
-              </div>
-            </div>
+
             <button
               type="button"
-              onClick={closeAllModals}
-              className="w-full min-h-[72px] rounded-2xl bg-[#283044] text-white text-[24px] font-bold flex items-center justify-center gap-3 shadow-lg active:scale-[0.98] cursor-pointer"
+              onClick={() => { setIsFanRunning(false); setCurrentMode('normal'); }}
+              className="min-h-[72px] w-full rounded-2xl bg-[#004ac6] text-white text-[26px] font-bold flex items-center justify-center gap-3 shadow-lg hover:bg-[#003ea8] transition-all active:scale-98 cursor-pointer"
             >
               <StopCircle size={32} />
-              <span>หยุด (Stop)</span>
+              หยุด (Stop)
             </button>
           </div>
         </div>
       )}
 
       {/* ── STATE C: Maintenance Checklist Modal ── */}
-      {activeModal === 'state-c' && (
+      {currentMode === 'maintenance' && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 animate-fadeIn">
           <div className="w-full max-w-3xl bg-white rounded-3xl p-8 shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between pb-4 border-b border-[#eaedff] mb-5">
+            <div className="flex items-center justify-between pb-4 border-b border-[#e2e8f0] mb-5">
               <div>
                 <h2 className="text-[28px] font-bold text-[#131b2e] leading-tight">
                   บันทึกงานซ่อมบำรุงประจำวัน
@@ -527,8 +731,8 @@ export default function Kiosk() {
               </div>
               <button
                 type="button"
-                onClick={closeAllModals}
-                className="w-12 h-12 rounded-full bg-[#f2f3ff] text-[#505f76] flex items-center justify-center hover:text-[#131b2e] cursor-pointer"
+                onClick={() => setCurrentMode('normal')}
+                className="w-12 h-12 rounded-full bg-[#eaedff] text-[#505f76] flex items-center justify-center hover:text-[#131b2e] cursor-pointer"
               >
                 <X size={28} />
               </button>
@@ -540,11 +744,7 @@ export default function Kiosk() {
                 <label
                   key={item.id}
                   onClick={() => toggleChecklistItem(item.id)}
-                  className={`flex items-center gap-5 p-4 rounded-2xl border-2 cursor-pointer transition-all active:scale-[0.99] ${
-                    item.checked
-                      ? 'border-[#004ac6] bg-[#f2f3ff]'
-                      : 'border-[#eaedff] bg-white hover:bg-[#faf8ff]'
-                  }`}
+                  className="flex items-center gap-5 p-4 rounded-2xl border-2 border-[#e2e8f0] bg-white hover:bg-[#f2f3ff] cursor-pointer transition-all active:scale-99"
                 >
                   <input
                     type="checkbox"
@@ -555,40 +755,42 @@ export default function Kiosk() {
                   <span className="text-[20px] font-bold text-[#131b2e] flex-grow">
                     {item.text}
                   </span>
-                  <span className="text-[14px] text-[#505f76] font-medium">{item.sub}</span>
+                  <span className="text-[14px] text-[#505f76] font-medium">
+                    {item.sub}
+                  </span>
                 </label>
               ))}
             </div>
 
             {/* Bottom Action Buttons */}
-            <div className="grid grid-cols-2 gap-5 pt-5 border-t border-[#eaedff] mt-3">
+            <div className="grid grid-cols-2 gap-5 pt-5 border-t border-[#e2e8f0] mt-3">
               <button
                 type="button"
-                onClick={closeAllModals}
-                className="min-h-[64px] rounded-2xl bg-[#eaedff] text-[#131b2e] text-[22px] font-bold flex items-center justify-center active:scale-[0.98] cursor-pointer"
+                onClick={() => setCurrentMode('normal')}
+                className="min-h-[64px] rounded-2xl bg-[#eaedff] text-[#131b2e] text-[22px] font-bold flex items-center justify-center active:scale-98 cursor-pointer"
               >
                 ยกเลิก (Cancel)
               </button>
               <button
                 type="button"
                 onClick={saveMaintenanceChecklist}
-                className="min-h-[64px] rounded-2xl bg-[#004ac6] text-white text-[22px] font-bold flex items-center justify-center gap-2 shadow-md active:scale-[0.98] cursor-pointer hover:bg-[#003ea8]"
+                className="min-h-[64px] rounded-2xl bg-[#004ac6] text-white text-[22px] font-bold flex items-center justify-center gap-2 shadow-md active:scale-98 hover:bg-[#003ea8] cursor-pointer"
               >
                 <Save size={26} />
-                <span>บันทึก (Save)</span>
+                บันทึก (Save)
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Touch Feedback Toast ── */}
+      {/* ── Interactive Feedback Toast Notification ── */}
       {toastMessage && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-6 py-3.5 rounded-full bg-[#131b2e] text-white text-[16px] font-bold shadow-2xl flex items-center gap-2 animate-bounce">
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#131b2e]/90 backdrop-blur-md text-white px-6 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 z-50 animate-in fade-in slide-in-from-bottom-4 duration-200">
           <Check size={20} className="text-[#00CC66]" />
-          <span>{toastMessage}</span>
+          <span className="text-[16px] font-bold">{toastMessage}</span>
         </div>
       )}
-    </div>
+    </main>
   );
 }
