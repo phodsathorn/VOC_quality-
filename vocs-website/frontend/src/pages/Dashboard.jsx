@@ -469,19 +469,19 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Card 4: eCO2 Warming up State (matching dashboard_2) */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden border border-dashed border-[#c3c6d7]">
-          <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#eaedff] blur-2xl pointer-events-none" />
+        {/* Card 4: eCO2 Estimated Concentration (Harmonized with Cards 1-3) */}
+        <div className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden">
+          <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#2563eb]/5 blur-2xl pointer-events-none" />
 
-          {/* Top Row: Label + Sensor Status */}
+          {/* Top Row: Label + Status Badge */}
           <div>
-            <div className="flex items-center justify-between gap-1">
+            <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-                eCO2 (estimated)
+                eCO₂ (estimated)
               </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-[#505f76] bg-[#eaedff]">
-                <RefreshCw size={11} className="animate-spin text-[#004ac6]" />
-                Warming up
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#131b2e] bg-[#eaedff]">
+                <span className="w-2 h-2 rounded-full bg-[#00CC66]" />
+                Nominal
               </span>
             </div>
             <span className="text-[11px] text-[#505f76]">Source: MiCS-5524</span>
@@ -489,16 +489,16 @@ export default function Dashboard() {
 
           {/* Center Metric */}
           <div className="flex items-baseline gap-2">
-            <span className="text-[56px] font-normal text-[#505f76]/40 leading-none">
-              --
+            <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight">
+              {reading.eco2 ? Math.round(reading.eco2) : 450}
             </span>
-            <span className="text-[20px] font-semibold text-[#505f76]/40">ppm</span>
+            <span className="text-[20px] font-semibold text-[#505f76]">ppm</span>
           </div>
 
           {/* Bottom Descriptor */}
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#F59E0B] animate-pulse" />
-            <span className="text-[14px] text-[#505f76]">Sensor stabilising (45s)</span>
+            <span className="w-2 h-2 rounded-full bg-[#00CC66]" />
+            <span className="text-[14px] text-[#505f76]">Target below 1,000 ppm</span>
           </div>
         </div>
       </section>
