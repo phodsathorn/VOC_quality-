@@ -408,7 +408,37 @@
 
 ### สถานะ
 - [x] หน้าที่ 6/15: Maintenance รองรับ TH/EN สมบูรณ์ 100%
-- [ ] เตรียมต่อหน้าที่ 7/15: Devices (`/devices`)
+- [x] หน้าที่ 7/15: Devices รองรับ TH/EN และ Drawer/Modal ตรงตาม Stitch 100%
+- [ ] เตรียมต่อหน้าที่ 8/15: Data Collection (`/data-collection`)
+
+---
+
+## 2026-11-07 04:10 — ปรับปรุงหน้า 7/15: Devices (`/devices`) ตรงตาม Stitch AI 100% พร้อมระบบสองภาษา TH/EN
+
+### สิ่งที่เปลี่ยน
+1. **หน้า 7/15: Devices (`Devices.jsx`):**
+   - ส่วนหัวหน้า: ขีดแสดงสถานะสีน้ำเงิน `h-6 w-1.5 rounded-full bg-[#004ac6]`, ชื่อหน้า `Devices` / `อุปกรณ์`, คำอธิบาย `Telemetry hardware & connection status` / `สถานะฮาร์ดแวร์ตรวจวัดการไหลเวียนและการเชื่อมต่อเครือข่าย`
+   - การ์ดอุปกรณ์หลัก 3 เครื่อง:
+     - `ESP32 Node 01`: แสดงสถานะ Online (จุดสีเขียว/น้ำเงินกะพริบ), ความแรงสัญญาณ `-58 dBm`, Firmware `v2.4.1`, ปุ่ม Reboot (พร้อมสถานะอนิเมชันหมุน)
+     - `ESP32 Node 02`: Online, ความแรงสัญญาณ `-64 dBm`, Firmware `v2.4.1`, ปุ่ม Reboot
+     - `Gateway Hub`: Offline / Standby Failover, ความแรงสัญญาณ `-58 dBm`, Firmware `v2.4.1`, ปุ่ม Reboot
+     - ปรับขอบสถานะเลือกการ์ด: ไฮไลท์ `ring-2 ring-[#004ac6] ring-offset-2 ring-offset-[#faf8ff]` เมื่อคลิกเลือกดู Drawer
+   - **Right-side Drawer (ESP32 Node 01):**
+     - แถบสลับแท็บ: `Overview` (ภาพรวม) และ `Sensors` (แผงเซนเซอร์)
+     - แท็บ 1 Overview: IP address (192.168.1.104), WiFi RSSI (-58 dBm ดีเยี่ยม), Voltage (3.32 V), Firmware (v2.4.1), Uptime (18d 06h 42m), Last seen (เมื่อสักครู่), MQTT (Connected broker.local:1883), Free heap (184 KB 57%)
+     - แท็บ 2 Sensors: แสดงรายการเซนเซอร์ 6 ตัว (MQ-3, MQ-2, Mini PID, SGP40, TGS2602, MQ-137) พร้อมป้ายสถานะ OK / Fault
+     - ปุ่มการกระทำส่วนล่าง: แถวบนปุ่ม `Generate token` และ `Self-diagnostic`, แถวล่างปุ่ม `Reboot` และ `Update firmware (OTA)`
+   - **Modals ทั้ง 3 บาน:**
+     - Modal 1 (Generate Device Token): แสดงคีย์ Bearer สำหรับ TLS Direct Ingestion พร้อมปุ่มคัดลอก (Copy) และปุ่มเพิกถอน (Revoke)
+     - Modal 2 (Self-Diagnostics): ทดสอบ 5 ขั้นตอน (Power Rail 3.32V PASS, I2C Bus PASS, Flash Memory PASS, WiFi/MQTT PASS, Sensor Heater Circuit FAULT) พร้อมปุ่ม Rerun
+     - Modal 3 (Update Firmware OTA): เลือกรุ่นเวอร์ชัน (v2.5.0 Latest, v2.4.2, v2.4.1 Current), แถบความคืบหน้าเขียนพาร์ติชัน 68%, ปุ่ม Rollback และ Continue
+
+2. **ระบบสองภาษา (`LanguageContext.jsx`):**
+   - เพิ่มชุดคำศัพท์ภาษาไทยล้วน (สละสลวยทางวิศวกรรม) และภาษาอังกฤษแท้ตรงตาม Stitch AI ทุกปุ่มและทุกฟิลด์
+
+### การตรวจสอบ
+- `npm --prefix vocs-website/frontend run build`: สำเร็จใน 198ms (0 errors)
+- `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
 
 
 
