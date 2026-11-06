@@ -520,6 +520,39 @@
 - `npm --prefix vocs-website/frontend run build`: สำเร็จใน 221ms (0 errors)
 - `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
 
+### สถานะ
+- [x] หน้าที่ 9/15: Settings รองรับ TH/EN และ 5 แท็บตรงตาม Stitch 100%
+- [x] หน้าที่ 10/15: Air Quality Guide รองรับ TH/EN และ 3 บล็อก/โมดอลตรงตาม Stitch 100%
+- [ ] เตรียมต่อหน้าที่ 11/15: Emissions (`/emissions`)
+
+---
+
+## 2026-11-07 04:25 — ปรับปรุงหน้า 10/15: Air Quality Guide (`/air-quality-guide`) ตรงตาม Stitch AI 100% พร้อมระบบสองภาษา TH/EN
+
+### สิ่งที่เปลี่ยน
+1. **หน้า 10/15: Air Quality Guide (`AirQualityGuide.jsx`):**
+   - ส่วนหัวหน้า: ชื่อหน้า `Air Quality Index` / `ดัชนีคุณภาพอากาศ`, คำอธิบายมาตรฐาน `Pollution Control Department (PCD) standards for industrial workplace safety` / `เกณฑ์มาตรฐานคุณภาพอากาศตามกรมควบคุมมลพิษ (PCD) สำหรับพื้นที่ปฏิบัติงาน`
+   - **บล็อกที่ 1 (Top Card - แถบสเกลแนวนอน 5 สี):**
+     - ค่าคะแนนปัจจุบัน `38` พร้อมป้ายสถานะ `Good` / `ดี` สีเขียว
+     - แถบสเกลความยาว 5 ระดับ (0-25 ฟ้า, 26-50 เขียว, 51-100 เหลือง, 101-200 ส้ม, 201+ แดง) พร้อมเข็มชี้ระบุตำแหน่งที่ 38%
+   - **บล็อกที่ 2 (Five Equal Level Cards - การ์ด 5 ระดับความรุนแรง):**
+     - ระดับ 1: `Very Good` / `ดีมาก` (0–25) - ปลอดภัย ทำงานได้ปกติ
+     - ระดับ 2: `Good` / `ดี` (26–50) - ทำงานได้ปกติ (มีกรอบไฮไลท์ Active)
+     - ระดับ 3: `Moderate` / `ปานกลาง` (51–100) - เฝ้าระวังผู้ที่ไวต่อสาร
+     - ระดับ 4: `Unhealthy for Sensitive` / `เริ่มมีผลกระทบ` (101–200) - เพิ่มการระบายอากาศและสวมใส่ PPE
+     - ระดับ 5: `Very Unhealthy` / `มีผลกระทบ` (201+) - ใช้ขั้นตอนฉุกเฉินและอพยพ
+     - **คลิกการ์ดเพื่อเปิดโมดอลรายละเอียดเฉพาะระดับ (Level Detail Modal):** แสดงข้อแนะนำ 3 มิติ ได้แก่ คำแนะนำสำหรับบุคคลทั่วไป, ข้อควรระวังสำหรับกลุ่มเสี่ยง, และข้อกำหนดอุปกรณ์ PPE
+   - **บล็อกที่ 3 (Bottom Utility Buttons):**
+     - ปุ่ม `How it is calculated`: เปิดโมดอลสูตร Piecewise Linear Interpolation พร้อมคำอธิบายตัวแปร C, C_low, C_high, I_low, I_high
+     - ปุ่ม `Calculator`: เปิดโมดอลคำนวณ AQI ด่วนแบบ Interactive เลือกมลพิษ PM2.5, TVOC, Ammonia และคำนวณผลลัพธ์แบบเรียลไทม์
+
+2. **ระบบสองภาษา (`LanguageContext.jsx`):**
+   - เพิ่มคำศัพท์ภาษาไทยล้วนและภาษาอังกฤษแท้สำหรับ Air Quality Guide ครบถ้วนทุกองค์ประกอบ
+
+### การตรวจสอบ
+- `npm --prefix vocs-website/frontend run build`: สำเร็จใน 211ms (0 errors)
+- `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
+
 
 
 
