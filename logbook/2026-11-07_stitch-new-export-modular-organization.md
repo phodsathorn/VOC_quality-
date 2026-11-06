@@ -682,7 +682,50 @@
 
 ### สถานะ
 - [x] หน้าที่ 13/15: Roles & Policy (`/roles`) รองรับ TH/EN และตาราง Matrix ตรงตาม Stitch 100%
-- [ ] หน้าถัดไป: หน้าที่ 14/15: System States (`/system-states`)
+- [x] หน้าที่ 14/15: System States (`/system-states`) ตรงตาม Stitch 100% รองรับ TH/EN สมบูรณ์
+- [ ] หน้าถัดไป: หน้าที่ 15/15: Login (`/login`)
+
+---
+
+## 2026-11-07 04:45 — ปรับปรุงหน้า 14/15: System States (`/system-states`) ตรงตาม Stitch AI 100% พร้อมระบบสองภาษา TH/EN
+
+### สิ่งที่เปลี่ยน
+1. **หน้า 14/15: System States (`SystemStates.jsx`):**
+   - ส่วนหัวหน้า:
+     - ป้ายกำกับหมวดหมู่ `Operational Reference` / `การอ้างอิงด้านการปฏิบัติการ` พร้อมจุดสีน้ำเงิน
+     - หัวเรื่องหลัก `System states` / `สถานะของระบบ`
+     - คำอธิบาย `UI component states and fallback patterns for sensor telemetry` / `รูปแบบการแสดงสถานะคอมโพเนนต์และการรับมือข้อผิดพลาดของโทรมาตรเซนเซอร์`
+   - ตารางการ์ดแสดง 5 สถานะการทำงานของระบบ (ตรงตาม Stitch 100%):
+     - **การ์ดที่ 1: Loading State (กำลังโหลด):**
+       - แถบพัลส์โครงร่าง Skeleton Pulse จำลองการโหลดข้อมูลทั้งส่วนหัว ตัวเลข และเชิงอรรถ
+     - **การ์ดที่ 2: Empty State (ไม่มีข้อมูล):**
+       - หัวการ์ด: `MQ-2 Combustibles` พร้อมป้ายสถานะ `Inactive`
+       - กลางการ์ด: ไอคอน `cloud_off` สีเทา และข้อความ `No telemetry recorded for this sensor period.`
+       - ท้ายการ์ด: `Channel 04` และปุ่ม `Inspect line →` พร้อมระบบตอบสนองแจ้งเตือน Toast
+     - **การ์ดที่ 3: Error State (เกิดข้อผิดพลาด):**
+       - กรอบสีแดงอ่อน `border-[#ffdad6]`
+       - หัวการ์ด: `MQ-135 Fumes` พร้อมป้ายสถานะ `Error` สีแดงและจุดกะพริบ
+       - กลางการ์ด: ไอคอน `wifi_off` และข้อความ `Failed to connect to sensor stream. Check network gateway.`
+       - ท้ายการ์ด: รหัสข้อผิดพลาด `ERR_GW_TIMEOUT` และปุ่ม `Retry` (พร้อมอนิเมชันหมุนเชื่อมต่อใหม่และ Toast แจ้งผล)
+     - **การ์ดที่ 4: Offline State (ออฟไลน์):**
+       - หัวการ์ด: `MQ-3 Alcohol` พร้อมป้ายสถานะ `Offline` สีเทา
+       - กลางการ์ด: ตัวเลข `--.--` สีจาง และข้อความ `Last seen 42m ago (ESP32 Node 02)` พร้อมไอคอนปลั๊กหลุด
+       - ท้ายการ์ด: ตำแหน่งติดตั้ง `Hardware Rack A-02` และปุ่ม `Diagnostics →` พร้อมระบบตอบสนอง
+     - **การ์ดที่ 5: Stale State (ข้อมูลค้างส่ง - การ์ดแนวยาวเต็มความกว้าง):**
+       - ฝั่งซ้าย: `TVOC` พร้อมป้ายสถานะสีส้ม `Stale data` (ไอคอนนาฬิกา) และตัวเลขขนาดใหญ่ `142 ppb` สีเทาจาง
+       - ฝั่งขวา: ข้อความ `Updated 5 min ago`, `Awaiting next telemetry frame` และปุ่ม `Force Poll` (บังคับดึงข้อมูลทันทีพร้อมอนิเมชันหมุนและ Toast สำเร็จ)
+
+2. **ระบบสองภาษา (`LanguageContext.jsx`):**
+   - เพิ่มชุดคำศัพท์ภาษาไทยล้วน (สละสลวยทางวิศวกรรมระบบโทรมาตรและการสื่อสารเครือข่าย) และภาษาอังกฤษแท้ตรงตาม Stitch AI ครบทั้ง 5 สถานะ ทุกปุ่ม และทุกคำอธิบาย
+
+### การตรวจสอบ
+- `npm --prefix vocs-website/frontend run build`: สำเร็จใน 229ms (0 errors)
+- `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
+
+### สถานะ
+- [x] หน้าที่ 14/15: System States (`/system-states`) รองรับ TH/EN และ 5 สถานะตรงตาม Stitch 100%
+- [ ] หน้าถัดไป: หน้าที่ 15/15: Login (`/login`)
+
 
 
 
