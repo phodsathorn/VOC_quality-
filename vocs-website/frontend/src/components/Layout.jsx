@@ -7,6 +7,7 @@ import {
   CheckCircle2, Radio, Layers, MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import {
   isSoundEnabled, toggleSoundEnabled, triggerAlertSound
 } from '../utils/soundAlert';
@@ -15,8 +16,8 @@ import { API } from '../config';
 export default function Layout({ children }) {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { lang, setLang, t } = useLanguage();
   const [soundActive, setSoundActive] = useState(() => isSoundEnabled());
-  const [lang, setLang] = useState('EN');
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
   const [criticalBannerAlert, setCriticalBannerAlert] = useState(null);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
@@ -101,21 +102,21 @@ export default function Layout({ children }) {
   const userRole = user?.role || 'operator';
 
   const allNavItems = [
-    { name: 'Dashboard',             path: '/',                icon: LayoutDashboard, roles: ['admin', 'engineer', 'operator', 'viewer'] },
-    { name: 'Kiosk',                 path: '/kiosk',           icon: Monitor,         roles: ['admin', 'engineer', 'operator'] },
-    { name: 'Alerts',                path: '/alerts',          icon: Bell,            roles: ['admin', 'engineer', 'operator'], badge: activeAlertsCount },
-    { name: 'Airflow',               path: '/airflow',         icon: Wind,            roles: ['admin', 'engineer', 'operator', 'viewer'] },
-    { name: 'History',               path: '/history',         icon: CalendarDays,    roles: ['admin', 'engineer', 'operator', 'viewer'] },
-    { name: 'Maintenance',           path: '/maintenance',     icon: Wrench,          roles: ['admin', 'engineer'] },
-    { name: 'Devices',               path: '/devices',         icon: Box,             roles: ['admin', 'engineer'] },
-    { name: 'Data Collection',       path: '/data-collection', icon: Database,        roles: ['admin', 'engineer'] },
-    { name: 'Settings',              path: '/settings',        icon: Settings,        roles: ['admin'] },
+    { key: 'dashboard',       name: 'Dashboard',             path: '/',                icon: LayoutDashboard, roles: ['admin', 'engineer', 'operator', 'viewer'] },
+    { key: 'kiosk',           name: 'Kiosk',                 path: '/kiosk',           icon: Monitor,         roles: ['admin', 'engineer', 'operator'] },
+    { key: 'alerts',          name: 'Alerts',                path: '/alerts',          icon: Bell,            roles: ['admin', 'engineer', 'operator'], badge: activeAlertsCount },
+    { key: 'airflow',         name: 'Airflow',               path: '/airflow',         icon: Wind,            roles: ['admin', 'engineer', 'operator', 'viewer'] },
+    { key: 'history',         name: 'History',               path: '/history',         icon: CalendarDays,    roles: ['admin', 'engineer', 'operator', 'viewer'] },
+    { key: 'maintenance',     name: 'Maintenance',           path: '/maintenance',     icon: Wrench,          roles: ['admin', 'engineer'] },
+    { key: 'devices',         name: 'Devices',               path: '/devices',         icon: Box,             roles: ['admin', 'engineer'] },
+    { key: 'dataCollection',  name: 'Data Collection',       path: '/data-collection', icon: Database,        roles: ['admin', 'engineer'] },
+    { key: 'settings',        name: 'Settings',              path: '/settings',        icon: Settings,        roles: ['admin'] },
     // MORE Section matching Stitch 1:1
-    { name: 'Air Quality Guide',     path: '/air-quality-guide', icon: ShieldAlert,   roles: ['admin', 'engineer', 'operator', 'viewer'], isMore: true },
-    { name: 'Emissions',             path: '/emissions',       icon: Factory,         roles: ['admin', 'engineer', 'operator', 'viewer'], isMore: true },
-    { name: 'User Guide',            path: '/guide',           icon: BookOpen,        roles: ['admin', 'engineer', 'operator', 'viewer'], isMore: true },
-    { name: 'Roles & Policy',        path: '/roles',           icon: ShieldCheck,     roles: ['admin', 'engineer'], isMore: true },
-    { name: 'System States',         path: '/system-states',   icon: Layers,          roles: ['admin', 'engineer'], isMore: true },
+    { key: 'airQualityGuide', name: 'Air Quality Guide',     path: '/air-quality-guide', icon: ShieldAlert,   roles: ['admin', 'engineer', 'operator', 'viewer'], isMore: true },
+    { key: 'emissions',       name: 'Emissions',             path: '/emissions',       icon: Factory,         roles: ['admin', 'engineer', 'operator', 'viewer'], isMore: true },
+    { key: 'userGuide',       name: 'User Guide',            path: '/guide',           icon: BookOpen,        roles: ['admin', 'engineer', 'operator', 'viewer'], isMore: true },
+    { key: 'roles',           name: 'Roles & Policy',        path: '/roles',           icon: ShieldCheck,     roles: ['admin', 'engineer'], isMore: true },
+    { key: 'systemStates',    name: 'System States',         path: '/system-states',   icon: Layers,          roles: ['admin', 'engineer'], isMore: true },
   ];
 
   // กรองเมนูเฉพาะบทบาทที่ได้รับอนุญาต
@@ -123,10 +124,10 @@ export default function Layout({ children }) {
 
   // ข้อมูลสไตล์บทบาทปัจจุบัน
   const roleBadges = {
-    admin:    { label: 'ADMIN VIEW',    bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe', icon: ShieldCheck },
-    engineer: { label: 'ENGINEER VIEW', bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe', icon: Wrench },
-    operator: { label: 'OPERATOR VIEW', bg: '#ecfdf5', color: '#059669', border: '#a7f3d0', icon: HardHat },
-    viewer:   { label: 'VIEWER VIEW',   bg: '#f8fafc', color: '#475569', border: '#e2e8f0', icon: FileSearch },
+    admin:    { label: t('adminView', 'ADMIN VIEW'),       bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe', icon: ShieldCheck },
+    engineer: { label: t('engineerView', 'ENGINEER VIEW'), bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe', icon: Wrench },
+    operator: { label: t('operatorView', 'OPERATOR VIEW'), bg: '#ecfdf5', color: '#059669', border: '#a7f3d0', icon: HardHat },
+    viewer:   { label: t('viewerView', 'VIEWER VIEW'),     bg: '#f8fafc', color: '#475569', border: '#e2e8f0', icon: FileSearch },
   };
   const activeRoleBadge = roleBadges[userRole] || roleBadges.operator;
   const RoleIcon = activeRoleBadge.icon;
@@ -174,7 +175,7 @@ export default function Layout({ children }) {
               {showMoreHeader && (
                 <div className="pt-3 pb-1 px-3">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">
-                    More
+                    {t('more', 'More')}
                   </span>
                 </div>
               )}
@@ -189,7 +190,7 @@ export default function Layout({ children }) {
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <Icon size={18} className={isActive ? 'text-[#004ac6]' : 'text-[#64748b]'} />
-                  <span className="truncate">{item.name}</span>
+                  <span className="truncate">{t(item.key, item.name)}</span>
                 </div>
 
                 {item.badge > 0 && (
@@ -243,7 +244,7 @@ export default function Layout({ children }) {
               }}
               className="w-full px-3 py-2 text-left text-[12px] text-[#131b2e] hover:bg-[#f8fafc] rounded-lg flex items-center justify-between"
             >
-              <span>Sound Notifications</span>
+              <span>{t('soundNotifications', 'Sound Notifications')}</span>
               {soundActive ? <Volume2 size={15} className="text-[#059669]" /> : <VolumeX size={15} className="text-[#64748b]" />}
             </button>
             <button
@@ -252,7 +253,7 @@ export default function Layout({ children }) {
               className="w-full px-3 py-2 text-left text-[12px] text-[#ba1a1a] hover:bg-[#ffdad6]/30 rounded-lg flex items-center gap-2 mt-1"
             >
               <LogOut size={15} />
-              <span>Log out</span>
+              <span>{t('logout', 'Log out')}</span>
             </button>
           </div>
         )}
@@ -324,7 +325,7 @@ export default function Layout({ children }) {
             <div className="flex items-center gap-2 bg-white px-3.5 py-1.5 rounded-full border border-[#e2e8f0] shadow-xs">
               <Activity size={16} className="text-[#004ac6]" />
               <span className="text-[13px] font-medium text-[#131b2e]">
-                Powder Coating Booth 1
+                {t('location', 'Powder Coating Booth 1')}
               </span>
             </div>
 
@@ -334,7 +335,7 @@ export default function Layout({ children }) {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#004ac6] opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#004ac6]"></span>
               </span>
-              <span>ONLINE</span>
+              <span>{t('online', 'ONLINE')}</span>
             </div>
           </div>
 
@@ -343,7 +344,7 @@ export default function Layout({ children }) {
             {/* Real-time Update indicator + TH/EN toggle matching Stitch dashboard_2 */}
             <div className="hidden sm:flex items-center gap-2.5">
               <span className="text-[12px] font-medium text-[#505f76] select-none">
-                Updated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+                {t('updated', 'Updated')} {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
               </span>
               <div className="flex items-center p-0.5 bg-[#eaedff] rounded-full text-[11px] font-semibold">
                 <button

@@ -10,11 +10,13 @@ import {
 import { getThresholds } from '../utils/settings';
 import DashboardSkeleton from '../components/DashboardSkeleton';
 import { Drawer, Modal, calculatePm25Aqi, getAqiCategory } from '../components/ui';
+import { useLanguage } from '../context/LanguageContext';
 import { API } from '../config';
 
 const REFRESH_INTERVAL_MS = 5000;
 
 export default function Dashboard() {
+  const { t, isThai } = useLanguage();
   const [data, setData] = useState(() => {
     try {
       const cached = localStorage.getItem('voc_cached_dashboard_v2');
@@ -368,11 +370,11 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-                Air Quality
+                {t('airQuality', 'Air Quality')}
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#131b2e] bg-[#eaedff]">
                 <span className="w-2 h-2 rounded-full bg-[#00CC66]" />
-                Good
+                {t('good', 'Good')}
               </span>
             </div>
             <span className="text-[11px] text-[#505f76]">Source: MQ-135 (PM2.5 / eCO2)</span>
@@ -412,7 +414,7 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-                TVOC
+                {t('tvoc', 'TVOC')}
               </span>
               <svg className="w-[18px] h-[18px] text-[#505f76]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M7.8 14.5a6 6 0 0 1 8.4 0M4.93 11.64a10 10 0 0 1 14.14 0" />
@@ -431,7 +433,7 @@ export default function Dashboard() {
 
           {/* Bottom Descriptor */}
           <div>
-            <span className="text-[14px] text-[#505f76]">Normal range under 100</span>
+            <span className="text-[14px] text-[#505f76]">{t('normalUnder100', 'Normal range under 100')}</span>
           </div>
         </div>
 
@@ -441,7 +443,7 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-                Exhaust Fan
+                {t('exhaustFan', 'Exhaust Fan')}
               </span>
               <span className="w-2.5 h-2.5 rounded-full bg-[#00CC66] shadow-[0_0_8px_rgba(0,204,102,0.6)]" />
             </div>
@@ -458,7 +460,7 @@ export default function Dashboard() {
           {/* Bottom Descriptor */}
           <div>
             <span className="text-[14px] text-[#434655] font-medium">
-              100% running
+              100% {t('running', 'running')}
             </span>
           </div>
         </div>
@@ -469,11 +471,11 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-                eCO₂ (estimated)
+                {t('eco2', 'eCO₂ (estimated)')}
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#131b2e] bg-[#eaedff]">
                 <span className="w-2 h-2 rounded-full bg-[#00CC66]" />
-                Nominal
+                {t('nominal', 'Nominal')}
               </span>
             </div>
             <span className="text-[11px] text-[#505f76]">Source: MiCS-5524</span>
@@ -490,7 +492,7 @@ export default function Dashboard() {
           {/* Bottom Descriptor */}
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#00CC66]" />
-            <span className="text-[14px] text-[#505f76]">Target below 1,000 ppm</span>
+            <span className="text-[14px] text-[#505f76]">{t('targetBelow1000', 'Target below 1,000 ppm')}</span>
           </div>
         </div>
       </section>
@@ -502,17 +504,17 @@ export default function Dashboard() {
           {/* Header */}
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-              TVOC, last 24 hours
+              {t('tvocLast24h', 'TVOC, last 24 hours')}
             </span>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3 text-[11px] font-medium">
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-0.5 bg-[#F59E0B]" />
-                  <span className="text-[#F59E0B]">Warning 80 ppb</span>
+                  <span className="text-[#F59E0B]">{t('warning', 'Warning')} 80 ppb</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-0.5 bg-[#ba1a1a]" />
-                  <span className="text-[#ba1a1a]">Critical 120 ppb</span>
+                  <span className="text-[#ba1a1a]">{t('critical', 'Critical')} 120 ppb</span>
                 </div>
               </div>
               <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#eaedff] text-[#131b2e] text-[12px] font-medium cursor-pointer hover:bg-[#dbe1ff] transition-colors">
@@ -565,7 +567,7 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-                Detected solvent
+                {t('detectedSolvent', 'Detected solvent')}
               </span>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-semibold text-[#004ac6] bg-[#004ac6]/10">
                 87% match
@@ -653,8 +655,12 @@ export default function Dashboard() {
 
       {/* ── Block 4: Recent Alerts (Strictly 3 Items matching dashboard_2) ── */}
       <section className="bg-white rounded-3xl p-6 shadow-sm">
-        <div className="mb-4">
-          <h2 className="text-[20px] font-semibold text-[#131b2e]">Recent alerts</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[20px] font-semibold text-[#131b2e]">{t('recentAlerts', 'Recent alerts')}</h2>
+          <Link to="/alerts" className="text-[13px] font-semibold text-[#004ac6] hover:underline inline-flex items-center gap-1">
+            <span>{t('viewAllAlerts', 'View all alerts')}</span>
+            <span>→</span>
+          </Link>
         </div>
 
         <div className="flex flex-col">

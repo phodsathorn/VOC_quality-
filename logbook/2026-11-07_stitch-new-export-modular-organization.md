@@ -356,6 +356,31 @@
 - `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
 - บันทึกการเปลี่ยนแปลงใน Git และผลักขึ้นทั้ง 2 remotes (GitLab `origin` และ GitHub `github`)
 
+---
+
+## 2026-11-07 03:51 — ติดตั้งระบบสลับภาษา TH/EN แบบ Reactive ทั่วทั้งระบบ และปรับปรุงหน้า 5: History (`/history`)
+
+### สิ่งที่เปลี่ยน
+1. **ระบบสลับภาษา TH/EN (`LanguageContext.jsx`):**
+   - สร้าง `LanguageContext` และ `LanguageProvider` เก็บสถานะใน `localStorage` (`voc_app_lang`) พร้อมซิงค์แท็ก `html lang="th|en"`
+   - เพิ่มฟังก์ชัน `t(key, fallback)` ครอบคลุมคำศัพท์ทั้งระบบ: เมนู Sidebar ทั้ง 15 รายการ, ส่วนหัว Header, การ์ดแสดงผลบน Dashboard, เกณฑ์แจ้งเตือน, และหน่วยวัด
+   - ผสานปุ่มสลับภาษา `TH` / `EN` บน Header ของ `Layout.jsx` ให้ทำงานแบบเรียลไทม์ (กดสลับปุ๊บ ข้อความทั้งเว็บเปลี่ยนทันที ไม่ต้องโหลดหน้าใหม่)
+   - ปรับ `Dashboard.jsx` และ `Layout.jsx` ให้เรียกใช้ `t()` ทุกจุดสำคัญ
+
+2. **หน้า 5/15: History (`History.jsx`):**
+   - ปรับปรุงตรงตามต้นแบบ Stitch `history_custom_range_expanded_telemetry_table` 100%
+   - **Range Controls**: ปุ่ม Today, 7 days, 30 days, และ Custom (พร้อมปฏิทิน Popover เลือกช่วง Oct 18 - Oct 24, 2025)
+   - **Export CSV Popover**: แสดงคอลัมน์ที่ถูกรวมในไฟล์อย่างชัดเจน พร้อมปุ่ม Export PDF
+   - **Telemetry Trend Graph**: กราฟเส้นแนวโน้ม TVOC 7 วัน พร้อมปุ่มเลือกดูตัวชี้วัด (TVOC, PM2.5, eCO2), สวิตช์เปิด/ปิดเส้น Threshold (100 ppb), และแถบแจ้งเตือนช่วงปรับฐานข้อมูล (No data 02:10–02:40)
+   - **Dual-mode Table Card**:
+     - *Mode A (Summary View)*: ตารางสรุป 4 คอลัมน์ (Date, Average TVOC, Max PM2.5, Level) พร้อมปุ่ม View full table
+     - *Mode B (Complete Telemetry Log)*: ตารางฉบับเต็ม 9 มิติ (Date, Min TVOC, Max TVOC, Avg TVOC, Max PM2.5, Level, Coverage %, P95, Samples) พร้อมปุ่มย่อกลับ และ Pagination 1, 2, >
+
+### การตรวจสอบ
+- `npm --prefix vocs-website/frontend run build`: สำเร็จใน 217ms (0 errors)
+- `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
+
+
 
 
 
