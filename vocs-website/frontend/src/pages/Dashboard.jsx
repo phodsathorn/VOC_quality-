@@ -157,7 +157,8 @@ export default function Dashboard() {
 
   // Extract core metrics (Safe optional chaining before any early return)
   const reading = data?.latest_reading || {};
-  const pm25Value = data?.environment?.pm25 ?? reading.pm25 ?? 12.0;
+  const rawPm25 = data?.environment?.pm25 ?? reading.pm25;
+  const pm25Value = rawPm25 != null && rawPm25 >= 0 ? rawPm25 : 14.0;
   const currentAqi = calculatePm25Aqi(pm25Value) || 38;
   const aqiCategory = getAqiCategory(currentAqi);
 
@@ -317,13 +318,21 @@ export default function Dashboard() {
     return <DashboardSkeleton isColdStarting={isColdStarting} onRetry={() => fetchAll()} />;
   }
 
-  // Recent alerts formatted
+  // Safe alert time parser to prevent "Invalid Date Today"
+  const formatAlertTime = (rawTime) => {
+    if (!rawTime) return 'เมื่อสักครู่';
+    const d = new Date(rawTime);
+    if (isNaN(d.getTime())) return 'เมื่อสักครู่';
+    return `${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Today`;
+  };
+
+  // Recent alerts formatted (Safe date and field fallback)
   const displayAlerts = alerts && alerts.length > 0
     ? alerts.slice(0, 3).map((a, idx) => ({
         id: a.id || idx,
         color: a.level === 'Critical' ? '#ba1a1a' : a.level === 'High' ? '#F59E0B' : '#00CC66',
-        text: a.message || a.title,
-        time: a.time ? `${new Date(a.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Today` : 'เมื่อสักครู่',
+        text: a.message || a.title || 'Exhaust velocity verified',
+        time: formatAlertTime(a.created_at || a.time || a.timestamp),
       }))
     : [
         {

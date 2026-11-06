@@ -17,6 +17,8 @@ export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const [soundActive, setSoundActive] = useState(() => isSoundEnabled());
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
+  const [criticalBannerAlert, setCriticalBannerAlert] = useState(null);
+  const [isBannerDismissed, setIsBannerDismissed] = useState(false);
   const [toastAlert, setToastAlert] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -51,6 +53,16 @@ export default function Layout({ children }) {
         const activeList = data.filter(a => a.status === 'Active');
         setActiveAlertsCount(activeList.length);
 
+        // Update critical alert banner matching Stitch dashboard_2 (only when active alert exists)
+        if (activeList.length > 0) {
+          const topCritical = activeList.find(a => a.level === 'Critical')
+            || activeList.find(a => a.level === 'High')
+            || activeList[0];
+          setCriticalBannerAlert(topCritical);
+        } else {
+          setCriticalBannerAlert(null);
+        }
+
         if (isFirstRun.current) {
           activeList.forEach(a => seenAlertIds.current.add(a.id));
           isFirstRun.current = false;
@@ -62,6 +74,7 @@ export default function Layout({ children }) {
               || newAlerts[0];
 
             newAlerts.forEach(a => seenAlertIds.current.add(a.id));
+            setIsBannerDismissed(false); // Reset dismiss for brand new alert
             triggerAlertSound(priorityAlert.level);
             setToastAlert(priorityAlert);
           }
@@ -259,6 +272,30 @@ export default function Layout({ children }) {
 
       {/* Main Canvas Viewport (Takes remaining space smoothly) */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Critical Alert Banner (Only visible when active alert exists, matching Stitch dashboard_2) */}
+        {criticalBannerAlert && !isBannerDismissed && (
+          <div className="h-8 bg-[#ba1a1a] text-white px-4 md:px-8 flex items-center justify-between text-[12px] font-medium shadow-xs shrink-0 z-30 animate-in slide-in-from-top duration-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertTriangle size={15} className="shrink-0 animate-pulse text-white" />
+              <span className="truncate">
+                {criticalBannerAlert.message || criticalBannerAlert.title || 'TVOC above critical limit in Booth 1'}
+              </span>
+              <span className="opacity-75 shrink-0">|</span>
+              <Link to="/alerts" className="underline font-semibold hover:opacity-90 ml-1 shrink-0">
+                View alert
+              </Link>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsBannerDismissed(true)}
+              className="hover:opacity-80 flex items-center p-0.5 ml-2 cursor-pointer"
+              aria-label="Dismiss alert banner"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )}
+
         {/* Sticky Header Bar (64px) */}
         <header className="sticky top-0 z-10 h-16 bg-white/90 backdrop-blur-md border-b border-[#e2e8f0] px-4 md:px-8 flex items-center justify-between shadow-xs">
           {/* Left: Mobile Toggle + Location & Gateway Status */}
