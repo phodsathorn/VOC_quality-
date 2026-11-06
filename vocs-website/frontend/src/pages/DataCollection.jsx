@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Play, Square, ChevronDown, Check, Download,
-  Activity, Tag, FlaskConical, AlertTriangle, CheckCircle2,
+  Tag, FlaskConical, AlertTriangle, CheckCircle2,
   Sliders, User, Edit3, Thermometer
 } from 'lucide-react';
 import { API } from '../config';

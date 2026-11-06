@@ -481,6 +481,45 @@
 - `npm --prefix vocs-website/frontend run build`: สำเร็จใน 225ms (0 errors)
 - `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
 
+### สถานะ
+- [x] หน้าที่ 8/15: Data Collection รองรับ TH/EN และ 3 แท็บตรงตาม Stitch 100%
+- [x] หน้าที่ 9/15: Settings รองรับ TH/EN และ 5 แท็บตรงตาม Stitch 100%
+- [ ] เตรียมต่อหน้าที่ 10/15: Air Quality Guide (`/air-quality-guide`)
+
+---
+
+## 2026-11-07 04:20 — ปรับปรุงหน้า 9/15: Settings (`/settings`) ตรงตาม Stitch AI 100% พร้อมระบบสองภาษา TH/EN
+
+### สิ่งที่เปลี่ยน
+1. **หน้า 9/15: Settings (`Settings.jsx`):**
+   - ส่วนหัวหน้า: ป้ายหมวดหมู่ `Configuration` / `การกำหนดค่าระบบ`, ชื่อหน้า `Settings` / `การตั้งค่า`
+   - แถบนำทางแท็บแบบ Pill ครบทั้ง 5 แท็บ:
+     - **แท็บ 1: Thresholds (เกณฑ์ตรวจวัด):**
+       - รายการเซนเซอร์ 6 ตัว (`MQ-3`, `MQ-2`, `Mini PID`, `SGP40`, `TGS2602`, `MQ-137`)
+       - ตัวเลือกอุปกรณ์ (ESP32 Node 01, Node 02, Gateway Hub)
+       - ตัวกำหนดค่า 4 มิติ: Warning limit, Critical limit, Duration (วินาที), Hysteresis deadband
+     - **แท็บ 2: Notifications (การแจ้งเตือน):**
+       - บล็อกที่ 1: `LINE Messaging API` (ป้าย Connected สีเขียว, Channel token ซ่อน/ดูได้, Channel secret, Group ID, ปุ่ม Send test message)
+       - บล็อกที่ 2: `Telegram Bot` (ป้าย Active, Bot token, Chat ID)
+       - บล็อกที่ 3: `Email Digest & Escalation` (ป้าย Enabled, รายชื่อผู้รับ, รอบเวลาสรุป Immediate, Hourly, Shift Handover)
+     - **แท็บ 3: SLA (ข้อตกลง SLA):**
+       - Warning SLA Target (10 นาที สำหรับส่งการแจ้งเตือนซ้ำไปยังวิศวกร)
+       - Critical SLA Target (5 นาที สำหรับสั่งเปิดระบบกรองอากาศสำรองอัตโนมัติ)
+     - **แท็บ 4: Users (ผู้ใช้งาน):**
+       - ตารางรายชื่อบุคลากร: E. Mitchell (Admin), T. Henderson (Engineer), S. Kamol (Operator) พร้อมปุ่ม Invite user
+     - **แท็บ 5: General (ทั่วไป):**
+       - ตัวเลือกภาษา Language: English (US) / ภาษาไทย (Thai) **เชื่อมต่อตรงกับ `LanguageContext` แบบ Reactive สลับภาษาทั้งเว็บได้ทันที**
+       - เขตเวลา (Timezone), ระยะเวลาเก็บรักษาข้อมูล (Data retention), เสียงสัญญาณเตือน (Alarm tone), แถบเลื่อนระดับเสียง (Volume slider 0-100%)
+   - **แถบลอย Unsaved changes pending:**
+     - แสดงอัตโนมัติที่ด้านล่างเมื่อมีการแก้ไขค่า พร้อมจุดกะพริบสีน้ำเงิน, ปุ่ม Discard (ละทิ้ง) และปุ่ม Save (บันทึก)
+
+2. **ระบบสองภาษา (`LanguageContext.jsx`):**
+   - เพิ่มคำศัพท์ภาษาไทยล้วนและภาษาอังกฤษแท้สำหรับ Settings ครบถ้วนทุกข้อความ
+
+### การตรวจสอบ
+- `npm --prefix vocs-website/frontend run build`: สำเร็จใน 221ms (0 errors)
+- `npm --prefix vocs-website/frontend run lint`: สำเร็จ (0 errors)
+
 
 
 
