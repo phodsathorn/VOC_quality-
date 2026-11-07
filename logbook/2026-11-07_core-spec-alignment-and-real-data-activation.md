@@ -143,8 +143,37 @@
 - [x] ตรวจสอบ `npm run build` และ `npm run lint` ผ่านฉลุย 100%
 - [x] Commit (`6970bf9`) และ Push สู่ GitLab (`origin`) และ GitHub (`github`) สำเร็จเรียบร้อย
 
+---
+
+### [เวลา 20:15 น.] รวมเส้น API เป็น Single-Roundtrip และสร้างฟอร์มจัดการผู้ใช้งานจริง (User Management) ปลด Mock Data
+**ปัญหาที่พบและความต้องการ:**
+- ผู้ใช้ต้องการลดจำนวนเส้น API ที่ Frontend เรียกซ้ำซ้อนให้รวมเป็นเส้นเดียว และปรับการค้นข้อมูลให้ประหยัดเวลา/ลดโหลด DB
+- เดิมหน้า `Dashboard.jsx` ยิง API แยก 3 เส้นพร้อมกันทุกๆ 3 วินาที (`/api/dashboard/latest`, `/api/dashboard/history?range=24h`, `/api/alerts?limit=5`) สร้างโหลดให้ DB และ Network สูงถึง 3,600 requests/ชั่วโมง/เครื่อง
+- ข้อมูลชื่อพนักงานในระบบ (เช่น `E. Mitchell`, `T. Henderson`, `P. Krai`, `S. Tanaka`, `R. Chen`) เป็น Mock Data ที่ติดมาจากเทมเพลตดีไซน์ และปุ่มเพิ่มผู้ใช้งานในหน้า Settings เป็นเพียง `alert()` จำลอง ยังไม่มีฟอร์มกรอกจริง
+
+**สิ่งที่แก้ไข:**
+1. **`vocs-website/backend/main.py` (Unified Endpoint & In-memory Cache)**:
+   - ปรับปรุง `/api/dashboard/latest` ให้รองรับพารามิเตอร์ `include_alerts: bool = False` และ `include_history: Optional[str] = None`
+   - เพิ่ม In-memory Cache ขนาดเบาอายุ 2.0 วินาที เพื่อรองรับการโพลล์ถี่สูง หากมีหลายเครื่องหรือหลายแท็บเรียกดูพร้อมกัน จะส่งผลลัพธ์จากแคชทันทีโดยไม่ต้องรัน 4-5 SQL queries ซ้ำซ้อนลงฐานข้อมูล
+2. **`vocs-website/frontend/src/pages/Dashboard.jsx` (Single HTTP Roundtrip)**:
+   - รวบการยิง API ทุก 3 วินาทีให้เหลือเพียงเส้นเดียว: `${API}/api/dashboard/latest?box_id=${boxId}&include_alerts=true`
+   - เรียก history เฉพาะรอบแรก (`include_history=24h`) แทนการคิวรีประวัติ 24 ชั่วโมงซ้ำๆ ทุก 3 วินาที ลดทราฟฟิกเครือข่ายลงถึง 66%
+3. **`vocs-website/frontend/src/pages/Settings.jsx` (Real User Management & Form Modal)**:
+   - ปลดอาร์เรย์ Mock พนักงาน (`E. Mitchell`, `T. Henderson` ฯลฯ) ออกทั้งหมด และดึงข้อมูลจริงจากฐานข้อมูลผ่าน `GET /api/users` โดยใช้ JWT Authorization Header
+   - สร้าง Modal ฟอร์ม **"เพิ่มผู้ใช้งานใหม่ (Add New User)"** ครบทุกฟิลด์: Full Name, Username, Password, Role (Operator/Engineer/Admin/Viewer), และ Site พร้อมปุ่มบันทึกยิงเข้า `POST /api/users`
+   - ผูกเมนูปฏิบัติการแถวผู้ใช้ (`MoreVertical`): แก้ไขสิทธิ์ (`PUT /api/users/{id}`), รีเซ็ตรหัสผ่าน (`PUT /api/users/{id}`), และระงับการใช้งาน (`DELETE /api/users/{id}`) พร้อม Toast Notification
+4. **`vocs-website/frontend/src/pages/Alerts.jsx` & `Maintenance.jsx`**:
+   - ปลดชื่อ Mock (`E. Mitchell`, `P. Krai`, `S. Tanaka`, `R. Chen`, `R. Vance`) ออกทั้งหมด
+   - แทนที่ด้วยบทบาทจริงตามระบบ RBAC ในฐานข้อมูล (`System Administrator`, `Process & Calibration Engineer`, `Line Operator`, `Safety & Compliance Auditor`)
+
+**การตรวจสอบ:**
+- `python -m py_compile vocs-website/backend/main.py`: ผ่านสมบูรณ์ (Exit code 0, 0 syntax error)
+- `npm --prefix vocs-website/frontend run build`: ผ่านสมบูรณ์ (`built in 246ms`, 0 errors)
+- `npm --prefix vocs-website/frontend run lint`: ผ่านเรียบร้อย (`0 errors, 69 warnings`)
+
 ## งานค้างและขั้นตอนถัดไป
-- ทดสอบเปิดใช้งานปุ่มจริงบน Production URL (`https://voc-quality.vercel.app`) หลังจาก Vercel ทำการ Deploy อัตโนมัติเสร็จสิ้น
+- Commit และ Push การปรับปรุงสถาปัตยกรรม API และ User Management ขึ้นสู่ Git remote (GitLab และ GitHub)
+- ตรวจสอบการใช้งานฟอร์มเพิ่มพนักงานใหม่บน Production Web Platform
 
 
 

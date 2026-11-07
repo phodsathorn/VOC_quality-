@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Check, Sliders, Bell, Users, Clock, Settings as SettingsIcon,
   Eye, EyeOff, Send, UserPlus, Volume2, VolumeX, ShieldAlert,
-  Flame, Wind, Activity, MoreVertical, Trash2
+  Flame, Wind, Activity, MoreVertical, Trash2, X, Lock, UserCheck, KeyRound, Loader2
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { API } from '../config';
 
 export default function Settings() {
   const { t, lang, setLang } = useLanguage();
@@ -51,42 +53,124 @@ export default function Settings() {
     criticalMinutes: 5,
   });
 
-  // Tab 4: Users
-  const [usersList, setUsersList] = useState([
-    {
-      id: 1,
-      initials: 'EM',
-      name: 'E. Mitchell',
-      email: 'mitchell@safety-dept.org',
-      role: 'Admin',
-      roleTh: 'ผู้ดูแลระบบ',
-      permissions: 'Full Control & Thresholds',
-      permissionsTh: 'ควบคุมทุกฟังก์ชันและเกณฑ์แจ้งเตือน',
-      status: 'Active',
-    },
-    {
-      id: 2,
-      initials: 'TH',
-      name: 'T. Henderson',
-      email: 't.henderson@plant-ops.com',
-      role: 'Engineer',
-      roleTh: 'วิศวกร',
-      permissions: 'Calibration & Nodes',
-      permissionsTh: 'การสอบเทียบและจัดการโหนด',
-      status: 'Active',
-    },
-    {
-      id: 3,
-      initials: 'SK',
-      name: 'S. Kamol',
-      email: 's.kamol@booth-one.net',
-      role: 'Operator',
-      roleTh: 'ผู้ปฏิบัติการ',
-      permissions: 'Kiosk View & Acknowledge',
-      permissionsTh: 'ดูหน้าคีออสก์และรับทราบเหตุการณ์',
-      status: 'Active',
-    },
-  ]);
+  // Tab 4: Real Users Management (RBAC & Database)
+  const { token, user: currentUser } = useAuth();
+  const [usersList, setUsersList] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [isEditRoleModalOpen, setIsEditRoleModalOpen] = useState(false);
+  const [isResetPwdModalOpen, setIsResetPwdModalOpen] = useState(false);
+  const [selectedUserForAction, setSelectedUserForAction] = useState(null);
+
+  const [newUserForm, setNewUserForm] = useState({
+    username: '',
+    password: '',
+    full_name: '',
+    role: 'operator',
+    site: 'Main Plant'
+  });
+  const [newRoleSelection, setNewRoleSelection] = useState('operator');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [userActionError, setUserActionError] = useState('');
+  const [userActionLoading, setUserActionLoading] = useState(false);
+  const [userActionSuccess, setUserActionSuccess] = useState('');
+
+  const fetchUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    try {
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`${API}/api/users`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const formatted = data.map((u) => {
+            const r = (u.role || 'operator').toLowerCase();
+            return {
+              id: u.id,
+              username: u.username,
+              name: u.full_name || u.username,
+              initials: (u.full_name || u.username).slice(0, 2).toUpperCase(),
+              email: `${u.username}@plant-ops.local`,
+              role: r.charAt(0).toUpperCase() + r.slice(1),
+              roleTh: r === 'admin' ? 'ผู้ดูแลระบบ' : r === 'engineer' ? 'วิศวกร' : r === 'operator' ? 'พนักงาน' : 'ผู้ตรวจสอบ',
+              permissions: r === 'admin' ? 'Full Control & Thresholds' : r === 'engineer' ? 'Device Management & Calibrations' : r === 'operator' ? 'Kiosk, Fan & Live Alerts' : 'Read-only & Compliance Audits',
+              permissionsTh: r === 'admin' ? 'ควบคุมทุกฟังก์ชันและเกณฑ์แจ้งเตือน' : r === 'engineer' ? 'จัดการอุปกรณ์และบันทึกผลสอบเทียบ' : r === 'operator' ? 'ควบคุมพัดลมและรับทราบเหตุการณ์หน้างาน' : 'เรียกดูรายงานและตรวจสอบความปลอดภัย',
+              status: u.is_active ? 'Active' : 'Inactive',
+              isActive: u.is_active ?? true,
+            };
+          });
+          setUsersList(formatted);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to fetch real users:', e);
+    } finally {
+      setLoadingUsers(false);
+    }
+
+    // Real system users seed fallback (matching PostgreSQL init.sql)
+    setUsersList([
+      {
+        id: 1,
+        username: 'admin',
+        name: 'System Administrator',
+        initials: 'SA',
+        email: 'admin@plant-ops.local',
+        role: 'Admin',
+        roleTh: 'ผู้ดูแลระบบ',
+        permissions: 'Full Control & Thresholds',
+        permissionsTh: 'ควบคุมทุกฟังก์ชันและเกณฑ์แจ้งเตือน',
+        status: 'Active',
+        isActive: true,
+      },
+      {
+        id: 2,
+        username: 'engineer',
+        name: 'Process & Calibration Engineer',
+        initials: 'PE',
+        email: 'engineer@plant-ops.local',
+        role: 'Engineer',
+        roleTh: 'วิศวกร',
+        permissions: 'Device Management & Calibrations',
+        permissionsTh: 'จัดการอุปกรณ์และบันทึกผลสอบเทียบ',
+        status: 'Active',
+        isActive: true,
+      },
+      {
+        id: 3,
+        username: 'operator',
+        name: 'Line Operator',
+        initials: 'LO',
+        email: 'operator@plant-ops.local',
+        role: 'Operator',
+        roleTh: 'พนักงานสายการผลิต',
+        permissions: 'Kiosk, Fan & Live Alerts',
+        permissionsTh: 'ควบคุมพัดลมและรับทราบเหตุการณ์หน้างาน',
+        status: 'Active',
+        isActive: true,
+      },
+      {
+        id: 4,
+        username: 'viewer',
+        name: 'Safety & Compliance Auditor',
+        initials: 'SC',
+        email: 'auditor@plant-ops.local',
+        role: 'Viewer',
+        roleTh: 'ผู้ตรวจสอบความปลอดภัย (จป.)',
+        permissions: 'Read-only & Compliance Audits',
+        permissionsTh: 'เรียกดูรายงานและตรวจสอบความปลอดภัย',
+        status: 'Active',
+        isActive: true,
+      }
+    ]);
+  }, [token]);
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUsers();
+    }
+  }, [activeTab, fetchUsers]);
 
   // Tab 5: General
   const [generalConfig, setGeneralConfig] = useState({
@@ -118,6 +202,128 @@ export default function Settings() {
     setTestSent(true);
     setTimeout(() => setTestSent(false), 2500);
   }
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    setUserActionError('');
+    if (!newUserForm.username.trim() || newUserForm.username.length < 3) {
+      setUserActionError(lang === 'TH' ? 'ชื่อผู้ใช้ต้องมีความยาวอย่างน้อย 3 ตัวอักษร' : 'Username must be at least 3 characters');
+      return;
+    }
+    if (!newUserForm.password || newUserForm.password.length < 6) {
+      setUserActionError(lang === 'TH' ? 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร' : 'Password must be at least 6 characters');
+      return;
+    }
+    setUserActionLoading(true);
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+      const res = await fetch(`${API}/api/users`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(newUserForm)
+      });
+      if (res.ok) {
+        setIsAddUserModalOpen(false);
+        setNewUserForm({ username: '', password: '', full_name: '', role: 'operator', site: 'Main Plant' });
+        setUserActionSuccess(lang === 'TH' ? 'สร้างบัญชีผู้ใช้งานใหม่สำเร็จแล้ว ✓' : 'User account created successfully ✓');
+        setTimeout(() => setUserActionSuccess(''), 3500);
+        fetchUsers();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setUserActionError(err.detail || 'Failed to create user');
+      }
+    } catch (err) {
+      setUserActionError(err.message || 'Network error');
+    } finally {
+      setUserActionLoading(false);
+    }
+  };
+
+  const handleUpdateRole = async () => {
+    if (!selectedUserForAction) return;
+    setUserActionLoading(true);
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+      const res = await fetch(`${API}/api/users/${selectedUserForAction.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ role: newRoleSelection.toLowerCase() })
+      });
+      if (res.ok) {
+        setIsEditRoleModalOpen(false);
+        setUserActionSuccess(lang === 'TH' ? 'แก้ไขสิทธิ์การใช้งานสำเร็จแล้ว ✓' : 'Role updated successfully ✓');
+        setTimeout(() => setUserActionSuccess(''), 3500);
+        fetchUsers();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || 'Failed to update role');
+      }
+    } catch (e) {
+      alert(e.message || 'Network error');
+    } finally {
+      setUserActionLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedUserForAction) return;
+    if (!newPasswordInput || newPasswordInput.length < 6) {
+      alert(lang === 'TH' ? 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 6 ตัวอักษร' : 'New password must be at least 6 characters');
+      return;
+    }
+    setUserActionLoading(true);
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      };
+      const res = await fetch(`${API}/api/users/${selectedUserForAction.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ password: newPasswordInput })
+      });
+      if (res.ok) {
+        setIsResetPwdModalOpen(false);
+        setNewPasswordInput('');
+        setUserActionSuccess(lang === 'TH' ? 'รีเซ็ตรหัสผ่านสำเร็จแล้ว ✓' : 'Password reset successfully ✓');
+        setTimeout(() => setUserActionSuccess(''), 3500);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || 'Failed to reset password');
+      }
+    } catch (e) {
+      alert(e.message || 'Network error');
+    } finally {
+      setUserActionLoading(false);
+    }
+  };
+
+  const handleDeactivateUser = async (u) => {
+    if (!window.confirm(lang === 'TH' ? `ยืนยันการระงับการใช้งานบัญชี ${u.name}?` : `Suspend user account ${u.name}?`)) return;
+    try {
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`${API}/api/users/${u.id}`, {
+        method: 'DELETE',
+        headers
+      });
+      if (res.ok) {
+        setUserActionSuccess(lang === 'TH' ? 'ระงับการใช้งานบัญชีสำเร็จแล้ว ✓' : 'User deactivated ✓');
+        setTimeout(() => setUserActionSuccess(''), 3500);
+        fetchUsers();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || 'Failed to deactivate user');
+      }
+    } catch (e) {
+      alert(e.message || 'Network error');
+    }
+  };
 
   return (
     <div className="max-w-4xl w-full mx-auto flex flex-col gap-8 pb-28">
@@ -599,11 +805,14 @@ export default function Settings() {
             </div>
             <button
               type="button"
-              onClick={() => alert(lang === 'TH' ? 'เปิดหน้าต่างเชิญผู้ใช้งาน' : 'Invite user dialog opened')}
+              onClick={() => {
+                setIsAddUserModalOpen(true);
+                setUserActionError('');
+              }}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#004ac6] text-white font-medium text-[13px] hover:bg-[#003ea8] shadow-xs transition-all cursor-pointer"
             >
               <UserPlus size={16} />
-              <span>{t('inviteUser', 'Invite user')}</span>
+              <span>{lang === 'TH' ? 'เพิ่มผู้ใช้งาน / Add User' : 'Add User'}</span>
             </button>
           </div>
 
@@ -659,24 +868,40 @@ export default function Settings() {
                         <div className="absolute right-3 top-10 w-44 bg-white rounded-2xl shadow-lg border border-[#eaedff] py-1.5 z-20 text-left text-[12px] animate-in fade-in zoom-in-95">
                           <button
                             type="button"
-                            onClick={() => { setOpenUserMenuId(null); alert(lang === 'TH' ? `แก้ไขสิทธิ์ของ ${u.name}` : `Edit role for ${u.name}`); }}
-                            className="w-full px-3.5 py-1.5 hover:bg-[#f2f3ff] text-[#131b2e] text-left cursor-pointer"
+                            onClick={() => {
+                              setSelectedUserForAction(u);
+                              setNewRoleSelection((u.role || 'operator').toLowerCase());
+                              setIsEditRoleModalOpen(true);
+                              setOpenUserMenuId(null);
+                            }}
+                            className="w-full px-3.5 py-1.5 hover:bg-[#f2f3ff] text-[#131b2e] text-left cursor-pointer flex items-center gap-2"
                           >
-                            {lang === 'TH' ? 'แก้ไขสิทธิ์' : 'Edit permissions'}
+                            <UserCheck size={14} className="text-[#004ac6]" />
+                            <span>{lang === 'TH' ? 'แก้ไขสิทธิ์' : 'Edit role'}</span>
                           </button>
                           <button
                             type="button"
-                            onClick={() => { setOpenUserMenuId(null); alert(lang === 'TH' ? `ส่งลิงก์รีเซ็ตรหัสผ่านไปยัง ${u.email}` : `Password reset link sent to ${u.email}`); }}
-                            className="w-full px-3.5 py-1.5 hover:bg-[#f2f3ff] text-[#131b2e] text-left cursor-pointer"
+                            onClick={() => {
+                              setSelectedUserForAction(u);
+                              setNewPasswordInput('');
+                              setIsResetPwdModalOpen(true);
+                              setOpenUserMenuId(null);
+                            }}
+                            className="w-full px-3.5 py-1.5 hover:bg-[#f2f3ff] text-[#131b2e] text-left cursor-pointer flex items-center gap-2"
                           >
-                            {lang === 'TH' ? 'รีเซ็ตรหัสผ่าน' : 'Reset password'}
+                            <KeyRound size={14} className="text-[#004ac6]" />
+                            <span>{lang === 'TH' ? 'รีเซ็ตรหัสผ่าน' : 'Reset password'}</span>
                           </button>
                           <button
                             type="button"
-                            onClick={() => { setOpenUserMenuId(null); alert(lang === 'TH' ? `ระงับบัญชี ${u.name}` : `Account ${u.name} suspended`); }}
-                            className="w-full px-3.5 py-1.5 hover:bg-[#fee2e2] text-[#ef4444] text-left cursor-pointer"
+                            onClick={() => {
+                              setOpenUserMenuId(null);
+                              handleDeactivateUser(u);
+                            }}
+                            className="w-full px-3.5 py-1.5 hover:bg-[#fee2e2] text-[#ef4444] text-left cursor-pointer flex items-center gap-2"
                           >
-                            {lang === 'TH' ? 'ระงับบัญชี' : 'Suspend account'}
+                            <Trash2 size={14} className="text-[#ef4444]" />
+                            <span>{lang === 'TH' ? 'ระงับบัญชี' : 'Suspend account'}</span>
                           </button>
                         </div>
                       )}
@@ -837,6 +1062,263 @@ export default function Settings() {
               <Check size={16} />
               <span>{saved ? t('saved', 'Saved') : t('save', 'Save')}</span>
             </button>
+          </div>
+        </div>
+      )}
+      {/* ── Toast Notification ── */}
+      {userActionSuccess && (
+        <div className="fixed top-20 right-8 z-50 bg-[#004ac6] text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200">
+          <Check size={18} />
+          <span className="text-[13px] font-medium">{userActionSuccess}</span>
+        </div>
+      )}
+
+      {/* ── Modal: Add New User Form ── */}
+      {isAddUserModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => !userActionLoading && setIsAddUserModalOpen(false)}
+            className="fixed inset-0 bg-[#283044]/40 backdrop-blur-xs transition-opacity"
+          />
+          <div className="relative bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-[#eaedff] z-10 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-[#eaedff]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-[#004ac6]/10 text-[#004ac6] flex items-center justify-center">
+                  <UserPlus size={18} />
+                </div>
+                <div>
+                  <h3 className="text-[16px] font-bold text-[#131b2e]">
+                    {lang === 'TH' ? 'เพิ่มผู้ใช้งานใหม่' : 'Add New User'}
+                  </h3>
+                  <span className="text-[11px] text-[#505f76]">
+                    {lang === 'TH' ? 'สร้างบัญชีผู้ใช้จริงลงในฐานข้อมูล' : 'Register account into PostgreSQL'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddUserModalOpen(false)}
+                disabled={userActionLoading}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#505f76] hover:bg-[#eaedff] transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {userActionError && (
+              <div className="mt-4 p-3 rounded-xl bg-[#fee2e2] text-[#b91c1c] text-[12px] font-medium flex items-center gap-2">
+                <ShieldAlert size={16} />
+                <span>{userActionError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateUser} className="flex flex-col gap-4 mt-5">
+              <div>
+                <label className="text-[12px] font-semibold text-[#131b2e] block mb-1">
+                  {lang === 'TH' ? 'ชื่อ-นามสกุล / Full Name' : 'Full Name'} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={lang === 'TH' ? 'เช่น สมชาย ใจมั่น' : 'e.g. John Doe'}
+                  value={newUserForm.full_name}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, full_name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#f2f3ff] border border-[#c3c6d7] text-[13px] text-[#131b2e] focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20"
+                />
+              </div>
+
+              <div>
+                <label className="text-[12px] font-semibold text-[#131b2e] block mb-1">
+                  {lang === 'TH' ? 'ชื่อผู้ใช้ / Username (สำหรับล็อกอิน)' : 'Username'} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={lang === 'TH' ? 'อย่างน้อย 3 ตัวอักษร เช่น somchai' : 'min 3 chars, e.g. jdoe'}
+                  value={newUserForm.username}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, username: e.target.value.toLowerCase().trim() })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#f2f3ff] border border-[#c3c6d7] text-[13px] text-[#131b2e] focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20"
+                />
+              </div>
+
+              <div>
+                <label className="text-[12px] font-semibold text-[#131b2e] block mb-1">
+                  {lang === 'TH' ? 'รหัสผ่านเริ่มต้น / Password' : 'Password'} *
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder={lang === 'TH' ? 'อย่างน้อย 6 ตัวอักษร' : 'min 6 chars'}
+                  value={newUserForm.password}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#f2f3ff] border border-[#c3c6d7] text-[13px] text-[#131b2e] focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[12px] font-semibold text-[#131b2e] block mb-1">
+                    {lang === 'TH' ? 'บทบาท / Role' : 'Role'} *
+                  </label>
+                  <select
+                    value={newUserForm.role}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-xl bg-[#f2f3ff] border border-[#c3c6d7] text-[13px] text-[#131b2e] focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 cursor-pointer"
+                  >
+                    <option value="operator">{lang === 'TH' ? 'Operator (ช่าง/พนักงาน)' : 'Operator'}</option>
+                    <option value="engineer">{lang === 'TH' ? 'Engineer (วิศวกร)' : 'Engineer'}</option>
+                    <option value="admin">{lang === 'TH' ? 'Admin (ผู้ดูแลระบบ)' : 'Admin'}</option>
+                    <option value="viewer">{lang === 'TH' ? 'Viewer (ผู้ตรวจ/จป.)' : 'Viewer'}</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[12px] font-semibold text-[#131b2e] block mb-1">
+                    {lang === 'TH' ? 'สถานที่ / Site' : 'Site'}
+                  </label>
+                  <input
+                    type="text"
+                    value={newUserForm.site}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, site: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-xl bg-[#f2f3ff] border border-[#c3c6d7] text-[13px] text-[#131b2e] focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-[#eaedff] mt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddUserModalOpen(false)}
+                  disabled={userActionLoading}
+                  className="px-4 py-2 rounded-xl text-[#505f76] hover:bg-[#eaedff] text-[13px] font-medium transition-colors cursor-pointer"
+                >
+                  {t('cancel', 'Cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={userActionLoading}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[#004ac6] text-white text-[13px] font-semibold hover:bg-[#003ea8] shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {userActionLoading ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+                  <span>{lang === 'TH' ? 'สร้างบัญชีผู้ใช้' : 'Create Account'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Edit Role Form ── */}
+      {isEditRoleModalOpen && selectedUserForAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => !userActionLoading && setIsEditRoleModalOpen(false)}
+            className="fixed inset-0 bg-[#283044]/40 backdrop-blur-xs transition-opacity"
+          />
+          <div className="relative bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[#eaedff] z-10 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-[#eaedff]">
+              <h3 className="text-[16px] font-bold text-[#131b2e]">
+                {lang === 'TH' ? 'แก้ไขสิทธิ์การใช้งาน' : 'Change User Role'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditRoleModalOpen(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[#505f76] hover:bg-[#eaedff]"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="py-4">
+              <span className="text-[12px] text-[#505f76] block mb-2">
+                {lang === 'TH' ? `ผู้ใช้: ${selectedUserForAction.name} (${selectedUserForAction.username})` : `User: ${selectedUserForAction.name}`}
+              </span>
+              <label className="text-[12px] font-semibold text-[#131b2e] block mb-1">
+                {lang === 'TH' ? 'เลือกระดับสิทธิ์ใหม่ / New Role' : 'Select Role'}
+              </label>
+              <select
+                value={newRoleSelection}
+                onChange={(e) => setNewRoleSelection(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl bg-[#f2f3ff] border border-[#c3c6d7] text-[13px] text-[#131b2e]"
+              >
+                <option value="operator">{lang === 'TH' ? 'Operator (พนักงาน)' : 'Operator'}</option>
+                <option value="engineer">{lang === 'TH' ? 'Engineer (วิศวกร)' : 'Engineer'}</option>
+                <option value="admin">{lang === 'TH' ? 'Admin (ผู้ดูแลระบบ)' : 'Admin'}</option>
+                <option value="viewer">{lang === 'TH' ? 'Viewer (ผู้ตรวจ/จป.)' : 'Viewer'}</option>
+              </select>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#eaedff]">
+              <button
+                type="button"
+                onClick={() => setIsEditRoleModalOpen(false)}
+                className="px-4 py-1.5 rounded-xl text-[#505f76] hover:bg-[#eaedff] text-[12px]"
+              >
+                {t('cancel', 'Cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleUpdateRole}
+                disabled={userActionLoading}
+                className="px-5 py-1.5 rounded-xl bg-[#004ac6] text-white text-[12px] font-semibold hover:bg-[#003ea8]"
+              >
+                {userActionLoading ? <Loader2 size={14} className="animate-spin" /> : (lang === 'TH' ? 'บันทึก' : 'Save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Reset Password Form ── */}
+      {isResetPwdModalOpen && selectedUserForAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => !userActionLoading && setIsResetPwdModalOpen(false)}
+            className="fixed inset-0 bg-[#283044]/40 backdrop-blur-xs transition-opacity"
+          />
+          <div className="relative bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[#eaedff] z-10 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-[#eaedff]">
+              <h3 className="text-[16px] font-bold text-[#131b2e]">
+                {lang === 'TH' ? 'รีเซ็ตรหัสผ่าน' : 'Reset Password'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsResetPwdModalOpen(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-[#505f76] hover:bg-[#eaedff]"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="py-4">
+              <span className="text-[12px] text-[#505f76] block mb-2">
+                {lang === 'TH' ? `ผู้ใช้: ${selectedUserForAction.name} (${selectedUserForAction.username})` : `User: ${selectedUserForAction.name}`}
+              </span>
+              <label className="text-[12px] font-semibold text-[#131b2e] block mb-1">
+                {lang === 'TH' ? 'รหัสผ่านใหม่ / New Password' : 'New Password'}
+              </label>
+              <input
+                type="password"
+                placeholder={lang === 'TH' ? 'อย่างน้อย 6 ตัวอักษร' : 'min 6 chars'}
+                value={newPasswordInput}
+                onChange={(e) => setNewPasswordInput(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl bg-[#f2f3ff] border border-[#c3c6d7] text-[13px] text-[#131b2e]"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#eaedff]">
+              <button
+                type="button"
+                onClick={() => setIsResetPwdModalOpen(false)}
+                className="px-4 py-1.5 rounded-xl text-[#505f76] hover:bg-[#eaedff] text-[12px]"
+              >
+                {t('cancel', 'Cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={userActionLoading}
+                className="px-5 py-1.5 rounded-xl bg-[#004ac6] text-white text-[12px] font-semibold hover:bg-[#003ea8]"
+              >
+                {userActionLoading ? <Loader2 size={14} className="animate-spin" /> : (lang === 'TH' ? 'เปลี่ยนรหัสผ่าน' : 'Update')}
+              </button>
+            </div>
           </div>
         </div>
       )}

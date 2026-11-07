@@ -68,9 +68,13 @@ export default function Dashboard() {
   const boxId = 'BOX-001';
   const thresholds = getThresholds();
   const dataRef = useRef(data);
+  const historyRef = useRef(history);
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -95,23 +99,23 @@ export default function Dashboard() {
         }
       };
 
-      const [latestRes, historyRes, alertsRes] = await Promise.all([
-        fetchWithTimeout(`${API}/api/dashboard/latest?box_id=${boxId}`),
-        fetchWithTimeout(`${API}/api/dashboard/history?box_id=${boxId}&range=24h`).catch(() => []),
-        fetchWithTimeout(`${API}/api/alerts?box_id=${boxId}&limit=5`).catch(() => []),
-      ]);
+      // Unified single-roundtrip API: bundles latest telemetry, alerts, and 24h history on first load
+      const needHistory = !historyRef.current || historyRef.current.length === 0;
+      const url = `${API}/api/dashboard/latest?box_id=${boxId}&include_alerts=true${needHistory ? '&include_history=24h' : ''}`;
+      const res = await fetchWithTimeout(url);
 
-      if (latestRes) {
-        setData(latestRes);
-        localStorage.setItem('voc_cached_dashboard_v2', JSON.stringify(latestRes));
-      }
-      if (historyRes && Array.isArray(historyRes)) {
-        setHistory(historyRes);
-        localStorage.setItem('voc_cached_history_v2', JSON.stringify(historyRes));
-      }
-      if (alertsRes && Array.isArray(alertsRes)) {
-        setAlerts(alertsRes);
-        localStorage.setItem('voc_cached_alerts_v2', JSON.stringify(alertsRes));
+      if (res) {
+        setData(res);
+        localStorage.setItem('voc_cached_dashboard_v2', JSON.stringify(res));
+
+        if (Array.isArray(res.alerts)) {
+          setAlerts(res.alerts);
+          localStorage.setItem('voc_cached_alerts_v2', JSON.stringify(res.alerts));
+        }
+        if (Array.isArray(res.history) && res.history.length > 0) {
+          setHistory(res.history);
+          localStorage.setItem('voc_cached_history_v2', JSON.stringify(res.history));
+        }
       }
       setIsColdStarting(false);
     } catch (err) {

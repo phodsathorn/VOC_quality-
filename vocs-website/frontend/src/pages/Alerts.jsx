@@ -29,8 +29,8 @@ export default function Alerts() {
       status: 'Open',
       statusBg: 'bg-[#ffdad6]',
       statusText: 'text-[#ba1a1a]',
-      owner: 'E. Mitchell',
-      ownerInitials: 'EM',
+      owner: 'Safety & Compliance Auditor',
+      ownerInitials: 'SC',
       slaMinutes: 6,
       slaTarget: 10,
       peakPpb: 218,
@@ -50,8 +50,8 @@ export default function Alerts() {
       status: 'Acknowledged',
       statusBg: 'bg-[#eaedff]',
       statusText: 'text-[#54647a]',
-      owner: 'P. Krai',
-      ownerInitials: 'PK',
+      owner: 'Process & Calibration Engineer',
+      ownerInitials: 'PE',
       slaMinutes: 3,
       slaTarget: 15,
       peakPpb: 110,
@@ -71,8 +71,8 @@ export default function Alerts() {
       status: 'Resolved',
       statusBg: 'bg-[#eaedff]',
       statusText: 'text-[#434655]',
-      owner: 'S. Tanaka',
-      ownerInitials: 'ST',
+      owner: 'Line Operator',
+      ownerInitials: 'LO',
       slaMinutes: 2,
       slaTarget: 10,
       peakPpb: 45,
@@ -92,8 +92,8 @@ export default function Alerts() {
       status: 'Resolved',
       statusBg: 'bg-[#eaedff]',
       statusText: 'text-[#434655]',
-      owner: 'E. Mitchell',
-      ownerInitials: 'EM',
+      owner: 'Safety & Compliance Auditor',
+      ownerInitials: 'SC',
       slaMinutes: 8,
       slaTarget: 10,
       peakPpb: 180,
@@ -113,8 +113,8 @@ export default function Alerts() {
       status: 'Resolved',
       statusBg: 'bg-[#eaedff]',
       statusText: 'text-[#434655]',
-      owner: 'P. Krai',
-      ownerInitials: 'PK',
+      owner: 'Process & Calibration Engineer',
+      ownerInitials: 'PE',
       slaMinutes: 4,
       slaTarget: 15,
       peakPpb: 78,
@@ -165,8 +165,8 @@ export default function Alerts() {
                 status: a.status === 'Active' ? 'Open' : a.status || 'Open',
                 statusBg: a.status === 'Open' || a.status === 'Active' ? 'bg-[#ffdad6]' : 'bg-[#eaedff]',
                 statusText: a.status === 'Open' || a.status === 'Active' ? 'text-[#ba1a1a]' : a.status === 'Acknowledged' ? 'text-[#54647a]' : 'text-[#434655]',
-                owner: a.acknowledged_by || a.resolved_by || 'E. Mitchell',
-                ownerInitials: (a.acknowledged_by || a.resolved_by || 'EM').slice(0, 2).toUpperCase(),
+                owner: a.acknowledged_by || a.resolved_by || 'Safety & Compliance Auditor',
+                ownerInitials: (a.acknowledged_by || a.resolved_by || 'SC').slice(0, 2).toUpperCase(),
                 slaMinutes: a.remaining_sla_seconds ? Math.max(1, Math.round(a.remaining_sla_seconds / 60)) : 6,
                 slaTarget: 10,
                 peakPpb: a.peak_reading || 218,
@@ -787,9 +787,10 @@ export default function Alerts() {
                   onChange={(e) => setOwnerSelection(e.target.value)}
                   className="w-full appearance-none bg-[#f2f3ff] text-[#131b2e] rounded-2xl py-3 px-4 pr-10 text-[14px] font-normal focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 cursor-pointer"
                 >
-                  <option value="em">E. Mitchell ({isThai ? 'เจ้าหน้าที่ความปลอดภัย (จป.)' : 'H&S Officer'})</option>
-                  <option value="pk">P. Krai ({isThai ? 'หัวหน้าฝ่ายอาคารสถานที่' : 'Facility Lead'})</option>
-                  <option value="st">S. Tanaka ({isThai ? 'วิศวกรความปลอดภัย' : 'Safety Eng.'})</option>
+                  <option value="admin">System Administrator ({isThai ? 'ผู้ดูแลระบบส่วนกลาง' : 'System Admin'})</option>
+                  <option value="engineer">Process & Calibration Engineer ({isThai ? 'วิศวกรสอบเทียบ' : 'Process Eng.'})</option>
+                  <option value="operator">Line Operator ({isThai ? 'พนักงานประจำตู้พ่นสี' : 'Booth Operator'})</option>
+                  <option value="viewer">Safety & Compliance Auditor ({isThai ? 'เจ้าหน้าที่ความปลอดภัย (จป.)' : 'H&S Auditor'})</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#434655]">
                   <ChevronDown size={18} />

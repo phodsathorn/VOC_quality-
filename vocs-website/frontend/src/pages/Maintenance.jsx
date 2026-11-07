@@ -25,12 +25,12 @@ export default function Maintenance() {
   // Add Log form
   const [logType, setLogType] = useState('sensor-calibration');
   const [logDate, setLogDate] = useState('2025-10-24');
-  const [logTechnician, setLogTechnician] = useState(user?.full_name || 'E. Mitchell');
+  const [logTechnician, setLogTechnician] = useState(user?.full_name || 'Process & Calibration Engineer');
   const [logNote, setLogNote] = useState('');
 
   // Add Work Order form
   const [woTitle, setWoTitle] = useState('');
-  const [woAssignee, setWoAssignee] = useState('E. Mitchell (H&S Officer)');
+  const [woAssignee, setWoAssignee] = useState('Process & Calibration Engineer');
   const [woDueDate, setWoDueDate] = useState('2025-11-05');
   const [woNote, setWoNote] = useState('');
 
@@ -78,7 +78,7 @@ export default function Maintenance() {
       gasType: 'Alcohol / Thinner Solvents',
       serial: 'SN-9402-VOC',
       last: 'Oct 12, 2025',
-      technician: 'E. Mitchell',
+      technician: 'Process & Calibration Engineer',
       drift: '+1.2%',
       spanGas: '50 ppm Ethanol',
       next: 'Nov 12, 2025',
@@ -91,7 +91,7 @@ export default function Maintenance() {
       gasType: 'Combustibles / LPG / Propane',
       serial: 'SN-8814-MOS',
       last: 'Sep 28, 2025',
-      technician: 'R. Chen',
+      technician: 'System Administrator',
       drift: '+4.8%',
       spanGas: '1000 ppm Propane',
       next: 'Oct 28, 2025',
@@ -130,7 +130,7 @@ export default function Maintenance() {
       gasType: 'Carbon Monoxide MEMS',
       serial: 'SN-6210-CO',
       last: 'Sep 14, 2025',
-      technician: 'E. Mitchell',
+      technician: 'Process & Calibration Engineer',
       drift: '+2.4%',
       spanGas: '50 ppm Carbon Monoxide',
       next: 'Nov 14, 2025',
@@ -143,7 +143,7 @@ export default function Maintenance() {
       gasType: 'Nitrogen Dioxide Multi-MEMS',
       serial: 'SN-7730-NO2',
       last: 'Oct 18, 2025',
-      technician: 'E. Mitchell',
+      technician: 'Process & Calibration Engineer',
       drift: '+0.9%',
       spanGas: '10 ppm Nitrogen Dioxide',
       next: 'Nov 18, 2025',
@@ -152,12 +152,12 @@ export default function Maintenance() {
     },
   ]);
 
-  // Work Orders List matching Stitch
+  // Work Orders List
   const [workOrders, setWorkOrders] = useState([
     {
       id: 'WO-2025-089',
       title: 'HEPA Pre-filter Cartridge Replacement',
-      assignee: 'E. Mitchell',
+      assignee: 'Process & Calibration Engineer',
       dueDate: 'Oct 29, 2025',
       status: 'In Progress',
       statusColor: 'bg-[#d3e4fe] text-[#004ac6]',
@@ -166,7 +166,7 @@ export default function Maintenance() {
     {
       id: 'WO-2025-092',
       title: 'Zero-Point Drift Recalibration MQ-2',
-      assignee: 'K. Tanaka',
+      assignee: 'Process & Calibration Engineer',
       dueDate: 'Oct 28, 2025',
       status: 'Due soon',
       statusColor: 'bg-[#ffdbcd] text-[#943700]',
@@ -175,20 +175,20 @@ export default function Maintenance() {
     {
       id: 'WO-2025-078',
       title: 'UV Sterilization Chamber Lamp Clean',
-      assignee: 'R. Vance',
+      assignee: 'Line Operator',
       dueDate: 'Oct 21, 2025',
       status: 'Completed',
       statusColor: 'bg-[#eaedff] text-[#004ac6]',
-      signedOffBy: 'E. Mitchell',
+      signedOffBy: 'Process & Calibration Engineer',
     },
     {
       id: 'WO-2025-084',
       title: 'Activated Carbon Sieve Refresh',
-      assignee: 'E. Mitchell',
+      assignee: 'Process & Calibration Engineer',
       dueDate: 'Oct 15, 2025',
       status: 'Completed',
       statusColor: 'bg-[#eaedff] text-[#004ac6]',
-      signedOffBy: 'J. Harrison',
+      signedOffBy: 'Safety & Compliance Auditor',
     },
   ]);
 
@@ -763,7 +763,7 @@ export default function Maintenance() {
                   <span className="text-[13px] font-bold text-[#131b2e]">Oct 12, 2025 • 09:30 AM</span>
                   <span className="text-[#004ac6] text-[11px] font-semibold bg-white px-2.5 py-0.5 rounded-full shadow-2xs">Drift +2.4%</span>
                 </div>
-                <span className="text-[12px] text-[#505f76]">{lang === 'TH' ? 'ผู้สอบเทียบ: E. Mitchell (เจ้าหน้าที่ จป.)' : 'Technician: E. Mitchell (H&S Officer)'}</span>
+                <span className="text-[12px] text-[#505f76]">{lang === 'TH' ? 'ผู้สอบเทียบ: วิศวกรสอบเทียบเครื่องมือ (Process Engineer)' : 'Technician: Process & Calibration Engineer'}</span>
                 <span className="text-[11px] text-[#505f76] font-mono">Baseline resistance: 42.1 kΩ • Zero-air certified</span>
                 <button
                   type="button"
@@ -780,7 +780,7 @@ export default function Maintenance() {
                   <span className="text-[13px] font-bold text-[#131b2e]">Sep 12, 2025 • 11:15 AM</span>
                   <span className="text-[#004ac6] text-[11px] font-semibold bg-white px-2.5 py-0.5 rounded-full shadow-2xs">Drift +1.1%</span>
                 </div>
-                <span className="text-[12px] text-[#505f76]">{lang === 'TH' ? 'ผู้สอบเทียบ: E. Mitchell' : 'Technician: E. Mitchell'}</span>
+                <span className="text-[12px] text-[#505f76]">{lang === 'TH' ? 'ผู้สอบเทียบ: วิศวกรสอบเทียบเครื่องมือ' : 'Technician: Process & Calibration Engineer'}</span>
                 <span className="text-[11px] text-[#505f76] font-mono">Baseline resistance: 41.8 kΩ</span>
                 <button
                   type="button"
@@ -797,7 +797,7 @@ export default function Maintenance() {
                   <span className="text-[13px] font-bold text-[#131b2e]">Aug 10, 2025 • 02:40 PM</span>
                   <span className="text-[#004ac6] text-[11px] font-semibold bg-white px-2.5 py-0.5 rounded-full shadow-2xs">Drift -0.6%</span>
                 </div>
-                <span className="text-[12px] text-[#505f76]">{lang === 'TH' ? 'ผู้สอบเทียบ: R. Chen' : 'Technician: R. Chen'}</span>
+                <span className="text-[12px] text-[#505f76]">{lang === 'TH' ? 'ผู้สอบเทียบ: ผู้ดูแลระบบ (System Admin)' : 'Technician: System Administrator'}</span>
                 <span className="text-[11px] text-[#505f76] font-mono">Baseline resistance: 42.5 kΩ</span>
                 <button
                   type="button"
