@@ -257,12 +257,12 @@ export default function Dashboard() {
   // Pip position for the Air Quality slider (0 to 100+ scale)
   const aqiPipPercent = Math.min(100, Math.max(0, (currentAqi / 100) * 100));
 
-  // Real-time sensor probes array (All 12 sensor channels from 8 physical hardware modules)
+  // Real-time sensor probes array (All 12 sensor channels from 8 physical hardware modules in BOX-001)
   const allProbes = useMemo(() => [
     {
       id: 'CCS811 (TVOC)',
-      name: isThai ? t('descTvocGasSensor') : 'TVOC Gas Sensor',
-      loc: isThai ? t('locPrimaryChamber') : 'Primary Chamber',
+      name: 'VOC MEMS',
+      target: isThai ? 'สารระเหยรวม (TVOC)' : 'Total VOCs (TVOC)',
       val: reading.tvoc != null ? `${Math.round(reading.tvoc)} ppb` : '64 ppb',
       thresh: '120 ppb',
       status: (reading.tvoc != null && reading.tvoc > 120) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
@@ -270,8 +270,8 @@ export default function Dashboard() {
     },
     {
       id: 'CCS811 (eCO₂)',
-      name: isThai ? t('descEquivalentCo2') : 'Equivalent CO₂',
-      loc: isThai ? t('locExhaustReturn') : 'Exhaust Return',
+      name: 'Equivalent CO₂',
+      target: isThai ? 'คาร์บอนไดออกไซด์เทียบเท่า' : 'Equivalent CO₂ (eCO₂)',
       val: reading.eco2 != null ? `${Math.round(reading.eco2)} ppm` : '450 ppm',
       thresh: '1000 ppm',
       status: (reading.eco2 != null && reading.eco2 > 1000) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
@@ -279,8 +279,8 @@ export default function Dashboard() {
     },
     {
       id: 'MQ-135',
-      name: isThai ? t('descAirQualityBenzene') : 'Air Quality / Benzene',
-      loc: isThai ? t('locBoothInflow') : 'Booth Inflow',
+      name: 'MOS Gas Sensor',
+      target: isThai ? 'เบนซีน, ควัน, แอมโมเนีย' : 'Benzene, Smoke, Ammonia',
       val: reading.mq135 != null ? `${reading.mq135} ADC` : '1420 ADC',
       thresh: '2500 ADC',
       status: (reading.mq135 != null && reading.mq135 > 2500) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
@@ -288,8 +288,8 @@ export default function Dashboard() {
     },
     {
       id: 'MQ-3',
-      name: isThai ? t('descAlcoholThinner') : 'Alcohol / Thinner / Solvents',
-      loc: isThai ? t('locSolventSprayZone') : 'Solvent Spray Zone',
+      name: 'MOS Gas Sensor',
+      target: isThai ? 'แอลกอฮอล์, ทินเนอร์, ไอระเหย' : 'Alcohol, Thinner, Solvents',
       val: reading.mq3 != null ? `${reading.mq3} ADC` : '2100 ADC',
       thresh: '2800 ADC',
       status: (reading.mq3 != null && reading.mq3 > 2800) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
@@ -297,8 +297,8 @@ export default function Dashboard() {
     },
     {
       id: 'MQ-2',
-      name: isThai ? t('descCombustibleSmoke') : 'Combustible / Smoke / LPG',
-      loc: isThai ? t('locCuringLine') : 'Curing Line',
+      name: 'MOS Gas Sensor',
+      target: isThai ? 'ก๊าซไวไฟ, LPG, โพรเพน, มีเทน' : 'Combustible Gas, LPG, Methane',
       val: reading.mq2 != null ? `${reading.mq2} ADC` : '1180 ADC',
       thresh: '2000 ADC',
       status: (reading.mq2 != null && reading.mq2 > 2000) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
@@ -306,8 +306,8 @@ export default function Dashboard() {
     },
     {
       id: 'MQ-8',
-      name: isThai ? t('descHydrogenFlammable') : 'Hydrogen / Flammable Gas',
-      loc: isThai ? t('locRecirculationLine') : 'Recirculation Line',
+      name: 'MOS Gas Sensor',
+      target: isThai ? 'ก๊าซไฮโดรเจน (H₂)' : 'Hydrogen Gas (H₂)',
       val: reading.mq8 != null ? `${reading.mq8} ADC` : '1650 ADC',
       thresh: '1800 ADC',
       status: (reading.mq8 != null && reading.mq8 > 1800) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
@@ -315,8 +315,8 @@ export default function Dashboard() {
     },
     {
       id: 'MiCS-6814 (CO)',
-      name: isThai ? t('descCarbonMonoxide') : 'Carbon Monoxide',
-      loc: isThai ? t('locBurnerHeaterBed') : 'Burner / Heater Bed',
+      name: 'Multi-Channel MEMS',
+      target: isThai ? 'คาร์บอนมอนอกไซด์ (CO)' : 'Carbon Monoxide (CO)',
       val: reading.mics_co != null ? `${reading.mics_co} mV` : '1100 mV',
       thresh: '1500 mV',
       status: (reading.mics_co != null && reading.mics_co > 1500) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
@@ -324,8 +324,8 @@ export default function Dashboard() {
     },
     {
       id: 'MiCS-6814 (NO₂)',
-      name: isThai ? t('descNitrogenDioxide') : 'Nitrogen Dioxide',
-      loc: isThai ? t('locVentExhaust') : 'Vent Exhaust',
+      name: 'Multi-Channel MEMS',
+      target: isThai ? 'ไนโตรเจนไดออกไซด์ (NO₂)' : 'Nitrogen Dioxide (NO₂)',
       val: reading.no2 != null ? `${reading.no2} mV` : '820 mV',
       thresh: '1200 mV',
       status: (reading.no2 != null && reading.no2 > 1200) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
@@ -333,8 +333,8 @@ export default function Dashboard() {
     },
     {
       id: 'MiCS-6814 (NH₃)',
-      name: isThai ? t('descAmmoniaChannel') : 'Ammonia Channel',
-      loc: isThai ? t('locPretreatmentWash') : 'Pre-treatment Wash',
+      name: 'Multi-Channel MEMS',
+      target: isThai ? 'แอมโมเนีย (NH₃)' : 'Ammonia (NH₃)',
       val: reading.nh3 != null ? `${reading.nh3} mV` : '1380 mV',
       thresh: '1400 mV',
       status: (reading.nh3 != null && reading.nh3 > 1400) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
@@ -342,8 +342,8 @@ export default function Dashboard() {
     },
     {
       id: 'PMS5003',
-      name: isThai ? t('descPm25ParticleCounter') : 'PM2.5 Particle Counter',
-      loc: isThai ? t('locBoothFilterIntake') : 'Booth Filter Intake',
+      name: 'Optical Laser Sensor',
+      target: isThai ? 'ฝุ่นละอองอนุภาค (PM2.5 / PM10)' : 'Particulate Matter (PM2.5)',
       val: reading.pm25 != null ? `${Number(reading.pm25).toFixed(1)} µg/m³` : '12.0 µg/m³',
       thresh: '37.5 µg/m³',
       status: (reading.pm25 != null && reading.pm25 > 37.5) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
@@ -351,8 +351,8 @@ export default function Dashboard() {
     },
     {
       id: 'DHT22 (Temp)',
-      name: isThai ? t('descChamberTemperature') : 'Chamber Temperature',
-      loc: isThai ? t('locCoatingLineAmbient') : 'Coating Line Ambient',
+      name: 'Capacitive / RTD',
+      target: isThai ? 'อุณหภูมิห้องพ่นสี' : 'Chamber Temperature',
       val: reading.temp != null ? `${Number(reading.temp).toFixed(1)} °C` : '28.5 °C',
       thresh: '38.0 °C',
       status: (reading.temp != null && reading.temp > 38) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
@@ -360,8 +360,8 @@ export default function Dashboard() {
     },
     {
       id: 'DHT22 (Humidity)',
-      name: isThai ? t('descRelativeHumidity') : 'Relative Humidity',
-      loc: isThai ? t('locCoatingLineAmbient') : 'Coating Line Ambient',
+      name: 'Capacitive / RTD',
+      target: isThai ? 'ความชื้นสัมพัทธ์ในบรรยากาศ' : 'Relative Humidity (%RH)',
       val: reading.rh != null ? `${Number(reading.rh).toFixed(1)} %RH` : '55.2 %RH',
       thresh: '75.0 %RH',
       status: (reading.rh != null && reading.rh > 75) ? (isThai ? 'เฝ้าระวัง' : 'Warning') : (isThai ? 'ปกติ' : 'Normal'),
@@ -370,7 +370,7 @@ export default function Dashboard() {
   ], [
     reading.tvoc, reading.eco2, reading.mq135, reading.mq3,
     reading.mq2, reading.mq8, reading.mics_co, reading.no2,
-    reading.nh3, reading.pm25, reading.temp, reading.rh, isThai, t
+    reading.nh3, reading.pm25, reading.temp, reading.rh, isThai
   ]);
 
   const hasWarning = allProbes.some((p) => p.status === 'Warning');
@@ -799,7 +799,7 @@ export default function Dashboard() {
                   {t('liveTelemetryTitle')}
                 </h2>
                 <span className="text-[11px] text-[#505f76]">
-                  {t('location', 'Powder Coating Booth 1')} · {allProbes.length} {isThai ? 'หัววัดกำลังทำงาน' : 'Active Probes'}
+                  {isThai ? 'กล่องรวมสัญญาณ BOX-001 (ห้องพ่นสีที่ 1) · 12 แชนแนลตรวจวัด' : 'Sensor Enclosure BOX-001 (Booth 1) · 12 Channels'}
                 </span>
               </div>
             </div>
@@ -836,7 +836,7 @@ export default function Dashboard() {
                 <thead>
                   <tr className="bg-[#f2f3ff] border-b border-[#eaedff] text-[#505f76] font-medium text-[12px]">
                     <th className="py-2.5 px-3 whitespace-nowrap">{t('sensorIdCol')}</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap">{t('locationCol')}</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">{t('targetGasCol')}</th>
                     <th className="py-2.5 px-3 text-right whitespace-nowrap">{t('valueCol')}</th>
                     <th className="py-2.5 px-3 text-right whitespace-nowrap">{t('thresholdCol')}</th>
                     <th className="py-2.5 px-3 text-center whitespace-nowrap">{t('statusCol')}</th>
@@ -851,7 +851,7 @@ export default function Dashboard() {
                           <span className="text-[10px] text-[#505f76] font-normal">{probe.name}</span>
                         </div>
                       </td>
-                      <td className="py-2.5 px-3 text-[#505f76] whitespace-nowrap">{probe.loc}</td>
+                      <td className="py-2.5 px-3 text-[#131b2e] whitespace-nowrap text-xs font-medium">{probe.target}</td>
                       <td className="py-2.5 px-3 text-right font-medium tabular-nums whitespace-nowrap">{probe.val}</td>
                       <td className="py-2.5 px-3 text-right text-[#505f76] tabular-nums whitespace-nowrap">{probe.thresh}</td>
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
@@ -889,7 +889,7 @@ export default function Dashboard() {
           {/* Drawer Footer */}
           <div className="p-4 sm:p-5 border-t border-[#eaedff] bg-white shrink-0 flex items-center justify-between">
             <span className="text-[12px] text-[#505f76]">
-              {t('arrayIdLabel')}: <span className="font-mono text-[#131b2e] font-medium">{data?.box_id || 'SN-98442-E'}</span>
+              {isThai ? 'รหัสกล่องตรวจวัด' : 'Enclosure ID'}: <span className="font-mono text-[#131b2e] font-semibold">{data?.box_id || 'BOX-001'}</span>
             </span>
             <button
               type="button"

@@ -48,8 +48,30 @@
 - `npm --prefix vocs-website/frontend run build`: ผ่าน 100% (`built in 236ms`, 0 errors)
 - `npm --prefix vocs-website/frontend run lint`: ผ่าน (0 errors)
 
+---
+
+### [เวลา 17:40 น.] ปรับเปลี่ยนคอลัมน์ตำแหน่งติดตั้งเป็น "สารเป้าหมายที่ตรวจวัด" (Target Gas / Analyte)
+**ปัญหา/ข้อสังเกต:**
+- ตารางโทรมาตรตรวจวัดสดจากแผงเซนเซอร์ (Live sensor telemetry drawer) มีคอลัมน์ "ตำแหน่งติดตั้ง" ที่ระบุชื่อสถานที่แยกตามจุดต่าง ๆ ในโรงงาน (เช่น เตาอบสี, ท่อลมวน, บ่อล้าง) ซึ่งขัดกับความเป็นจริงของฮาร์ดแวร์โปรเจกต์ (`CORE_SPEC.md`) เนื่องจากเซนเซอร์ทุกตัวฝังรวมอยู่ในกล่องตรวจวัดเดียวกัน (`BOX-001`)
+
+**สิ่งที่แก้ไข:**
+1. **`vocs-website/frontend/src/context/LanguageContext.jsx`**:
+   - ปรับหัวคอลัมน์จาก "ตำแหน่งติดตั้ง" เป็น "สารเป้าหมายที่ตรวจวัด" (`targetGasCol`: 'สารเป้าหมายที่ตรวจวัด' / 'Target Gas / Analyte')
+   - ปรับแก้ `arrayIdLabel` ให้สะอาดตา
+2. **`vocs-website/frontend/src/pages/Dashboard.jsx`**:
+   - ปรับโครงสร้างข้อมูล `allProbes` ใน Drawer โดยเปลี่ยนจาก `loc` เป็น `target` แสดงชนิดสารหรือพารามิเตอร์ที่เซนเซอร์แต่ละตัวทำหน้าที่ตรวจวัด (เช่น สารระเหยรวม TVOC, แอลกอฮอล์/ทินเนอร์, ฝุ่น PM2.5, คาร์บอนมอนอกไซด์ CO ฯลฯ)
+   - ปรับหัวเรื่อง Drawer ให้ระบุชัดเจนว่า "กล่องรวมสัญญาณ BOX-001 (ห้องพ่นสีที่ 1) · 12 แชนแนลตรวจวัด"
+   - ปรับ Footer ให้แสดง "รหัสกล่องตรวจวัด: BOX-001"
+3. **`vocs-website/frontend/src/pages/AirflowDiagram.jsx`**:
+   - ปรับตารางใน Sensor box drawer ให้ตรงกัน โดยใช้เซนเซอร์ฮาร์ดแวร์จริง (`CCS811`, `MQ-3`, `MQ-135`, `MiCS-6814`, `PMS5003`) และแสดงคอลัมน์ "สารเป้าหมายที่ตรวจวัด" แทนตำแหน่งจำลองเดิม
+
+**การตรวจสอบ:**
+- `npm --prefix vocs-website/frontend run build`: ผ่านเรียบร้อย (`built in 237ms`, 0 errors)
+- `npm --prefix vocs-website/frontend run lint`: ผ่านเรียบร้อย (`0 errors, 65 warnings`)
+
 ## งานค้างและขั้นตอนถัดไป
 - Commit และ Push การเปลี่ยนแปลงขึ้น Git remote ทั้ง `origin` (GitLab) และ `github` (GitHub) เพื่อให้ Vercel deploy อัตโนมัติ
 - ทดสอบเปิดหน้าเว็บ `voc-quality.vercel.app` เพื่อยืนยันว่าหน้าเว็บโหลดได้ปกติสมบูรณ์
+
 
 

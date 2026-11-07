@@ -93,38 +93,38 @@ export default function AirflowDiagram() {
   // Telemetry drawer probes matching screenshots 1 & 5
   const probeRows = [
     {
-      id: 'MQ-135',
-      loc: isThai ? 'ช่องลมเข้าห้องพ่นสี' : 'Booth Inflow',
-      val: '48 ppb',
-      thresh: '100 ppb',
-      status: isThai ? 'ปกติ' : 'Normal',
-    },
-    {
-      id: 'MQ-137',
-      loc: isThai ? 'ปล่องระบายอากาศ' : 'Vent Exhaust',
-      val: '32 ppb',
-      thresh: '80 ppb',
-      status: isThai ? 'ปกติ' : 'Normal',
-    },
-    {
-      id: 'PID',
-      loc: isThai ? 'ห้องตรวจวัดหลัก' : 'Primary Chamber',
+      id: 'CCS811',
+      target: isThai ? 'สารระเหยรวม (TVOC)' : 'Total VOCs (TVOC)',
       val: '64 ppb',
       thresh: '120 ppb',
       status: isThai ? 'ปกติ' : 'Normal',
     },
     {
-      id: 'SGP40',
-      loc: isThai ? 'โซนอบแห้งเคลือบสี' : 'Curing Zone',
-      val: '18 ppb',
-      thresh: '50 ppb',
+      id: 'MQ-3',
+      target: isThai ? 'แอลกอฮอล์ และไอระเหยทินเนอร์' : 'Alcohol & Thinner Vapors',
+      val: '2100 ADC',
+      thresh: '2800 ADC',
       status: isThai ? 'ปกติ' : 'Normal',
     },
     {
-      id: 'TGS2602',
-      loc: isThai ? 'ท่อหมุนเวียนอากาศ' : 'Recirculation Line',
-      val: '55 ppb',
-      thresh: '90 ppb',
+      id: 'MQ-135',
+      target: isThai ? 'เบนซีน, ควัน, แอมโมเนีย' : 'Benzene, Smoke, NH₃',
+      val: '1420 ADC',
+      thresh: '2500 ADC',
+      status: isThai ? 'ปกติ' : 'Normal',
+    },
+    {
+      id: 'MiCS-6814',
+      target: isThai ? 'คาร์บอนมอนอกไซด์ (CO) และ NO₂' : 'Carbon Monoxide & NO₂',
+      val: '1100 mV',
+      thresh: '1500 mV',
+      status: isThai ? 'ปกติ' : 'Normal',
+    },
+    {
+      id: 'PMS5003',
+      target: isThai ? 'ฝุ่นละอองอนุภาคขนาดเล็ก (PM2.5)' : 'Particulate Matter (PM2.5)',
+      val: '12.0 µg/m³',
+      thresh: '37.5 µg/m³',
       status: isThai ? 'ปกติ' : 'Normal',
     },
   ];
@@ -833,7 +833,7 @@ export default function AirflowDiagram() {
                     {isThai ? 'โทรมาตรเซนเซอร์เรียลไทม์' : 'Live sensor telemetry'}
                   </h2>
                   <span className="text-[11px] text-[#505f76]">
-                    {isThai ? 'ห้องพ่นสีที่ 1 • 5 หัววัดทำงาน' : 'Powder Coating Booth 1 • 5 Active Probes'}
+                    {isThai ? 'กล่องรวมสัญญาณ BOX-001 • 5 แชนแนลหลัก' : 'Sensor Enclosure BOX-001 • 5 Core Channels'}
                   </span>
                 </div>
               </div>
@@ -864,7 +864,7 @@ export default function AirflowDiagram() {
                   <thead>
                     <tr className="bg-[#f2f3ff] border-b border-[#eaedff] text-[#505f76] font-medium text-xs">
                       <th className="py-2.5 px-4">{isThai ? 'รหัสเซนเซอร์' : 'Sensor ID'}</th>
-                      <th className="py-2.5 px-4">{isThai ? 'ตำแหน่ง' : 'Location'}</th>
+                      <th className="py-2.5 px-4">{isThai ? 'สารเป้าหมายที่ตรวจวัด' : 'Target Gas / Analyte'}</th>
                       <th className="py-2.5 px-4 text-right">{isThai ? 'ค่าที่อ่านได้' : 'Value'}</th>
                       <th className="py-2.5 px-4 text-right">{isThai ? 'เกณฑ์กำหนด' : 'Threshold'}</th>
                       <th className="py-2.5 px-4 text-center">{isThai ? 'สถานะ' : 'Status'}</th>
@@ -874,7 +874,7 @@ export default function AirflowDiagram() {
                     {probeRows.map((p) => (
                       <tr key={p.id} className="hover:bg-[#eaedff]/40 transition-colors">
                         <td className="py-3 px-4 font-bold text-[#131b2e]">{p.id}</td>
-                        <td className="py-3 px-4 text-[#505f76] text-xs">{p.loc}</td>
+                        <td className="py-3 px-4 text-[#131b2e] font-medium text-xs">{p.target}</td>
                         <td className="py-3 px-4 text-right font-bold text-[#131b2e]">{p.val}</td>
                         <td className="py-3 px-4 text-right text-[#505f76] text-xs">{p.thresh}</td>
                         <td className="py-3 px-4 text-center">
