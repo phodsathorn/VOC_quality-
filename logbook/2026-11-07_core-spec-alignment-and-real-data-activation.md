@@ -137,9 +137,14 @@
 - `npm --prefix vocs-website/frontend run build`: ผ่านสมบูรณ์ (`built in 278ms`, 0 errors)
 - `npm --prefix vocs-website/frontend run lint`: ผ่านเรียบร้อย (`0 errors, 67 warnings`)
 
+## สถานะ
+- [x] ตรวจสอบแท็ก `<button>` ทั้ง 207 ปุ่มทั่วทั้งระบบผ่าน AST parser ครบ 100%
+- [x] แก้ไขและผูก Event Handler ปุ่มที่ตกหล่นทั้ง 4 ไฟล์ (`Alerts.jsx`, `Devices.jsx`, `History.jsx`, `Settings.jsx`)
+- [x] ตรวจสอบ `npm run build` และ `npm run lint` ผ่านฉลุย 100%
+- [x] Commit (`6970bf9`) และ Push สู่ GitLab (`origin`) และ GitHub (`github`) สำเร็จเรียบร้อย
+
 ## งานค้างและขั้นตอนถัดไป
-- Commit และ Push การปรับปรุงปุ่มของ Frontend ขึ้น Git remote (GitLab origin และ GitHub github)
-- ทดสอบการกดใช้งานบนหน้าเว็บจริง (Vercel)
+- ทดสอบเปิดใช้งานปุ่มจริงบน Production URL (`https://voc-quality.vercel.app`) หลังจาก Vercel ทำการ Deploy อัตโนมัติเสร็จสิ้น
 
 
 
