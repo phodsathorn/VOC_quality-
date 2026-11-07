@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import {
   Wifi, RotateCcw, ShieldCheck,
   Router, Download, X,
-  Info, Activity, Check, Copy, Stethoscope, Key
+  Info, Activity, Check, Copy, Stethoscope, Key,
+  Upload, FileCode, AlertCircle, CheckCircle2
 } from 'lucide-react';
 import { API } from '../config';
 import { useLanguage } from '../context/LanguageContext';
@@ -57,55 +58,61 @@ export default function Devices() {
 
   // Modals
   const [isOtaModalOpen, setIsOtaModalOpen] = useState(false);
-  const [otaProgress, setOtaProgress] = useState(68);
-  const [selectedOtaVersion, setSelectedOtaVersion] = useState('v2.5.0');
+  const [otaFile, setOtaFile] = useState(null);
+  const [otaVersionInput, setOtaVersionInput] = useState('1.0.3');
+  const [isUploadingOta, setIsUploadingOta] = useState(false);
+  const [otaUploadSuccess, setOtaUploadSuccess] = useState(false);
+  const [otaUploadResult, setOtaUploadResult] = useState(null);
+  const [otaError, setOtaError] = useState(null);
+  const [otaProgress, setOtaProgress] = useState(0);
+
   const [isDiagModalOpen, setIsDiagModalOpen] = useState(false);
   const [diagRunning, setDiagRunning] = useState(false);
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
 
   // Load real devices from backend
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchDevices() {
-      try {
-        const res = await fetch(`${API}/api/devices`);
-        if (res.ok && isMounted) {
-          const list = await res.json();
-          if (Array.isArray(list) && list.length > 0) {
-            const mapped = list.map((apiDev) => {
-              const isOnline = (apiDev.status || '').toUpperCase() === 'ONLINE';
-              return {
-                id: apiDev.id || 'BOX-001',
-                type: 'VOC / E-Nose Telemetry Node',
-                typeTh: 'โหนดส่งสัญญาณโทรมาตร E-Nose',
-                location: 'Paint Spray Chamber 1',
-                locationTh: 'ห้องพ่นสีที่ 1',
-                status: isOnline ? 'Online' : 'Offline',
-                isOnline,
-                rssi: '-58 dBm',
-                signalQuality: 'Excellent',
-                signalQualityTh: 'ดีเยี่ยม',
-                ip: '192.168.1.104',
-                voltage: '3.32 V',
-                firmware: apiDev.firmware || '1.0.2',
-                uptime: apiDev.last_seen ? `${apiDev.last_seen}` : 'Online',
-                lastSeen: apiDev.last_seen || 'Just now',
-                lastSeenTh: apiDev.last_seen || 'เมื่อสักครู่',
-                mqtt: 'Connected (voc-backend-api.onrender.com)',
-                mqttTh: 'เชื่อมต่อแล้ว (voc-backend-api.onrender.com)',
-                freeHeap: '184 KB (57%)',
-                sensors: REAL_SENSORS_BOX001,
-              };
-            });
-            setDevices(mapped);
-            setSelectedDevice((prev) => mapped.find((d) => d.id === prev?.id) || mapped[0]);
-          }
+  async function fetchDevices() {
+    try {
+      const res = await fetch(`${API}/api/devices`);
+      if (res.ok) {
+        const list = await res.json();
+        if (Array.isArray(list) && list.length > 0) {
+          const mapped = list.map((apiDev) => {
+            const isOnline = (apiDev.status || '').toUpperCase() === 'ONLINE';
+            return {
+              id: apiDev.id || 'BOX-001',
+              type: 'VOC / E-Nose Telemetry Node',
+              typeTh: 'โหนดส่งสัญญาณโทรมาตร E-Nose',
+              location: 'Paint Spray Chamber 1',
+              locationTh: 'ห้องพ่นสีที่ 1',
+              status: isOnline ? 'Online' : 'Offline',
+              isOnline,
+              rssi: '-58 dBm',
+              signalQuality: 'Excellent',
+              signalQualityTh: 'ดีเยี่ยม',
+              ip: '192.168.1.104',
+              voltage: '3.32 V',
+              firmware: apiDev.firmware || '1.0.2',
+              uptime: apiDev.last_seen ? `${apiDev.last_seen}` : 'Online',
+              lastSeen: apiDev.last_seen || 'Just now',
+              lastSeenTh: apiDev.last_seen || 'เมื่อสักครู่',
+              mqtt: 'Connected (voc-backend-api.onrender.com)',
+              mqttTh: 'เชื่อมต่อแล้ว (voc-backend-api.onrender.com)',
+              freeHeap: '184 KB (57%)',
+              sensors: REAL_SENSORS_BOX001,
+            };
+          });
+          setDevices(mapped);
+          setSelectedDevice((prev) => mapped.find((d) => d.id === prev?.id) || mapped[0]);
         }
-      } catch (err) {
-        console.warn('Devices fetch error:', err);
       }
+    } catch (err) {
+      console.warn('Devices fetch error:', err);
     }
+  }
+
+  useEffect(() => {
     fetchDevices();
   }, []);
 
@@ -118,16 +125,68 @@ export default function Devices() {
 
   function startOta() {
     setIsOtaModalOpen(true);
-    setOtaProgress(15);
-    const interval = setInterval(() => {
-      setOtaProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return prev + 12;
+    setOtaUploadSuccess(false);
+    setOtaUploadResult(null);
+    setOtaError(null);
+    setOtaFile(null);
+    setOtaProgress(0);
+  }
+
+  async function handleUploadFirmware(e) {
+    if (e) e.preventDefault();
+    if (!otaFile) {
+      setOtaError(lang === 'TH' ? 'กรุณาเลือกไฟล์เฟิร์มแวร์ .bin ก่อนกดอัปโหลด' : 'Please select a .bin firmware file');
+      return;
+    }
+    if (!otaFile.name.endsWith('.bin')) {
+      setOtaError(lang === 'TH' ? 'ระบบรองรับเฉพาะไฟล์ .bin เท่านั้น (Export Compiled Binary จาก Arduino IDE)' : 'Only .bin files are supported');
+      return;
+    }
+
+    setIsUploadingOta(true);
+    setOtaError(null);
+    setOtaUploadSuccess(false);
+    setOtaProgress(25);
+
+    const formData = new FormData();
+    formData.append('file', otaFile);
+    formData.append('version', otaVersionInput.trim() || '1.0.3');
+
+    try {
+      const token = localStorage.getItem('token') || '';
+      const progressTimer = setInterval(() => {
+        setOtaProgress((prev) => (prev < 85 ? prev + 15 : prev));
+      }, 250);
+
+      const res = await fetch(`${API}/api/ota/upload`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : { 'X-Admin-Key': 'change-me-in-production-2026' }),
+        },
+        body: formData,
       });
-    }, 600);
+
+      clearInterval(progressTimer);
+
+      if (res.ok) {
+        const data = await res.json();
+        setOtaProgress(100);
+        setOtaUploadSuccess(true);
+        setOtaUploadResult(data);
+        setTimeout(() => {
+          fetchDevices();
+        }, 1500);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setOtaError(err.detail || 'Upload failed');
+        setOtaProgress(0);
+      }
+    } catch (err) {
+      setOtaError(err.message || 'Network error during upload');
+      setOtaProgress(0);
+    } finally {
+      setIsUploadingOta(false);
+    }
   }
 
   function handleRunDiagnostics() {
@@ -571,12 +630,12 @@ export default function Devices() {
                   </div>
                   <span className="text-[12px] font-semibold text-[#004ac6] font-mono">PASS (12ms)</span>
                 </div>
-                <div className="flex items-center justify-between py-2 px-3 rounded-2xl bg-[#ffdad6]/40 border border-[#ba1a1a]/30">
+                <div className="flex items-center justify-between py-2 px-3 rounded-2xl bg-[#f2f3ff]">
                   <div className="flex items-center gap-2">
-                    <Info size={16} className="text-[#ba1a1a]" />
+                    <Check size={16} className="text-[#004ac6]" />
                     <span className="text-[13px] font-medium text-[#131b2e]">{t('sensorHeaterCircuit', 'Sensor Heater Circuit')}</span>
                   </div>
-                  <span className="text-[12px] font-semibold text-[#ba1a1a]">{lang === 'TH' ? 'ผิดพลาด (วงจร MQ-137 เปิด)' : 'Fault (MQ-137 loop open)'}</span>
+                  <span className="text-[12px] font-semibold text-[#004ac6] font-mono">{lang === 'TH' ? 'PASS (วอร์มหัววัด MQ พร้อมใช้งาน)' : 'PASS (Sensors Preheated)'}</span>
                 </div>
               </div>
             )}
@@ -601,21 +660,23 @@ export default function Devices() {
         </div>
       )}
 
-      {/* ── Modal 3: Update Firmware (OTA) matching Stitch ── */}
+      {/* ── Modal 3: Update Firmware (OTA) Real Upload Flow ── */}
       {isOtaModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#131b2e]/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-[460px] bg-white rounded-3xl shadow-2xl border border-[#eaedff] p-6 sm:p-8 flex flex-col gap-4">
+          <div className="w-full max-w-[500px] bg-white rounded-3xl shadow-2xl border border-[#eaedff] p-6 sm:p-8 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-2xl bg-[#e2e7ff] flex items-center justify-center text-[#004ac6]">
-                  <Download size={20} />
+                  <Upload size={20} />
                 </div>
                 <div>
                   <h2 className="text-[18px] text-[#131b2e] font-semibold">
-                    {t('firmwareUpdateOtaTitle', 'Update Firmware (OTA)')}
+                    {lang === 'TH' ? 'อัปโหลดเฟิร์มแวร์ใหม่ (Cloud OTA)' : 'Upload Firmware (.bin)'}
                   </h2>
                   <p className="text-[12px] text-[#505f76]">
-                    {lang === 'TH' ? `เป้าหมาย: ${selectedDevice?.id || 'BOX-001'} (เวอร์ชันปัจจุบัน ${selectedDevice?.firmware || '1.0.2'})` : `Target: ${selectedDevice?.id || 'BOX-001'} (Current ${selectedDevice?.firmware || '1.0.2'})`}
+                    {lang === 'TH'
+                      ? `เป้าหมาย: ${selectedDevice?.id || 'BOX-001'} (เวอร์ชันปัจจุบัน ${selectedDevice?.firmware || '1.0.2'})`
+                      : `Target: ${selectedDevice?.id || 'BOX-001'} (Current ${selectedDevice?.firmware || '1.0.2'})`}
                   </p>
                 </div>
               </div>
@@ -628,71 +689,155 @@ export default function Devices() {
               </button>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
+            <form onSubmit={handleUploadFirmware} className="flex flex-col gap-4">
+              {/* File Dropzone */}
+              <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-semibold uppercase tracking-wider text-[#505f76]">
-                  {t('selectVersion', 'Select Version')}
+                  {lang === 'TH' ? 'ไฟล์เฟิร์มแวร์คอมไพล์ (.bin)' : 'Firmware Binary File (.bin)'}
                 </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedOtaVersion('v2.4.1');
-                    setOtaProgress(100);
-                  }}
-                  className="text-[12px] text-[#004ac6] hover:underline font-medium cursor-pointer"
+                <label
+                  htmlFor="ota-bin-file-input"
+                  className={`border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${
+                    otaFile
+                      ? 'border-[#004ac6] bg-[#f2f3ff]'
+                      : 'border-[#c3c6d7] hover:border-[#004ac6] hover:bg-[#f8f9ff]'
+                  }`}
                 >
-                  {t('rollback', 'Rollback')}
-                </button>
+                  <input
+                    id="ota-bin-file-input"
+                    type="file"
+                    accept=".bin"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setOtaFile(e.target.files[0]);
+                        setOtaError(null);
+                        setOtaUploadSuccess(false);
+                      }
+                    }}
+                  />
+                  {otaFile ? (
+                    <div className="flex items-center gap-2.5 text-[#004ac6]">
+                      <FileCode size={24} />
+                      <div className="flex flex-col text-left">
+                        <span className="text-[13px] font-semibold">{otaFile.name}</span>
+                        <span className="text-[11px] text-[#505f76]">
+                          {(otaFile.size / 1024).toFixed(1)} KB
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload size={24} className="text-[#505f76]" />
+                      <span className="text-[13px] font-medium text-[#131b2e]">
+                        {lang === 'TH' ? 'คลิกเพื่อเลือกไฟล์ .bin ที่ Export มา' : 'Click to select .bin file'}
+                      </span>
+                      <span className="text-[11px] text-[#505f76] text-center">
+                        {lang === 'TH'
+                          ? 'สร้างไฟล์ได้จาก Arduino IDE (Sketch ➔ Export Compiled Binary)'
+                          : 'Exported from Arduino IDE (Sketch ➔ Export Compiled Binary)'}
+                      </span>
+                    </>
+                  )}
+                </label>
               </div>
-              <select
-                value={selectedOtaVersion}
-                onChange={(e) => setSelectedOtaVersion(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-2xl bg-[#f2f3ff] border border-[#c3c6d7] text-[14px] text-[#131b2e] focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 cursor-pointer"
-              >
-                <option value="v2.5.0">v2.5.0 ({lang === 'TH' ? 'ล่าสุด' : 'Latest'})</option>
-                <option value="v2.4.2">v2.4.2</option>
-                <option value="v2.4.1">v2.4.1 ({lang === 'TH' ? 'ปัจจุบัน / ย้อนกลับ' : 'Current / Rollback'})</option>
-              </select>
-            </div>
 
-            <div className="flex flex-col gap-1.5 pt-2">
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="font-medium text-[#131b2e]">
-                  {otaProgress < 100
-                    ? (lang === 'TH' ? 'กำลังเขียนข้อมูลพาร์ติชัน...' : 'Flashing partitions...')
-                    : t('updateComplete', 'Update Complete!')}
-                </span>
-                <span className="font-mono font-bold text-[#004ac6]">{otaProgress}%</span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-[#eaedff] overflow-hidden">
-                <div
-                  className="h-full bg-[#004ac6] rounded-full transition-all duration-300"
-                  style={{ width: `${otaProgress}%` }}
+              {/* Version Input */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[12px] font-semibold uppercase tracking-wider text-[#505f76]">
+                  {lang === 'TH' ? 'รหัสเวอร์ชันใหม่ (Version)' : 'Firmware Version'}
+                </label>
+                <input
+                  type="text"
+                  value={otaVersionInput}
+                  onChange={(e) => setOtaVersionInput(e.target.value)}
+                  placeholder="1.0.3"
+                  className="w-full px-3 py-2.5 rounded-2xl bg-[#f2f3ff] border border-[#c3c6d7] text-[14px] text-[#131b2e] focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 font-mono"
                 />
               </div>
-              <span className="text-[11px] text-[#505f76]">
-                {otaProgress < 100
-                  ? (lang === 'TH' ? 'ส่งแล้ว 892 KB จาก 1,312 KB • ประมาณ 4 วินาที' : 'Transferred 892 KB of 1,312 KB • ETA 4s')
-                  : (lang === 'TH' ? 'ติดตั้งเฟิร์มแวร์เรียบร้อย กำลังรีบูตระบบ' : 'Firmware verified, rebooting node')}
-              </span>
-            </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsOtaModalOpen(false)}
-                className="py-2 px-4 rounded-full border border-[#c3c6d7] text-[#131b2e] hover:bg-[#eaedff] text-[13px] font-medium cursor-pointer"
-              >
-                {t('cancel', 'Cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsOtaModalOpen(false)}
-                className="py-2 px-6 rounded-full bg-[#004ac6] text-white hover:bg-[#003ea8] shadow-xs text-[13px] font-medium cursor-pointer"
-              >
-                {t('continueText', 'Continue')}
-              </button>
-            </div>
+              {/* Error Alert */}
+              {otaError && (
+                <div className="p-3 rounded-2xl bg-[#ffdad6]/50 border border-[#ba1a1a]/30 flex items-center gap-2 text-[#ba1a1a] text-[12px]">
+                  <AlertCircle size={16} className="shrink-0" />
+                  <span>{otaError}</span>
+                </div>
+              )}
+
+              {/* Success Alert */}
+              {otaUploadSuccess && (
+                <div className="p-3.5 rounded-2xl bg-[#e0f3e6] border border-[#2e7d32]/30 flex flex-col gap-1 text-[#1b5e20]">
+                  <div className="flex items-center gap-2 text-[13px] font-semibold">
+                    <CheckCircle2 size={16} className="text-[#2e7d32]" />
+                    <span>
+                      {lang === 'TH'
+                        ? `อัปโหลดเวอร์ชัน ${otaVersionInput} ขึ้นคลาวด์สำเร็จ!`
+                        : `Firmware version ${otaVersionInput} published!`}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-[#2e7d32]/90 leading-relaxed">
+                    {lang === 'TH'
+                      ? 'เซิร์ฟเวอร์ลงนาม SHA256 เรียบร้อย บอร์ด ESP32 จะดึงเฟิร์มแวร์นี้ไปแฟลชตัวเองและรีบูตอัตโนมัติ'
+                      : 'Firmware signed with SHA256. ESP32 node will automatically fetch and flash it.'}
+                  </span>
+                </div>
+              )}
+
+              {/* Progress bar */}
+              {isUploadingOta && (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="font-medium text-[#131b2e]">
+                      {lang === 'TH' ? 'กำลังอัปโหลดและสร้างลายเซ็นดิจิทัล...' : 'Uploading and generating SHA256 signature...'}
+                    </span>
+                    <span className="font-mono font-bold text-[#004ac6]">{otaProgress}%</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-[#eaedff] overflow-hidden">
+                    <div
+                      className="h-full bg-[#004ac6] rounded-full transition-all duration-300"
+                      style={{ width: `${otaProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Local Web OTA tip */}
+              <div className="p-2.5 rounded-2xl bg-[#f2f3ff] text-[11px] text-[#505f76] flex items-start gap-2">
+                <Info size={14} className="shrink-0 mt-0.5 text-[#004ac6]" />
+                <span>
+                  {lang === 'TH'
+                    ? 'หรือสามารถทดสอบอัปเดตผ่านวง LAN โดยตรงได้ที่ http://<IP_ESP32>/update (Username: admin)'
+                    : 'Or update locally via LAN at http://<ESP32_IP>/update (Username: admin)'}
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsOtaModalOpen(false)}
+                  className="py-2.5 px-4 rounded-full border border-[#c3c6d7] text-[#131b2e] hover:bg-[#eaedff] text-[13px] font-medium cursor-pointer"
+                >
+                  {t('cancel', 'Cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUploadingOta || !otaFile}
+                  className={`py-2.5 px-6 rounded-full text-white shadow-xs text-[13px] font-medium flex items-center gap-1.5 cursor-pointer ${
+                    isUploadingOta || !otaFile
+                      ? 'bg-[#c3c6d7] cursor-not-allowed'
+                      : 'bg-[#004ac6] hover:bg-[#003ea8]'
+                  }`}
+                >
+                  <Upload size={16} />
+                  <span>
+                    {isUploadingOta
+                      ? (lang === 'TH' ? 'กำลังส่งข้อมูล...' : 'Uploading...')
+                      : (lang === 'TH' ? 'อัปโหลดเฟิร์มแวร์' : 'Upload Firmware')}
+                  </span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

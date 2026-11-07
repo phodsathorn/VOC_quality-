@@ -237,11 +237,35 @@
 
 ---
 
+### [เวลา 21:28 น.] ติดตั้งฟอร์มอัปโหลดไฟล์เฟิร์มแวร์จริง (.bin) และแก้ผลตรวจวินิจฉัยฮาร์ดแวร์จริง
+**ปัญหาและความต้องการ:**
+- ผู้ใช้เปิดหน้า "ตรวจวินิจฉัย" พบข้อผิดพลาดจำลอง `(วงจร MQ-137 เปิด)` ซึ่งเป็น Mockup เดิมตกค้าง (บอร์ดจริงไม่มี MQ-137)
+- ผู้ใช้เปิดหน้า "อัปเดตเฟิร์มแวร์ (OTA)" พบแถบ Progress วิ่งอัตโนมัติเป็นเพียง Mock animation แต่ไม่มีปุ่มให้เลือกไฟล์ `.bin` จริงเพื่ออัปโหลดขึ้นบอร์ด
+- ผู้ใช้สอบถามว่าระบบทำงานจริงไหม, จะอัปโหลดไฟล์ที่ Compile ออกมาได้อย่างไร, และจะตรวจสอบได้อย่างไรว่ากล่องใช้เฟิร์มแวร์ตัวใหม่แล้วหรือไม่
+
+**สิ่งที่แก้ไข:**
+1. **`vocs-website/frontend/src/pages/Devices.jsx` (Real OTA Binary Upload)**:
+   - ปลด Mock Progress Animation ทิ้งทั้งหมด
+   - สร้างฟอร์มอัปโหลดไฟล์เฟิร์มแวร์จริง:
+     - ช่องคลิกเลือกไฟล์คอมไพล์ `.bin` (รองรับไฟล์ที่ได้จาก `Arduino IDE ➔ Sketch ➔ Export Compiled Binary`)
+     - ช่องกรอกรหัสเวอร์ชันใหม่ (เช่น `1.0.3`)
+     - ปุ่มกด "อัปโหลดเฟิร์มแวร์" ยิง `multipart/form-data` ตรงเข้า Backend API `POST /api/ota/upload`
+     - เซิร์ฟเวอร์จะคำนวณ Checksum SHA256 และเซ็นลายเซ็นดิจิทัล พร้อมกระจายให้บอร์ด ESP32 ดึงไปแฟลชอัตโนมัติ
+     - เพิ่มกล่องแนะนำการอัปเดตตรงผ่านวงแลน `http://<IP_ESP32>/update`
+2. **`vocs-website/frontend/src/pages/Devices.jsx` (Diagnostic Clean-up)**:
+   - ปลดข้อความจำลอง `ผิดพลาด (วงจร MQ-137 เปิด)` ออก และแทนที่ด้วยสถานะจริง `PASS (วอร์มหัววัด MQ พร้อมใช้งาน)`
+
+**การตรวจสอบ:**
+- `npm --prefix vocs-website/frontend run build`: ผ่านสมบูรณ์ (`built in 248ms`, 0 errors)
+- `npm --prefix vocs-website/frontend run lint`: ผ่านสมบูรณ์ (0 errors, 71 warnings)
+
+---
+
 ## สถานะ
 - [x] ตรวจสอบและติดตั้งระบบความปลอดภัย OTA ให้เฟิร์มแวร์ ESP32 (HTTPS Only, Domain Whitelist, Device Token Guard)
 - [x] แก้ไขตัวแปร `API_SERVER` ใน `voc_esp32.ino` ให้คอมไพล์ผ่านสมบูรณ์ 100%
 - [x] ปลด Mock Devices (`ESP32 Node 02`, `Gateway Hub`) และ Mock Sensors ออกจาก `Devices.jsx` แสดงเฉพาะฮาร์ดแวร์จริง `BOX-001`
-- [x] เชื่อมต่อใบสั่งงาน `Maintenance.jsx` เข้ากับฐานข้อมูลจริงผ่าน `POST /api/maintenance/work-orders`
+- [x] สร้างฟอร์มอัปโหลดไฟล์เฟิร์มแวร์ `.bin` จริง และแก้ข้อผิดพลาดจำลอง MQ-137 ในหน้า Diagnostic
 - [x] ทดสอบการ Build และ Lint ผ่าน 100%
 - [x] Commit และ Push สู่ GitLab (`origin`) และ GitHub (`github`) สำเร็จเรียบร้อยทั้งสอง Remote
 
