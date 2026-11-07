@@ -760,6 +760,10 @@ void setup() {
   ArduinoOTA.begin();
   Serial.println("[OTA] Web OTA ready at http://airmon.local/update and Arduino IDE Network Port (Password Protected)");
   
+  if (strcmp(OTA_PASSWORD, "voc_admin_2026") == 0) {
+    Serial.println("[SECURITY WARNING] ⚠️ OTA_PASSWORD is using the default factory password! Please set a unique strong password in secrets.h!");
+  }
+  
   Serial.println("[System] Warming up MQ sensors (30s)...");
 }
 
@@ -980,9 +984,37 @@ void sendData(const SensorData& d) {
 // ─── Cloud Pull OTA Execution ────────────────────────────────
 void performCloudOTA(const char* ota_url) {
   Serial.printf("[Cloud OTA] Pulling firmware from Cloud: %s\n", ota_url);
+
+  // Security Gate 1: Enforce HTTPS Protocol
+  if (strncmp(ota_url, "https://", 8) != 0) {
+    Serial.println("[Cloud OTA Security] REJECTED: Firmware URL must use secure HTTPS!");
+    reportOtaStatus("REJECTED_INSECURE_PROTOCOL", 403, "HTTPS required");
+    return;
+  }
+
+  // Security Gate 2: Domain Whitelist (Only allow trusted backend server)
+  bool isTrustedDomain = false;
+  if (strncmp(ota_url, API_SERVER, strlen(API_SERVER)) == 0 ||
+      strstr(ota_url, "onrender.com") != NULL ||
+      strstr(ota_url, "voc-backend-api") != NULL) {
+    isTrustedDomain = true;
+  }
+
+  if (!isTrustedDomain) {
+    Serial.println("[Cloud OTA Security] REJECTED: Firmware URL is not from a trusted whitelisted server!");
+    reportOtaStatus("REJECTED_UNTRUSTED_HOST", 403, "Untrusted domain");
+    return;
+  }
+
   WiFiClientSecure otaClient;
   otaClient.setInsecure();
   httpUpdate.rebootOnUpdate(true);
+
+  #ifdef DEVICE_TOKEN
+  if (strlen(DEVICE_TOKEN) > 0) {
+    httpUpdate.setAuthorization(DEVICE_TOKEN);
+  }
+  #endif
 
   t_httpUpdate_return ret = httpUpdate.update(otaClient, ota_url);
   if (ret == HTTP_UPDATE_FAILED) {

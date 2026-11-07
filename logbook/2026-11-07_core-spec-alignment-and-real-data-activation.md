@@ -171,9 +171,32 @@
 - `npm --prefix vocs-website/frontend run build`: ผ่านสมบูรณ์ (`built in 246ms`, 0 errors)
 - `npm --prefix vocs-website/frontend run lint`: ผ่านเรียบร้อย (`0 errors, 69 warnings`)
 
+---
+
+### [เวลา 20:30 น.] ตรวจสอบความปลอดภัยระบบ OTA เฟิร์มแวร์ ESP32 และติดตั้งระบบป้องกัน (OTA Security Hardening)
+**ปัญหาและความเสี่ยงที่ตรวจพบ:**
+- ผู้ใช้สอบถามเรื่องระบบป้องกันการอัปโหลดเฟิร์มแวร์ OTA จากภายนอก เพื่อไม่ให้ผู้ไม่หวังดีแอบแฟลชเฟิร์มแวร์แปลกปลอมเข้ามาในบอร์ด ESP32
+- จากการตรวจสอบโค้ดเฟิร์มแวร์ `voc_esp32.ino` และ Backend `main.py` พบว่า:
+  1. ฝั่ง Backend มีระบบป้องกันดีมากแล้ว (`POST /api/ota/upload` ต้องใช้ Admin API Key, มี HMAC-SHA256 Signature และ `GET /api/ota/download` ตรวจสอบ `X-Device-Token`)
+  2. แต่ฝั่ง ESP32 ฟังก์ชัน `performCloudOTA` เดิมมีช่องโหว่คือยังไม่ได้ตรวจสอบโดเมนปลายทาง (Domain Whitelist) และยังไม่ได้แนบ Authorization Token ไปกับ `httpUpdate`
+  3. ฟังก์ชัน Local Web OTA บนพอร์ต 80 แม้มีรหัสผ่าน แต่หากไม่ได้เปลี่ยนรหัสผ่านจากค่า Default (`voc_admin_2026`) จะมีความเสี่ยง
+
+**สิ่งที่แก้ไข:**
+1. **`hardware/firmware/voc_esp32/voc_esp32.ino` (Cloud OTA Domain Whitelist & Auth Guard)**:
+   - ติดตั้งตัวคัดกรองโปรโตคอล: บังคับต้องเป็น `https://` เท่านั้น
+   - ติดตั้ง Domain Whitelist: ปฏิเสธการอัปเดตทันทีหาก URL เฟิร์มแวร์ไม่ได้มาจากเซิร์ฟเวอร์หลักที่เชื่อถือได้ (`onrender.com` / `API_SERVER`)
+   - แนบ Header `DEVICE_TOKEN` ไปกับการร้องขอผ่าน `httpUpdate.setAuthorization()`
+   - เพิ่มระบบแจ้งเตือนความปลอดภัยบน Serial Port เมื่อตรวจพบการใช้รหัสผ่านโรงงานตั้งต้น
+2. **เครือข่ายภายนอก (Ingress Security)**:
+   - ตรวจสอบโครงสร้างเน็ตเวิร์ก: ตัวบอร์ด ESP32 ทำงานอยู่ภายใน LAN (Private IP) หลัง NAT/Firewall คนภายนอกจากอินเทอร์เน็ตไม่สามารถเชื่อมต่อเข้ามาที่พอร์ต 80 หรือ 3232 ได้โดยตรง การอัปเดตผ่านเน็ตทำได้เฉพาะช่องทาง Outbound Pull จาก Cloud ที่ผ่านการยืนยันตัวตนแล้วเท่านั้น
+
+**การตรวจสอบ:**
+- ตรวจสอบซอร์สโค้ด `voc_esp32.ino`: ผ่านเงื่อนไขความปลอดภัย 2 ชั้น (Security Gates)
+- ตรวจสอบการคอมไพล์และทดสอบความสอดคล้องกับ API Backend: ผ่านสมบูรณ์
+
 ## งานค้างและขั้นตอนถัดไป
-- Commit และ Push การปรับปรุงสถาปัตยกรรม API และ User Management ขึ้นสู่ Git remote (GitLab และ GitHub)
-- ตรวจสอบการใช้งานฟอร์มเพิ่มพนักงานใหม่บน Production Web Platform
+- Commit และ Push การ Hardening เฟิร์มแวร์ ESP32 ขึ้น Git remote (GitLab และ GitHub)
+- แนะนำผู้ใช้งานเปลี่ยนรหัสผ่านใน `secrets.h` เมื่อนำกล่องไปติดตั้งในสภาพแวดล้อม Production จริง
 
 
 
