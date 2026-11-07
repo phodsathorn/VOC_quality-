@@ -194,9 +194,12 @@
 - ตรวจสอบซอร์สโค้ด `voc_esp32.ino`: ผ่านเงื่อนไขความปลอดภัย 2 ชั้น (Security Gates)
 - ตรวจสอบการคอมไพล์และทดสอบความสอดคล้องกับ API Backend: ผ่านสมบูรณ์
 
-## งานค้างและขั้นตอนถัดไป
-- Commit และ Push การ Hardening เฟิร์มแวร์ ESP32 ขึ้น Git remote (GitLab และ GitHub)
-- แนะนำผู้ใช้งานเปลี่ยนรหัสผ่านใน `secrets.h` เมื่อนำกล่องไปติดตั้งในสภาพแวดล้อม Production จริง
+## สถานะ
+- [x] ตรวจสอบและติดตั้งระบบความปลอดภัย OTA ให้เฟิร์มแวร์ ESP32 (HTTPS Only, Domain Whitelist, Device Token Guard)
+- [x] ตรวจสอบระบบ Ingress/Egress Network และระบบตรวจสอบสิทธิ์ฝั่ง Backend API
+- [x] บันทึกผลการวิเคราะห์ความปลอดภัยและแนะนำแนวทางปฏิบัติบนสภาพแวดล้อม Production
+- [x] Commit (`cab6786`) และ Push สู่ GitLab (`origin`) และ GitHub (`github`) สำเร็จเรียบร้อยทั้งสอง Remote
+
 
 
 
