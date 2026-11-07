@@ -25,18 +25,18 @@ export default function DataCollection() {
   const [toastMsg, setToastMsg] = useState(null);
 
   const compounds = [
-    { id: 'Ambient', labelEn: 'Ambient', labelTh: 'อากาศแวดล้อม (Ambient)' },
-    { id: 'Thinner', labelEn: 'Thinner', labelTh: 'ทินเนอร์ (Thinner)' },
+    { id: 'Ambient', labelEn: 'Ambient Air', labelTh: 'อากาศแวดล้อมบริสุทธิ์ (Ambient)' },
+    { id: 'Alcohol', labelEn: 'Alcohol 70%', labelTh: 'แอลกอฮอล์ (Alcohol 70%)' },
+    { id: 'Thinner', labelEn: 'Thinner', labelTh: 'ทินเนอร์ผสมสี (Thinner)' },
+    { id: 'Smoke', labelEn: 'Smoke / Combustion', labelTh: 'ควัน / การเผาไหม้ (Smoke)' },
     { id: 'Acetone', labelEn: 'Acetone', labelTh: 'อะซิโตน (Acetone)' },
-    { id: 'IPA', labelEn: 'IPA', labelTh: 'ไอโซโพรพิลแอลกอฮอล์ (IPA)' },
-    { id: 'Ethanol', labelEn: 'Ethanol', labelTh: 'เอทานอล (Ethanol)' },
-    { id: 'Toluene', labelEn: 'Toluene', labelTh: 'โทลูอีน (Toluene)' },
+    { id: 'Other', labelEn: 'Other VOCs', labelTh: 'สารระเหยอื่นๆ (Other VOCs)' },
   ];
 
   const [pastSessions, setPastSessions] = useState([
-    { id: 'SMP-2025-0841', compound: 'Toluene', compoundTh: 'โทลูอีน', quality: 'OK', isSuspect: false, profile: 'P-Standard' },
-    { id: 'SMP-2025-0840', compound: 'Thinner', compoundTh: 'ทินเนอร์', quality: 'Suspect', isSuspect: true, profile: 'P-HighTemp' },
-    { id: 'SMP-2025-0839', compound: 'IPA', compoundTh: 'ไอโซโพรพิลแอลกอฮอล์', quality: 'OK', isSuspect: false, profile: 'P-Standard' },
+    { id: 'SMP-2026-0103', compound: 'Alcohol', compoundTh: 'แอลกอฮอล์', quality: 'OK', isSuspect: false, profile: 'P-Standard' },
+    { id: 'SMP-2026-0102', compound: 'Ambient', compoundTh: 'อากาศปกติ', quality: 'OK', isSuspect: false, profile: 'P-Standard' },
+    { id: 'SMP-2026-0101', compound: 'Thinner', compoundTh: 'ทินเนอร์', quality: 'Suspect', isSuspect: true, profile: 'P-HighTemp' },
   ]);
 
   function showToast(msg) {

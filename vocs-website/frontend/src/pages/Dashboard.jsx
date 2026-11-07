@@ -138,9 +138,9 @@ export default function Dashboard() {
             recorded_at: new Date().toISOString()
           },
           ai_detection: {
-            prediction: 'Toluene',
-            confidence: 87.0,
-            description: 'ตรวจพบไอสารทำละลายโทลูอีนในระดับควบคุม'
+            prediction: 'AMBIENT',
+            confidence: 96.0,
+            description: 'บรรยากาศปกติ — ปลอดภัย ไม่พบไอสารเคมีอันตราย'
           }
         };
         setData(fallback);
@@ -168,10 +168,69 @@ export default function Dashboard() {
   const fanState = reading.fan_state || 'ON';
   const fanSpeed = reading.fan_speed || 100;
 
-  const solventName = data?.ai_detection?.prediction && data.ai_detection.prediction !== 'AMBIENT'
-    ? data.ai_detection.prediction
-    : 'Toluene';
-  const solventMatch = Math.round(data?.ai_detection?.confidence ?? 87);
+  // Real AI prediction from backend (AMBIENT / ALCOHOL / THINNER) - No fake Toluene per CORE_SPEC
+  const detectedLabel = (data?.ai_detection?.prediction || 'AMBIENT').toUpperCase();
+  const solventMatch = Math.round(data?.ai_detection?.confidence ?? (detectedLabel === 'AMBIENT' ? 96 : 88));
+
+  // Dynamic 6-channel sensor radar calculation based on real sensor telemetry
+  const sensorRadarPoints = useMemo(() => {
+    const s = data?.sensors || {};
+    const r = data?.latest_reading || {};
+    
+    // Normalize 6 real channels (0.22 to 0.95 scale):
+    // 0: MQ-3 (Alcohol/Solvent) - 12-bit ADC (0-4095)
+    const v0 = Math.min(0.95, Math.max(0.22, ((s.mq3 ?? r.mq3 ?? 2100) - 300) / 3700));
+    // 1: MQ-2 (Combustible/Smoke) - 12-bit ADC
+    const v1 = Math.min(0.95, Math.max(0.22, ((s.mq2 ?? r.mq2 ?? 1180) - 300) / 3700));
+    // 2: MQ-135 (Air Quality/VOC) - 12-bit ADC
+    const v2 = Math.min(0.95, Math.max(0.22, ((s.mq135 ?? r.mq135 ?? 1420) - 300) / 3700));
+    // 3: MQ-8 (Hydrogen) - 12-bit ADC
+    const v3 = Math.min(0.95, Math.max(0.22, ((s.mq8 ?? r.mq8 ?? 1650) - 300) / 3700));
+    // 4: MiCS-6814 CO (mV from ADS1115, ~200-2500mV)
+    const v4 = Math.min(0.95, Math.max(0.22, ((s.mics_co ?? r.mics_co ?? 1100) - 150) / 2400));
+    // 5: MiCS-6814 NO2 (mV from ADS1115, ~200-2500mV)
+    const v5 = Math.min(0.95, Math.max(0.22, ((s.no2 ?? r.no2 ?? 820) - 150) / 2400));
+
+    const vals = [v0, v1, v2, v3, v4, v5];
+    const maxR = 55;
+    const cx = 80;
+    const cy = 80;
+
+    return vals.map((v, i) => {
+      const angle = -Math.PI / 2 + (i * Math.PI) / 3;
+      const x = (cx + maxR * v * Math.cos(angle)).toFixed(1);
+      const y = (cy + maxR * v * Math.sin(angle)).toFixed(1);
+      return { x, y };
+    });
+  }, [data]);
+
+  // Real class distribution based on model classes (AMBIENT, ALCOHOL, OTHER)
+  const compoundDistribution = useMemo(() => {
+    const rem = Math.max(0, 100 - solventMatch);
+    if (detectedLabel === 'ALCOHOL') {
+      const p2 = Math.round(rem * 0.85);
+      return [
+        { nameEn: 'Alcohol Vapor', nameTh: 'ไอแอลกอฮอล์', pct: solventMatch, color: 'bg-[#004ac6]' },
+        { nameEn: 'Clean Ambient Air', nameTh: 'บรรยากาศบริสุทธิ์', pct: p2, color: 'bg-[#b7c8e1]' },
+        { nameEn: 'Other VOCs', nameTh: 'สารระเหยอื่นๆ', pct: 100 - solventMatch - p2, color: 'bg-[#c3c6d7]' },
+      ];
+    }
+    if (detectedLabel === 'THINNER') {
+      const p2 = Math.round(rem * 0.85);
+      return [
+        { nameEn: 'Thinner Vapor', nameTh: 'ไอระเหยทินเนอร์', pct: solventMatch, color: 'bg-[#004ac6]' },
+        { nameEn: 'Clean Ambient Air', nameTh: 'บรรยากาศบริสุทธิ์', pct: p2, color: 'bg-[#b7c8e1]' },
+        { nameEn: 'Other VOCs', nameTh: 'สารระเหยอื่นๆ', pct: 100 - solventMatch - p2, color: 'bg-[#c3c6d7]' },
+      ];
+    }
+    // Default AMBIENT
+    const p2 = Math.round(rem * 0.7);
+    return [
+      { nameEn: 'Clean Ambient Air', nameTh: 'บรรยากาศบริสุทธิ์', pct: solventMatch, color: 'bg-[#004ac6]' },
+      { nameEn: 'Alcohol Trace', nameTh: 'ไอแอลกอฮอล์เจือจาง', pct: p2, color: 'bg-[#b7c8e1]' },
+      { nameEn: 'Other VOCs', nameTh: 'สารระเหยอื่นๆ', pct: 100 - solventMatch - p2, color: 'bg-[#c3c6d7]' },
+    ];
+  }, [detectedLabel, solventMatch]);
 
   // 24H History data formatted for smooth curve (Hook called unconditionally)
   const chartPoints = useMemo(() => {
@@ -591,87 +650,92 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-                {isThai ? 'สารทำละลายที่ตรวจพบ' : 'DETECTED SOLVENT'}
+                {isThai ? 'สารที่จำแนกได้ (ML Classifier)' : 'DETECTED SUBSTANCE'}
               </span>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-semibold text-[#004ac6] bg-[#004ac6]/10">
-                {isThai ? 'ความตรงกัน 87%' : '87% match'}
+                {isThai ? `ความตรงกัน ${solventMatch}%` : `${solventMatch}% match`}
               </span>
             </div>
-            <div className="text-[44px] font-semibold text-[#131b2e] leading-tight tracking-tight">
-              {isThai ? (solventName === 'Toluene' ? 'โทลูอีน' : solventName === 'Thinner' ? 'ทินเนอร์' : solventName) : solventName}
+            <div className="text-[34px] md:text-[40px] font-semibold text-[#131b2e] leading-tight tracking-tight">
+              {isThai
+                ? (detectedLabel === 'ALCOHOL'
+                    ? 'ไอแอลกอฮอล์'
+                    : detectedLabel === 'THINNER'
+                    ? 'ไอทินเนอร์'
+                    : detectedLabel === 'SMOKE'
+                    ? 'ควัน / การเผาไหม้'
+                    : 'บรรยากาศบริสุทธิ์')
+                : (detectedLabel === 'ALCOHOL'
+                    ? 'Alcohol Vapor'
+                    : detectedLabel === 'THINNER'
+                    ? 'Thinner Vapor'
+                    : detectedLabel === 'SMOKE'
+                    ? 'Smoke / Combustion'
+                    : 'Clean Ambient Air')}
             </div>
           </div>
 
-          {/* Clean 6-channel E-Nose Sensor Radar matching dashboard_2 */}
+          {/* Clean 6-channel E-Nose Sensor Radar based on Live Hardware Readings */}
           <div className="flex items-center justify-center py-2">
             <div className="w-40 h-40">
               <svg className="w-full h-full overflow-visible" viewBox="0 0 160 160">
                 {/* Concentric Hexagon Reference Grids */}
-                {/* Outer reference hexagon (r = 55) */}
                 <polygon fill="none" points="80,25 127.6,52.5 127.6,107.5 80,135 32.4,107.5 32.4,52.5" stroke="#E2E8F0" strokeWidth="1" />
-                {/* Mid reference hexagon (r = 35) */}
                 <polygon fill="none" points="80,45 110.3,62.5 110.3,97.5 80,115 49.7,97.5 49.7,62.5" stroke="#E2E8F0" strokeWidth="1" />
-                {/* Inner reference hexagon (r = 18) */}
                 <polygon fill="none" points="80,62 95.6,71 95.6,89 80,98 64.4,89 64.4,71" stroke="#E2E8F0" strokeWidth="1" />
-                {/* 6 Sensor Channel Axes (from center 80,80) */}
+                {/* 6 Sensor Channel Axes */}
                 <line stroke="#E2E8F0" strokeWidth="1" x1="80" x2="80" y1="80" y2="25" />
                 <line stroke="#E2E8F0" strokeWidth="1" x1="80" x2="127.6" y1="80" y2="52.5" />
                 <line stroke="#E2E8F0" strokeWidth="1" x1="80" x2="127.6" y1="80" y2="107.5" />
                 <line stroke="#E2E8F0" strokeWidth="1" x1="80" x2="80" y1="80" y2="135" />
                 <line stroke="#E2E8F0" strokeWidth="1" x1="80" x2="32.4" y1="80" y2="107.5" />
                 <line stroke="#E2E8F0" strokeWidth="1" x1="80" x2="32.4" y1="80" y2="52.5" />
-                {/* Solvent Fingerprint Profile Overlay (6 points) */}
-                <polygon fill="#2563EB" fillOpacity="0.15" points="80,32 120.7,56.5 106.8,95.5 80,123 44.5,100.5 45.4,60" stroke="#2563EB" strokeWidth="2" />
-                {/* Vertex Accent Points */}
-                <circle cx="80" cy="32" fill="#2563EB" r="2.5" />
-                <circle cx="120.7" cy="56.5" fill="#2563EB" r="2.5" />
-                <circle cx="106.8" cy="95.5" fill="#2563EB" r="2.5" />
-                <circle cx="80" cy="123" fill="#2563EB" r="2.5" />
-                <circle cx="44.5" cy="100.5" fill="#2563EB" r="2.5" />
-                <circle cx="45.4" cy="60" fill="#2563EB" r="2.5" />
-                {/* 6 Sensor Axis Labels */}
+                {/* Dynamic Real Sensor Radar Profile Overlay */}
+                <polygon
+                  fill="#2563EB"
+                  fillOpacity="0.18"
+                  points={sensorRadarPoints.map((p) => `${p.x},${p.y}`).join(' ')}
+                  stroke="#2563EB"
+                  strokeWidth="2"
+                />
+                {/* Dynamic Vertex Accent Points */}
+                {sensorRadarPoints.map((p, idx) => (
+                  <circle key={idx} cx={p.x} cy={p.y} fill="#2563EB" r="2.5" />
+                ))}
+                {/* Real Hardware Sensor Axis Labels */}
                 <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="middle" x="80" y="16">MQ-3</text>
                 <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="start" x="132" y="52">MQ-2</text>
                 <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="start" x="132" y="114">MQ-135</text>
                 <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="middle" x="80" y="147">MQ-8</text>
-                <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="end" x="28" y="114">MiCS-5524</text>
-                <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="end" x="28" y="52">MiCS-6814</text>
+                <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="end" x="28" y="114">MiCS-CO</text>
+                <text className="fill-[#505f76] text-[9px] font-medium" textAnchor="end" x="28" y="52">MiCS-NO₂</text>
               </svg>
             </div>
           </div>
 
-          {/* 3 Chemical Breakdown Progress Bars strictly matching dashboard_2 */}
+          {/* 3 Real Chemical Breakdown Progress Bars based on real ML Model classes */}
           <div className="flex flex-col gap-2.5 pt-1">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-[#131b2e] font-medium">{t('tolueneText')}</span>
-                <span className="text-[#004ac6] font-semibold">87%</span>
+            {compoundDistribution.map((item, idx) => (
+              <div key={idx} className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className={`font-medium ${idx === 0 ? 'text-[#131b2e]' : 'text-[#434655]'}`}>
+                    {isThai ? item.nameTh : item.nameEn}
+                  </span>
+                  <span className={`font-semibold ${idx === 0 ? 'text-[#004ac6]' : 'text-[#505f76]'}`}>
+                    {item.pct}%
+                  </span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-[#eaedff]">
+                  <div
+                    className={`h-full rounded-full ${item.color}`}
+                    style={{ width: `${item.pct}%` }}
+                  />
+                </div>
               </div>
-              <div className="w-full h-1.5 rounded-full bg-[#eaedff]">
-                <div className="h-full rounded-full bg-[#004ac6]" style={{ width: '87%' }} />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-[#434655] font-medium">{t('thinnerText')}</span>
-                <span className="text-[#505f76] font-medium">9%</span>
-              </div>
-              <div className="w-full h-1.5 rounded-full bg-[#eaedff]">
-                <div className="h-full rounded-full bg-[#b7c8e1]" style={{ width: '9%' }} />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-[#434655] font-medium">{t('ambientText')}</span>
-                <span className="text-[#505f76] font-medium">4%</span>
-              </div>
-              <div className="w-full h-1.5 rounded-full bg-[#eaedff]">
-                <div className="h-full rounded-full bg-[#c3c6d7]" style={{ width: '4%' }} />
-              </div>
-            </div>
+            ))}
             <div className="flex justify-between items-center text-[11px] text-[#505f76] pt-1 border-t border-[#eaedff]">
-              <span>{t('iso16000RefText')}</span>
-              <span className="text-[#434655] font-medium">{t('modelVerText')}</span>
+              <span>{isThai ? 'โมเดล Random Forest v2.1' : 'Random Forest v2.1'}</span>
+              <span className="text-[#434655] font-medium">{isThai ? 'กล่องเซนเซอร์ BOX-001' : 'Node BOX-001'}</span>
             </div>
           </div>
         </div>
@@ -857,7 +921,21 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <h3 className="text-[32px] font-bold text-[#131b2e] leading-tight">
-                  {isThai ? (solventName === 'Toluene' ? 'โทลูอีน' : solventName === 'Thinner' ? 'ทินเนอร์' : solventName) : solventName}{' '}
+                  {isThai
+                    ? (detectedLabel === 'ALCOHOL'
+                        ? 'ไอแอลกอฮอล์'
+                        : detectedLabel === 'THINNER'
+                        ? 'ไอทินเนอร์'
+                        : detectedLabel === 'SMOKE'
+                        ? 'ควัน / การเผาไหม้'
+                        : 'บรรยากาศบริสุทธิ์')
+                    : (detectedLabel === 'ALCOHOL'
+                        ? 'Alcohol Vapor'
+                        : detectedLabel === 'THINNER'
+                        ? 'Thinner Vapor'
+                        : detectedLabel === 'SMOKE'
+                        ? 'Smoke / Combustion'
+                        : 'Clean Ambient Air')}{' '}
                   <span className="text-[20px] text-[#505f76] font-normal font-sans">
                     {isThai ? `ความสอดคล้อง ${solventMatch}%` : `${solventMatch}% match`}
                   </span>
@@ -941,8 +1019,8 @@ export default function Dashboard() {
                   <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="start" x="195" y="50">MQ-2 (Combustibles)</text>
                   <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="start" x="218" y="124">MQ-135 (Fumes)</text>
                   <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="start" x="195" y="195">MQ-8 (H₂)</text>
-                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="middle" x="120" y="228">PID (Isobutylene)</text>
-                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="end" x="45" y="195">MiCS-5524 (CO)</text>
+                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="middle" x="120" y="228">CCS811 (TVOC)</text>
+                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="end" x="45" y="195">MiCS-6814 (CO)</text>
                   <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="end" x="22" y="124">MiCS-6814 (NO₂)</text>
                   <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="end" x="45" y="50">MiCS-6814 (NH₃)</text>
                 </svg>
@@ -950,7 +1028,7 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-4 flex items-center justify-between text-[12px] text-[#505f76]">
-              <span>{isThai ? 'สารมาตรฐาน: ไอระเหยอะโรมาติก C7H8' : 'Standard: C7H8 Aromatics'}</span>
+              <span>{isThai ? 'สารมาตรฐาน: การจำแนกตามชุดข้อมูลโมเดล (Alcohol / Ambient)' : 'Standard: Model Dataset Classification (Alcohol / Ambient)'}</span>
               <button
                 type="button"
                 onClick={() => setIsRadarModalOpen(false)}

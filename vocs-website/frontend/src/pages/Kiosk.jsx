@@ -174,14 +174,15 @@ export default function Kiosk() {
   const pm25Val = Math.round(data?.environment?.pm25 ?? data?.latest_reading?.pm25 ?? 14);
   const tempVal = Math.round(data?.environment?.temp ?? data?.latest_reading?.temp ?? 28);
   const rhVal = Math.round(data?.environment?.rh ?? data?.latest_reading?.rh ?? 52);
-  const airflowVal = 18.2;
+  const eco2Val = Math.round(data?.environment?.eco2 ?? data?.latest_reading?.eco2 ?? 420);
 
   // Circumference for r=78 is ~490.08
   const tvocOffset = Math.max(0, 490.08 - (Math.min(tvocVal, 220) / 220) * 490.08);
   const pm25Offset = Math.max(0, 490.08 - (Math.min(pm25Val, 50) / 50) * 490.08);
-  const airflowOffset = 270; // 18.2 m/s
+  const eco2Offset = Math.max(0, 490.08 - (Math.min(eco2Val, 2000) / 2000) * 490.08);
 
-  const isSafe = tvocVal < 120 && pm25Val < 37.5;
+  const isSafe = tvocVal < 120 && pm25Val < 37.5 && eco2Val < 1000;
+  const isEco2Normal = eco2Val < 1000;
 
   // Format seconds to mm:ss
   const formatTime = (seconds) => {
@@ -493,14 +494,16 @@ export default function Kiosk() {
             </div>
           </div>
 
-          {/* Dial 4: Airflow Velocity */}
+          {/* Dial 4: Real eCO2 Telemetry (From CCS811 / SCD41) */}
           <div className="bg-white rounded-3xl p-5 shadow-sm flex flex-col items-center justify-between relative overflow-hidden min-h-[290px] border border-[#eaedff]">
             <div className="w-full flex items-center justify-between mb-1">
               <span className="text-[16px] font-bold text-[#505f76] tracking-wide">
-                {isThai ? 'ความเร็วลม' : 'Airflow Velocity'}
+                {isThai ? 'ก๊าซคาร์บอนไดออกไซด์ (eCO₂)' : 'Equivalent CO₂ (eCO₂)'}
               </span>
-              <span className="px-3 py-1 rounded-full bg-[#dcfce7] text-[#16a34a] text-[13px] font-bold">
-                {isThai ? 'ปกติ' : 'Normal'}
+              <span className={`px-3 py-1 rounded-full text-[13px] font-bold ${
+                isEco2Normal ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fef3c7] text-[#b45309]'
+              }`}>
+                {isEco2Normal ? (isThai ? 'ปกติ' : 'Normal') : (isThai ? 'เฝ้าระวัง' : 'Warning')}
               </span>
             </div>
             <div className="relative w-44 h-44 flex items-center justify-center my-1">
@@ -515,28 +518,28 @@ export default function Kiosk() {
                   strokeWidth="14"
                 />
                 <circle
-                  className="text-[#2563eb]"
+                  className={isEco2Normal ? "text-[#2563eb]" : "text-[#d97706]"}
                   cx="100"
                   cy="100"
                   fill="none"
                   r="78"
                   stroke="currentColor"
                   strokeDasharray="490.08"
-                  strokeDashoffset={airflowOffset}
+                  strokeDashoffset={eco2Offset}
                   strokeLinecap="round"
                   strokeWidth="14"
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                 <span className="text-[44px] leading-[46px] font-bold text-[#131b2e] tracking-tight">
-                  {airflowVal}
+                  {eco2Val}
                 </span>
-                <span className="text-[16px] font-semibold text-[#505f76] mt-0.5">m/s</span>
+                <span className="text-[16px] font-semibold text-[#505f76] mt-0.5">ppm</span>
               </div>
             </div>
             <div className="text-center mt-1 w-full">
               <span className="text-[13px] text-[#505f76] font-medium">
-                {isThai ? 'เกณฑ์ปลอดภัย: 15.0 - 22.0 m/s' : 'Safe threshold: 15.0 - 22.0 m/s'}
+                {isThai ? 'เกณฑ์ปลอดภัย: ต่ำกว่า 1,000 ppm' : 'Safe threshold: Under 1,000 ppm'}
               </span>
             </div>
           </div>

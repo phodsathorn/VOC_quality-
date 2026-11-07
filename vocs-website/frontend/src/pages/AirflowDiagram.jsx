@@ -138,6 +138,9 @@ export default function AirflowDiagram() {
             <span>{isThai ? 'ห้องพ่นสี 01' : 'Booth 01'}</span>
             <span>/</span>
             <span>{isThai ? 'ระบบระบายอากาศไอเสีย' : 'Aero Exhaust'}</span>
+            <span className="ml-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#fef3c7] text-[#b45309] border border-[#fde68a]">
+              {isThai ? 'แบบจำลองพลศาสตร์ของไหล' : 'SIMULATED DYNAMICS MODEL'}
+            </span>
           </div>
           <h1 className="text-[28px] md:text-[36px] font-bold text-[#131b2e] tracking-tight">
             {isThai ? 'แผนผังการไหลของลมและไอระเหย' : 'Airflow Telemetry'}
