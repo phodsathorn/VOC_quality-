@@ -274,6 +274,7 @@ void handleServeOTA() {
 WiFiMulti wifiMulti;
 
 // ─── API ─────────────────────────────────────────────────────
+const char* API_SERVER    = "https://voc-backend-api.onrender.com";
 const char* API_URL       = "https://voc-backend-api.onrender.com/api/ingest";
 const char* ACTIVE_SESSION_URL = "https://voc-backend-api.onrender.com/api/active-session";
 

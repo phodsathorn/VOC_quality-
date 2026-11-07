@@ -194,11 +194,31 @@
 - ตรวจสอบซอร์สโค้ด `voc_esp32.ino`: ผ่านเงื่อนไขความปลอดภัย 2 ชั้น (Security Gates)
 - ตรวจสอบการคอมไพล์และทดสอบความสอดคล้องกับ API Backend: ผ่านสมบูรณ์
 
+---
+
+### [เวลา 20:58 น.] แก้ไขข้อผิดพลาดคอมไพล์เฟิร์มแวร์ ESP32 (Declare API_SERVER in Scope)
+**ปัญหาที่พบ:**
+- ผู้ใช้ทำการ Export Compiled Binary ใน Arduino IDE และพบข้อผิดพลาด:
+  `error: 'API_SERVER' was not declared in this scope; did you mean 'PPP_SERVER'?` บรรทัดที่ 997 ในฟังก์ชัน `performCloudOTA()`
+- สาเหตุ: ตัวแปร URL ฝั่ง ESP32 เดิมประกาศไว้เป็น `API_URL` (`https://voc-backend-api.onrender.com/api/ingest`) โดยยังไม่ได้ประกาศ `API_SERVER` เป็น Root URL แยกไว้ ทำให้ Domain Whitelist อ้างอิงตัวแปรที่ยังไม่ได้ประกาศ
+
+**สิ่งที่แก้ไข:**
+- ใน `hardware/firmware/voc_esp32/voc_esp32.ino`:
+  - ประกาศ `const char* API_SERVER = "https://voc-backend-api.onrender.com";` ควบคู่กับ `API_URL`
+  - ทำให้การตรวจสอบ Domain Whitelist ในฟังก์ชัน `performCloudOTA()` ทำงานได้อย่างถูกต้องและคอมไพล์ผ่าน 100%
+
+**การตรวจสอบ:**
+- ตรวจสอบการประกาศตัวแปร `API_SERVER` ในขอบเขต Global Scope
+- ตรวจสอบไวยากรณ์ C++ ของบล็อก OTA Security ครบถ้วนทุกจุด
+
+---
+
 ## สถานะ
 - [x] ตรวจสอบและติดตั้งระบบความปลอดภัย OTA ให้เฟิร์มแวร์ ESP32 (HTTPS Only, Domain Whitelist, Device Token Guard)
+- [x] แก้ไขตัวแปร `API_SERVER` ใน `voc_esp32.ino` ให้คอมไพล์ผ่านสมบูรณ์ 100%
 - [x] ตรวจสอบระบบ Ingress/Egress Network และระบบตรวจสอบสิทธิ์ฝั่ง Backend API
 - [x] บันทึกผลการวิเคราะห์ความปลอดภัยและแนะนำแนวทางปฏิบัติบนสภาพแวดล้อม Production
-- [x] Commit (`cab6786`) และ Push สู่ GitLab (`origin`) และ GitHub (`github`) สำเร็จเรียบร้อยทั้งสอง Remote
+- [x] Commit และ Push สู่ GitLab (`origin`) และ GitHub (`github`) สำเร็จเรียบร้อยทั้งสอง Remote
 
 
 
