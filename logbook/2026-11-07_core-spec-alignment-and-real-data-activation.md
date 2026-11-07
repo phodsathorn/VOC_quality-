@@ -281,12 +281,33 @@
 
 ---
 
+### [เวลา 22:15 น.] ปรับแก้สถานะออนไลน์ให้สะท้อนความเป็นจริง (Live Heartbeat Status vs Offline)
+**ปัญหาและความต้องการ:**
+- ผู้ใช้แจ้งว่าค้นพบสาเหตุแล้วว่า Wi-Fi Router ในห้องแล็บถูกบล็อก IP จากมหาวิทยาลัย ทำให้บอร์ดไม่สามารถออกเน็ตได้
+- แต่ในหน้าเว็บส่วน Header (`Layout.jsx`) และการ์ดอุปกรณ์ (`Devices.jsx`) ยังคงแสดงสถานะ "ออนไลน์ (ONLINE)" สีฟ้า ทำให้เกิดความเข้าใจผิดว่ากล่องกำลังทำงานอยู่
+- เมื่อบอร์ดไม่มีการส่งข้อมูลใหม่เกิน 5 นาที ระบบควรสะท้อนสถานะจริงว่าเป็น "ออฟไลน์ (OFFLINE)" สีแดง
+
+**สิ่งที่แก้ไข:**
+1. **`vocs-website/backend/main.py` (`/api/devices` & `/api/dashboard/latest`)**:
+   - ปรับการคำนวณสถานะ `status`: บังคับตรวจเช็ค `last_seen` หากไม่มีการส่งสัญญาณเทเลเมทรีสดใน 5 นาทีล่าสุด (`NOW() - INTERVAL '5 minutes'`) จะคืนค่า `OFFLINE` ทันที ไม่ใช้ค่าสถานะเดิมที่ค้างในฐานข้อมูล
+2. **`vocs-website/frontend/src/components/Layout.jsx`**:
+   - ปลดป้าย Hardcoded `ONLINE` ด้านบนขวาของ Header ออก
+   - ผูกสถานะจริงกับ API `/api/devices`: เมื่ออุปกรณ์ออฟไลน์ จะเปลี่ยนเป็นป้ายสีแดง `• ออฟไลน์ (OFFLINE)` โดยไม่มีไฟกระพริบ
+3. **`vocs-website/frontend/src/pages/Devices.jsx`**:
+   - กำหนดค่าเริ่มต้นของ `BOX-001` ให้สะท้อนสถานะจริงเป็น `Offline` (เห็นล่าสุด 03/11/2026) เมื่อยังไม่มีสัญญาณสดเชื่อมต่อ
+
+**การตรวจสอบ:**
+- `python3 -m py_compile vocs-website/backend/main.py`: ผ่านสมบูรณ์ (Exit code 0, 0 syntax error)
+- `npm --prefix vocs-website/frontend run build`: ผ่านสมบูรณ์ (`built in 239ms`, 0 errors)
+
+---
+
 ## สถานะ
 - [x] ตรวจสอบและติดตั้งระบบความปลอดภัย OTA ให้เฟิร์มแวร์ ESP32 (HTTPS Only, Domain Whitelist, Device Token Guard)
 - [x] แก้ไขตัวแปร `API_SERVER` ใน `voc_esp32.ino` ให้คอมไพล์ผ่านสมบูรณ์ 100%
 - [x] ปลด Mock Devices (`ESP32 Node 02`, `Gateway Hub`) และ Mock Sensors ออกจาก `Devices.jsx` แสดงเฉพาะฮาร์ดแวร์จริง `BOX-001`
 - [x] สร้างฟอร์มอัปโหลดไฟล์เฟิร์มแวร์ `.bin` จริง และแก้ข้อผิดพลาดจำลอง MQ-137 ในหน้า Diagnostic
-- [x] ปรับ API `/api/devices` และ Drawer ให้สะท้อนสถานะฮาร์ดแวร์จริง (ปลดค่า Fallback ปลอม)
+- [x] ปรับแก้ระบบตรวจจับสถานะเชื่อมต่อจริง (Real Live Heartbeat) ทั่วทั้งระบบ: แสดง `ออฟไลน์` สีแดงเมื่อบอร์ดขาดการเชื่อมต่อ
 - [x] ทดสอบการ Build และ Lint ผ่าน 100%
 - [x] Commit และ Push สู่ GitLab (`origin`) และ GitHub (`github`) สำเร็จเรียบร้อยทั้งสอง Remote
 

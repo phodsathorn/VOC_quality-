@@ -24,6 +24,7 @@ export default function Layout({ children }) {
   const [toastAlert, setToastAlert] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isDeviceOnline, setIsDeviceOnline] = useState(false);
 
   const seenAlertIds = useRef(new Set());
   const isFirstRun = useRef(true);
@@ -47,8 +48,20 @@ export default function Layout({ children }) {
     let timerId;
     async function checkAlerts() {
       try {
-        const res = await fetch(`${API}/api/alerts?limit=15`);
-        if (!res.ok) return;
+        const [res, devRes] = await Promise.all([
+          fetch(`${API}/api/alerts?limit=15`).catch(() => null),
+          fetch(`${API}/api/devices`).catch(() => null),
+        ]);
+
+        if (devRes && devRes.ok) {
+          const devs = await devRes.json();
+          if (Array.isArray(devs)) {
+            const hasOnline = devs.some((d) => (d.status || '').toUpperCase() === 'ONLINE');
+            setIsDeviceOnline(hasOnline);
+          }
+        }
+
+        if (!res || !res.ok) return;
         const data = await res.json();
         if (!Array.isArray(data)) return;
 
@@ -339,14 +352,23 @@ export default function Layout({ children }) {
               </span>
             </div>
 
-            {/* Hardware Gateway Online Pill */}
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#eaedff] text-[#004ac6] text-[11px] font-semibold">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#004ac6] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#004ac6]"></span>
-              </span>
-              <span>{t('online', 'ONLINE')}</span>
-            </div>
+            {/* Hardware Gateway Online / Offline Pill */}
+            {isDeviceOnline ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#eaedff] text-[#004ac6] text-[11px] font-semibold">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#004ac6] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#004ac6]"></span>
+                </span>
+                <span>{isThai ? 'ออนไลน์' : 'ONLINE'}</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#fee2e2] text-[#991b1b] text-[11px] font-semibold">
+                <span className="relative flex h-2 w-2">
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#dc2626]"></span>
+                </span>
+                <span>{isThai ? 'ออฟไลน์' : 'OFFLINE'}</span>
+              </div>
+            )}
           </div>
 
           {/* Right: Updated time + Language toggle + Bell + User Avatar */}

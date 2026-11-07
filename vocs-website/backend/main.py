@@ -2281,9 +2281,16 @@ async def get_dashboard_latest(
         except Exception:
             history_list = []
 
+    last_seen_dt = device_row.get("last_seen")
+    is_device_online = bool(
+        last_seen_dt and (datetime.now(timezone.utc) - (last_seen_dt.replace(tzinfo=timezone.utc) if last_seen_dt.tzinfo is None else last_seen_dt)).total_seconds() <= 300
+    )
+    live_status = "ONLINE" if is_device_online else "OFFLINE"
+
     result = {
         "box_id": device_row["box_id"],
-        "status": device_row["status"],
+        "status": live_status,
+        "is_online": is_device_online,
         "firmware": device_row["firmware"],
         "model_version": device_row["model_ver"],
         "ai_model_loaded": is_loaded(),
@@ -2921,7 +2928,12 @@ async def get_devices():
     pool = await get_pool()
     rows = await pool.fetch(
         """
-        SELECT d.box_id AS id, d.status, d.firmware, d.model_ver AS model,
+        SELECT d.box_id AS id,
+               CASE
+                   WHEN d.last_seen IS NOT NULL AND d.last_seen > NOW() - INTERVAL '5 minutes' THEN 'ONLINE'
+                   ELSE 'OFFLINE'
+               END AS status,
+               d.firmware, d.model_ver AS model,
                d.last_ota_status, d.last_ota_error,
                r.wifi_rssi, r.free_heap_kb,
                CASE
