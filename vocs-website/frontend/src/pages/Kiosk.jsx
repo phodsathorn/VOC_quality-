@@ -85,7 +85,7 @@ export default function Kiosk() {
       }
     }
     fetchKiosk();
-    const timer = setInterval(fetchKiosk, 4000);
+    const timer = setInterval(fetchKiosk, 3000);
     return () => clearInterval(timer);
   }, []);
 

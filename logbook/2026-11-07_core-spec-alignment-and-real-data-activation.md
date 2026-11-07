@@ -69,9 +69,30 @@
 - `npm --prefix vocs-website/frontend run build`: ผ่านเรียบร้อย (`built in 237ms`, 0 errors)
 - `npm --prefix vocs-website/frontend run lint`: ผ่านเรียบร้อย (`0 errors, 65 warnings`)
 
+---
+
+### [เวลา 17:48 น.] แก้ไขการดึงข้อมูลเซนเซอร์สดและการโพลล์เรียลไทม์ (3-Second Live Polling)
+**ปัญหาที่พบ:**
+- ผู้ใช้สอบถามว่าค่าของเซนเซอร์เปลี่ยนแบบเรียลไทม์หรือไม่
+- ตรวจสอบพบว่าใน `Dashboard.jsx` ประกาศ `reading = data?.latest_reading || {}` แต่ API เส้นจริงจากแบ็กเอนด์ (`/api/dashboard/latest`) ส่งโครงสร้างเป็น `data.environment` (TVOC, eCO2, PM2.5, Temp, RH) และ `data.sensors` (MQ-2, MQ-3, MQ-135, MQ-8, MiCS-CO, NO2, NH3)
+- ส่งผลให้ตารางโทรมาตรและข้อมูลในหน้าแดชบอร์ดไม่ได้รับค่าจริง และแสดงเป็นค่า fallback นิ่งค้าง
+- อีกทั้งช่วงเวลา Polling เดิมถูกตั้งไว้ที่ 5 วินาทีใน Dashboard และ 4 วินาทีใน Kiosk ซึ่งไม่ตรงตามข้อกำหนดหลัก `CORE_SPEC.md` ที่กำหนดไว้ 3 วินาที
+
+**สิ่งที่แก้ไข:**
+1. **`vocs-website/frontend/src/pages/Dashboard.jsx`**:
+   - ปรับช่วงเวลา Polling `REFRESH_INTERVAL_MS = 3000` (ทุก 3 วินาทีตามข้อกำหนด CORE_SPEC.md)
+   - รวม `data.environment` และ `data.sensors` เข้าสู่ `reading` ด้วย `useMemo` ทำให้แชนแนลเซนเซอร์ทั้ง 12 ตัวดึงค่าจริงจากฮาร์ดแวร์ล่าสุดมาแสดงผล
+2. **`vocs-website/frontend/src/pages/Kiosk.jsx`**:
+   - ปรับรอบการดึงข้อมูล `fetchKiosk` จาก 4 วินาทีเป็น 3 วินาทีตามสเปก
+
+**การตรวจสอบ:**
+- `npm --prefix vocs-website/frontend run build`: ผ่านเรียบร้อย (`built in 230ms`, 0 errors)
+- ตรวจสอบการยิง API `/api/dashboard/latest`: ค่าจริงจากดาต้าเบสถูกส่งผ่านเข้าสู่ตารางโทรมาตรและวิดเจ็ตทั้งหมดถูกต้อง
+
 ## งานค้างและขั้นตอนถัดไป
 - Commit และ Push การเปลี่ยนแปลงขึ้น Git remote ทั้ง `origin` (GitLab) และ `github` (GitHub) เพื่อให้ Vercel deploy อัตโนมัติ
 - ทดสอบเปิดหน้าเว็บ `voc-quality.vercel.app` เพื่อยืนยันว่าหน้าเว็บโหลดได้ปกติสมบูรณ์
+
 
 
 

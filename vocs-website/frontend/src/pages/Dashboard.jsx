@@ -13,7 +13,7 @@ import { Drawer, Modal, calculatePm25Aqi, getAqiCategory } from '../components/u
 import { useLanguage } from '../context/LanguageContext';
 import { API } from '../config';
 
-const REFRESH_INTERVAL_MS = 5000;
+const REFRESH_INTERVAL_MS = 3000;
 
 export default function Dashboard() {
   const { t, isThai } = useLanguage();
@@ -158,13 +158,33 @@ export default function Dashboard() {
   }, [fetchAll]);
 
   // Extract core metrics (Safe optional chaining before any early return)
-  const reading = data?.latest_reading || {};
-  const rawPm25 = data?.environment?.pm25 ?? reading.pm25;
+  const env = data?.environment || {};
+  const sensors = data?.sensors || {};
+  const reading = useMemo(() => ({
+    ...(data?.latest_reading || {}),
+    ...env,
+    ...sensors,
+    tvoc: env.tvoc ?? data?.latest_reading?.tvoc,
+    eco2: env.eco2 ?? data?.latest_reading?.eco2,
+    pm25: env.pm25 ?? data?.latest_reading?.pm25,
+    temp: env.temp ?? data?.latest_reading?.temp,
+    rh: env.rh ?? data?.latest_reading?.rh,
+    mq3: sensors.mq3 ?? data?.latest_reading?.mq3,
+    mq2: sensors.mq2 ?? data?.latest_reading?.mq2,
+    mq135: sensors.mq135 ?? data?.latest_reading?.mq135,
+    mq8: sensors.mq8 ?? data?.latest_reading?.mq8,
+    mics_co: sensors.mics_co ?? data?.latest_reading?.mics_co,
+    no2: sensors.no2 ?? data?.latest_reading?.no2,
+    nh3: sensors.nh3 ?? data?.latest_reading?.nh3,
+    recorded_at: data?.latest_reading?.recorded_at || data?.recorded_at || (data?.sensor_health?.checked_at ? new Date(data.sensor_health.checked_at * 1000).toISOString() : new Date().toISOString()),
+  }), [data, env, sensors]);
+
+  const rawPm25 = env.pm25 ?? reading.pm25;
   const pm25Value = rawPm25 != null && rawPm25 >= 0 ? rawPm25 : 14.0;
   const currentAqi = calculatePm25Aqi(pm25Value) || 38;
   const aqiCategory = getAqiCategory(currentAqi);
 
-  const tvocValue = Math.round(data?.environment?.tvoc ?? reading.tvoc ?? 64.0);
+  const tvocValue = Math.round(env.tvoc ?? reading.tvoc ?? 64.0);
   const fanState = reading.fan_state || 'ON';
   const fanSpeed = reading.fan_speed || 100;
 
