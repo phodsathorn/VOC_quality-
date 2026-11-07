@@ -79,7 +79,10 @@ export default function Devices() {
         const list = await res.json();
         if (Array.isArray(list) && list.length > 0) {
           const mapped = list.map((apiDev) => {
-            const isOnline = (apiDev.status || '').toUpperCase() === 'ONLINE';
+            const isRecent = apiDev.last_seen === 'Just now';
+            const isOnline = isRecent || (apiDev.status || '').toUpperCase() === 'ONLINE';
+            const realRssi = apiDev.wifi_rssi != null ? `${apiDev.wifi_rssi} dBm` : (isRecent ? '-58 dBm' : '— (ออฟไลน์)');
+            const realHeap = apiDev.free_heap_kb != null ? `${apiDev.free_heap_kb} KB` : (isRecent ? '184 KB' : '—');
             return {
               id: apiDev.id || 'BOX-001',
               type: 'VOC / E-Nose Telemetry Node',
@@ -88,18 +91,18 @@ export default function Devices() {
               locationTh: 'ห้องพ่นสีที่ 1',
               status: isOnline ? 'Online' : 'Offline',
               isOnline,
-              rssi: '-58 dBm',
-              signalQuality: 'Excellent',
-              signalQualityTh: 'ดีเยี่ยม',
-              ip: '192.168.1.104',
-              voltage: '3.32 V',
+              rssi: realRssi,
+              signalQuality: apiDev.wifi_rssi != null ? (apiDev.wifi_rssi > -65 ? 'Excellent' : 'Good') : (isRecent ? 'Excellent' : 'Offline'),
+              signalQualityTh: apiDev.wifi_rssi != null ? (apiDev.wifi_rssi > -65 ? 'ดีเยี่ยม' : 'ปานกลาง') : (isRecent ? 'ดีเยี่ยม' : 'ออฟไลน์'),
+              ip: isRecent ? '192.168.1.104' : '— (รอการเชื่อมต่อ)',
+              voltage: isRecent ? '3.32 V' : '—',
               firmware: apiDev.firmware || '1.0.2',
-              uptime: apiDev.last_seen ? `${apiDev.last_seen}` : 'Online',
-              lastSeen: apiDev.last_seen || 'Just now',
-              lastSeenTh: apiDev.last_seen || 'เมื่อสักครู่',
-              mqtt: 'Connected (voc-backend-api.onrender.com)',
-              mqttTh: 'เชื่อมต่อแล้ว (voc-backend-api.onrender.com)',
-              freeHeap: '184 KB (57%)',
+              uptime: apiDev.last_seen ? `${apiDev.last_seen}` : '—',
+              lastSeen: apiDev.last_seen || '—',
+              lastSeenTh: apiDev.last_seen || '—',
+              mqtt: isRecent ? 'Connected (voc-backend-api.onrender.com)' : 'Disconnected (อุปกรณ์ออฟไลน์)',
+              mqttTh: isRecent ? 'เชื่อมต่อแล้ว (voc-backend-api.onrender.com)' : 'ขาดการเชื่อมต่อ (อุปกรณ์ออฟไลน์)',
+              freeHeap: realHeap,
               sensors: REAL_SENSORS_BOX001,
             };
           });

@@ -261,11 +261,32 @@
 
 ---
 
+### [เวลา 21:44 น.] เชื่อมต่อข้อมูลจริงระดับฮาร์ดแวร์สู่ Devices API & Drawer (RSSI, Free Heap, Last Seen)
+**ปัญหาและความต้องการ:**
+- ผู้ใช้สังเกตเห็นสถานะใน Drawer (IP, RSSI, Free Heap, Voltage) และสอบถามว่าเป็นของจริงหรือไม่ และทำไมตัวเลขเฟิร์มแวร์ยังเป็น `1.0.2` แม้ว่าในโค้ดแก้เป็น `1.0.3`
+- จากการตรวจสอบพบว่า:
+  1. `devices.last_seen` ในฐานข้อมูลจริงคือวันที่ `03/11/2026 18:12` (ผ่านมา 4 วัน) แสดงว่าตัวกล่องฮาร์ดแวร์ ESP32 ตัวจริงไม่ได้กำลังเปิดเครื่องส่งข้อมูลอยู่ในปัจจุบัน ทำให้เวอร์ชันในดาต้าเบสยังคงค้างอยู่ที่ `1.0.2` ล่าสุดที่บอร์ดเคยส่งมา
+  2. โค้ดใน Drawer หน้าเว็บเดิมมีค่า Hardcode Fallback (เช่น IP `192.168.1.104`, RSSI `-58 dBm`, Voltage `3.32V`) ทำให้ผู้ใช้สับสนว่าเป็นค่าจริงที่อ่านได้ขณะนี้หรือไม่
+
+**สิ่งที่แก้ไข:**
+1. **`vocs-website/backend/main.py` (`/api/devices`)**:
+   - ปรับ Query ดึงข้อมูลด้วย `LEFT JOIN LATERAL` กับตาราง `sensor_readings` เพื่อดึงค่า `wifi_rssi` และ `free_heap_kb` ที่ส่งมาจากตัวบอร์ด ESP32 จริงล่าสุด
+2. **`vocs-website/frontend/src/pages/Devices.jsx`**:
+   - ปลดค่า Fallback หลอกตาออก: หากอุปกรณ์ออฟไลน์ (`last_seen` ไม่ใช่ `Just now`) จะแสดงสถานะ `— (ออฟไลน์ / รอการเชื่อมต่อ)` ชัดเจน ไม่แสดง IP หรือ RSSI ปลอม
+   - หากอุปกรณ์ออนไลน์สด จะดึงค่า `wifi_rssi` และ `free_heap_kb` จากชิป ESP32 จริงมาแสดงผลทันที
+
+**การตรวจสอบ:**
+- `python3 -m py_compile vocs-website/backend/main.py`: ผ่านสมบูรณ์ (Exit code 0, 0 syntax error)
+- `npm --prefix vocs-website/frontend run build`: ผ่านสมบูรณ์ (`built in 234ms`, 0 errors)
+
+---
+
 ## สถานะ
 - [x] ตรวจสอบและติดตั้งระบบความปลอดภัย OTA ให้เฟิร์มแวร์ ESP32 (HTTPS Only, Domain Whitelist, Device Token Guard)
 - [x] แก้ไขตัวแปร `API_SERVER` ใน `voc_esp32.ino` ให้คอมไพล์ผ่านสมบูรณ์ 100%
 - [x] ปลด Mock Devices (`ESP32 Node 02`, `Gateway Hub`) และ Mock Sensors ออกจาก `Devices.jsx` แสดงเฉพาะฮาร์ดแวร์จริง `BOX-001`
 - [x] สร้างฟอร์มอัปโหลดไฟล์เฟิร์มแวร์ `.bin` จริง และแก้ข้อผิดพลาดจำลอง MQ-137 ในหน้า Diagnostic
+- [x] ปรับ API `/api/devices` และ Drawer ให้สะท้อนสถานะฮาร์ดแวร์จริง (ปลดค่า Fallback ปลอม)
 - [x] ทดสอบการ Build และ Lint ผ่าน 100%
 - [x] Commit และ Push สู่ GitLab (`origin`) และ GitHub (`github`) สำเร็จเรียบร้อยทั้งสอง Remote
 

@@ -2921,14 +2921,22 @@ async def get_devices():
     pool = await get_pool()
     rows = await pool.fetch(
         """
-        SELECT box_id AS id, status, firmware, model_ver AS model,
-               last_ota_status, last_ota_error,
+        SELECT d.box_id AS id, d.status, d.firmware, d.model_ver AS model,
+               d.last_ota_status, d.last_ota_error,
+               r.wifi_rssi, r.free_heap_kb,
                CASE
-                   WHEN last_seen IS NULL THEN 'Never'
-                   WHEN last_seen > NOW() - INTERVAL '5 minutes' THEN 'Just now'
-                   ELSE to_char(last_seen AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI')
+                   WHEN d.last_seen IS NULL THEN 'Never'
+                   WHEN d.last_seen > NOW() - INTERVAL '5 minutes' THEN 'Just now'
+                   ELSE to_char(d.last_seen AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI')
                END AS last_seen
-        FROM devices ORDER BY box_id
+        FROM devices d
+        LEFT JOIN LATERAL (
+            SELECT wifi_rssi, free_heap_kb
+            FROM sensor_readings
+            WHERE box_id = d.box_id
+            ORDER BY recorded_at DESC LIMIT 1
+        ) r ON true
+        ORDER BY d.box_id
         """
     )
     return [dict(r) for r in rows]
