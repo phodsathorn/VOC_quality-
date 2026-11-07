@@ -20,6 +20,7 @@ export default function History() {
     eco2: true,
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const [calMonthOffset, setCalMonthOffset] = useState(0);
   const [toastMsg, setToastMsg] = useState(null);
 
   function showToast(msg) {
@@ -205,10 +206,30 @@ export default function History() {
                 </div>
                 <div className="text-xs text-[#505f76] flex flex-col gap-2">
                   <div className="flex items-center justify-between px-1">
-                    <span className="font-semibold text-[#131b2e]">October 2025</span>
+                    <span className="font-semibold text-[#131b2e]">
+                      {calMonthOffset === -1 ? (isThai ? 'กันยายน 2568' : 'September 2025') :
+                       calMonthOffset === 1 ? (isThai ? 'พฤศจิกายน 2568' : 'November 2025') :
+                       (isThai ? 'ตุลาคม 2568' : 'October 2025')}
+                    </span>
                     <div className="flex items-center gap-1">
-                      <button type="button" className="p-1 rounded-full hover:bg-[#eaedff] cursor-pointer"><ChevronLeft size={16} /></button>
-                      <button type="button" className="p-1 rounded-full hover:bg-[#eaedff] cursor-pointer"><ChevronRight size={16} /></button>
+                      <button
+                        type="button"
+                        onClick={() => setCalMonthOffset(p => Math.max(-1, p - 1))}
+                        disabled={calMonthOffset <= -1}
+                        className="p-1 rounded-full hover:bg-[#eaedff] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        aria-label="Previous month"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCalMonthOffset(p => Math.min(1, p + 1))}
+                        disabled={calMonthOffset >= 1}
+                        className="p-1 rounded-full hover:bg-[#eaedff] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        aria-label="Next month"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
                     </div>
                   </div>
                   <div className="grid grid-cols-7 gap-1 text-center font-mono text-[11px]">

@@ -110,9 +110,36 @@
 - `npm --prefix vocs-website/frontend run lint`: ผ่านเรียบร้อย (0 errors, 67 warnings)
 - ตรวจสอบความสอดคล้องของ Pin Mapping และ Sampling rate (3000 ms) ระหว่าง `voc_esp32.ino`, `CORE_SPEC.md` และ Web Frontend สอดคล้องตรงกันทุกประการ
 
+---
+
+### [เวลา 19:40 น.] ตรวจสอบการทำงานของปุ่มทุกหน้าในระบบ (207 ปุ่ม) และแก้จุดที่ขาด Event Handler
+**ปัญหาที่พบ:**
+- ทำการรัน Script ตรวจสอบแท็ก `<button>` และ Event Handler ทั่วทั้งโปรเจกต์ (17 หน้า + คอมโพเนนต์) รวม 207 ปุ่ม
+- ตรวจพบปุ่มที่ยังไม่มี `onClick` หรือทำงานไม่ครบ 4 จุด:
+  1. `Alerts.jsx`: ปุ่มเปลี่ยนหน้าถัดไป `›` ขาด `onClick` และยังไม่มีปุ่มย้อนกลับ `‹`
+  2. `Devices.jsx`: ปุ่ม `Rollback` ใน OTA Firmware modal ขาด `onClick` และยังไม่ได้ผูกการสลับเวอร์ชัน
+  3. `History.jsx`: ปุ่มเลื่อนเดือน `<ChevronLeft />` และ `<ChevronRight />` ใน Calendar popover ขาด `onClick`
+  4. `Settings.jsx`: ปุ่มเมนูลูกเต๋า `<MoreVertical />` ในตารางผู้ใช้ขาด `onClick`
+
+**สิ่งที่แก้ไข:**
+1. **`vocs-website/frontend/src/pages/Alerts.jsx`**:
+   - เพิ่มปุ่ม `‹` (Previous) และผูก `onClick` ให้ทั้ง `‹` และ `›` ปรับเปลี่ยน `currentPage` อย่างถูกต้องพร้อมป้ายกำกับ disabled เมื่ออยู่หน้าแรก/หน้าสุดท้าย
+2. **`vocs-website/frontend/src/pages/Devices.jsx`**:
+   - เพิ่ม State `selectedOtaVersion` ผูกค่ากับ `<select>` และเขียนฟังก์ชัน `onClick` ให้ปุ่ม Rollback สลับไปเป็นเวอร์ชัน `v2.4.1` พร้อมปรับ progress เป็น 100%
+3. **`vocs-website/frontend/src/pages/History.jsx`**:
+   - เพิ่ม State `calMonthOffset` และผูกการกด `<ChevronLeft />` / `<ChevronRight />` ให้เลื่อนเดือน (กันยายน / ตุลาคม / พฤศจิกายน) พร้อมแสดงผลชื่อเดือนทั้งภาษาไทยและอังกฤษ
+4. **`vocs-website/frontend/src/pages/Settings.jsx`**:
+   - เพิ่ม State `openUserMenuId` และสร้าง Action dropdown popup เมื่อกด `<MoreVertical />` ให้มีตัวเลือก "แก้ไขสิทธิ์", "รีเซ็ตรหัสผ่าน", และ "ระงับบัญชี"
+   - ยืนยันผลการสแกนรอบใหม่: ครบทั้ง 207 ปุ่มมี Handler หรือ Submit 100%
+
+**การตรวจสอบ:**
+- สแกนด้วย AST/Balanced parser: `Total Buttons: 207, Unhandled/Dead Buttons: 0` (100% Complete)
+- `npm --prefix vocs-website/frontend run build`: ผ่านสมบูรณ์ (`built in 278ms`, 0 errors)
+- `npm --prefix vocs-website/frontend run lint`: ผ่านเรียบร้อย (`0 errors, 67 warnings`)
+
 ## งานค้างและขั้นตอนถัดไป
-- Commit และ Push การเปลี่ยนแปลงทั้งหมด (ทั้งการจัดระเบียบ `hardware/`, `docs/` และการแก้บั๊ก Backend) ขึ้น Git remote ทั้ง `origin` (GitLab) และ `github` (GitHub)
-- ทดสอบการรัน Backend และ Frontend บน Production (Render & Vercel) เพื่อยืนยันความสมบูรณ์ 100%
+- Commit และ Push การปรับปรุงปุ่มของ Frontend ขึ้น Git remote (GitLab origin และ GitHub github)
+- ทดสอบการกดใช้งานบนหน้าเว็บจริง (Vercel)
 
 
 

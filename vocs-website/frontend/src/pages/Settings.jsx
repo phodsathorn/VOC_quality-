@@ -13,6 +13,7 @@ export default function Settings() {
   const [hasChanges, setHasChanges] = useState(false);
   const [saved, setSaved] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState('ESP32 Node 01');
+  const [openUserMenuId, setOpenUserMenuId] = useState(null);
 
   // Tab 1: Thresholds matching Stitch AI
   const [thresholds, setThresholds] = useState({
@@ -645,10 +646,40 @@ export default function Settings() {
                         {t('active', 'Active')}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-right">
-                      <button type="button" className="p-1 text-[#505f76] hover:text-[#131b2e] cursor-pointer">
+                    <td className="py-3 px-3 text-right relative">
+                      <button
+                        type="button"
+                        onClick={() => setOpenUserMenuId(openUserMenuId === u.id ? null : u.id)}
+                        className="p-1.5 text-[#505f76] hover:text-[#131b2e] hover:bg-[#eaedff] rounded-full cursor-pointer transition-colors"
+                        aria-label="User actions"
+                      >
                         <MoreVertical size={16} />
                       </button>
+                      {openUserMenuId === u.id && (
+                        <div className="absolute right-3 top-10 w-44 bg-white rounded-2xl shadow-lg border border-[#eaedff] py-1.5 z-20 text-left text-[12px] animate-in fade-in zoom-in-95">
+                          <button
+                            type="button"
+                            onClick={() => { setOpenUserMenuId(null); alert(lang === 'TH' ? `แก้ไขสิทธิ์ของ ${u.name}` : `Edit role for ${u.name}`); }}
+                            className="w-full px-3.5 py-1.5 hover:bg-[#f2f3ff] text-[#131b2e] text-left cursor-pointer"
+                          >
+                            {lang === 'TH' ? 'แก้ไขสิทธิ์' : 'Edit permissions'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setOpenUserMenuId(null); alert(lang === 'TH' ? `ส่งลิงก์รีเซ็ตรหัสผ่านไปยัง ${u.email}` : `Password reset link sent to ${u.email}`); }}
+                            className="w-full px-3.5 py-1.5 hover:bg-[#f2f3ff] text-[#131b2e] text-left cursor-pointer"
+                          >
+                            {lang === 'TH' ? 'รีเซ็ตรหัสผ่าน' : 'Reset password'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setOpenUserMenuId(null); alert(lang === 'TH' ? `ระงับบัญชี ${u.name}` : `Account ${u.name} suspended`); }}
+                            className="w-full px-3.5 py-1.5 hover:bg-[#fee2e2] text-[#ef4444] text-left cursor-pointer"
+                          >
+                            {lang === 'TH' ? 'ระงับบัญชี' : 'Suspend account'}
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

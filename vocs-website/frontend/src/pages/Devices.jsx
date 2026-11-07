@@ -101,6 +101,7 @@ export default function Devices() {
   // Modals
   const [isOtaModalOpen, setIsOtaModalOpen] = useState(false);
   const [otaProgress, setOtaProgress] = useState(68);
+  const [selectedOtaVersion, setSelectedOtaVersion] = useState('v2.5.0');
   const [isDiagModalOpen, setIsDiagModalOpen] = useState(false);
   const [diagRunning, setDiagRunning] = useState(false);
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
@@ -661,14 +662,25 @@ export default function Devices() {
                 <label className="text-[12px] font-semibold uppercase tracking-wider text-[#505f76]">
                   {t('selectVersion', 'Select Version')}
                 </label>
-                <button type="button" className="text-[12px] text-[#004ac6] hover:underline font-medium cursor-pointer">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedOtaVersion('v2.4.1');
+                    setOtaProgress(100);
+                  }}
+                  className="text-[12px] text-[#004ac6] hover:underline font-medium cursor-pointer"
+                >
                   {t('rollback', 'Rollback')}
                 </button>
               </div>
-              <select className="w-full px-3 py-2.5 rounded-2xl bg-[#f2f3ff] border border-[#c3c6d7] text-[14px] text-[#131b2e] focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 cursor-pointer">
-                <option>v2.5.0 ({lang === 'TH' ? 'ล่าสุด' : 'Latest'})</option>
-                <option>v2.4.2</option>
-                <option>v2.4.1 ({lang === 'TH' ? 'ปัจจุบัน' : 'Current'})</option>
+              <select
+                value={selectedOtaVersion}
+                onChange={(e) => setSelectedOtaVersion(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-2xl bg-[#f2f3ff] border border-[#c3c6d7] text-[14px] text-[#131b2e] focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 cursor-pointer"
+              >
+                <option value="v2.5.0">v2.5.0 ({lang === 'TH' ? 'ล่าสุด' : 'Latest'})</option>
+                <option value="v2.4.2">v2.4.2</option>
+                <option value="v2.4.1">v2.4.1 ({lang === 'TH' ? 'ปัจจุบัน / ย้อนกลับ' : 'Current / Rollback'})</option>
               </select>
             </div>
 

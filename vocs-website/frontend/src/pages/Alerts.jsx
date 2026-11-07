@@ -537,8 +537,19 @@ export default function Alerts() {
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setCurrentPage(1)}
+                aria-label="Previous page"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
                 className={`w-7 h-7 rounded-xl font-medium flex items-center justify-center transition-colors ${
+                  currentPage === 1 ? 'opacity-40 cursor-not-allowed text-[#a0a5bd]' : 'hover:bg-[#f2f3ff] text-[#131b2e] cursor-pointer'
+                }`}
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(1)}
+                className={`w-7 h-7 rounded-xl font-medium flex items-center justify-center transition-colors cursor-pointer ${
                   currentPage === 1 ? 'bg-[#004ac6] text-white shadow-xs' : 'hover:bg-[#f2f3ff] text-[#131b2e]'
                 }`}
               >
@@ -547,7 +558,7 @@ export default function Alerts() {
               <button
                 type="button"
                 onClick={() => setCurrentPage(2)}
-                className={`w-7 h-7 rounded-xl font-medium flex items-center justify-center transition-colors ${
+                className={`w-7 h-7 rounded-xl font-medium flex items-center justify-center transition-colors cursor-pointer ${
                   currentPage === 2 ? 'bg-[#004ac6] text-white shadow-xs' : 'hover:bg-[#f2f3ff] text-[#131b2e]'
                 }`}
               >
@@ -556,7 +567,7 @@ export default function Alerts() {
               <button
                 type="button"
                 onClick={() => setCurrentPage(3)}
-                className={`w-7 h-7 rounded-xl font-medium flex items-center justify-center transition-colors ${
+                className={`w-7 h-7 rounded-xl font-medium flex items-center justify-center transition-colors cursor-pointer ${
                   currentPage === 3 ? 'bg-[#004ac6] text-white shadow-xs' : 'hover:bg-[#f2f3ff] text-[#131b2e]'
                 }`}
               >
@@ -565,7 +576,11 @@ export default function Alerts() {
               <button
                 type="button"
                 aria-label="Next page"
-                className="w-7 h-7 rounded-xl hover:bg-[#f2f3ff] text-[#131b2e] flex items-center justify-center transition-colors"
+                onClick={() => setCurrentPage(p => Math.min(3, p + 1))}
+                disabled={currentPage === 3}
+                className={`w-7 h-7 rounded-xl font-medium flex items-center justify-center transition-colors ${
+                  currentPage === 3 ? 'opacity-40 cursor-not-allowed text-[#a0a5bd]' : 'hover:bg-[#f2f3ff] text-[#131b2e] cursor-pointer'
+                }`}
               >
                 ›
               </button>
