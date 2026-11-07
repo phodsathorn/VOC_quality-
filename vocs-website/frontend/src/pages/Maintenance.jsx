@@ -104,7 +104,7 @@ export default function Maintenance() {
       gasType: 'Benzene / Solvent Fumes',
       serial: 'SN-3109-OPT',
       last: 'Oct 05, 2025',
-      technician: 'K. Tanaka',
+      technician: 'Process & Calibration Engineer',
       drift: '+0.6%',
       spanGas: '100 ppm Isobutylene',
       next: 'Nov 05, 2025',
@@ -117,7 +117,7 @@ export default function Maintenance() {
       gasType: 'Hydrogen Flammables',
       serial: 'SN-5520-PIT',
       last: 'Aug 15, 2025',
-      technician: 'R. Vance',
+      technician: 'System Administrator',
       drift: '-1.1%',
       spanGas: '500 ppm Hydrogen',
       next: 'Nov 15, 2025',
@@ -213,6 +213,21 @@ export default function Maintenance() {
             ]);
           }
         }
+
+        if (workOrdersRes && workOrdersRes.ok && isMounted) {
+          const woList = await workOrdersRes.json();
+          if (Array.isArray(woList) && woList.length > 0) {
+            setWorkOrders(woList.map((wo) => ({
+              id: wo.id ? (typeof wo.id === 'string' && wo.id.startsWith('WO-') ? wo.id : `WO-2025-${String(wo.id).padStart(3, '0')}`) : 'WO-2025-001',
+              title: wo.title || 'General Maintenance Task',
+              assignee: wo.performed_by || 'Process & Calibration Engineer',
+              dueDate: wo.completed_at || wo.created_at || 'Scheduled',
+              status: wo.status === 'COMPLETED' ? 'Completed' : (wo.status || 'In Progress'),
+              statusColor: wo.status === 'COMPLETED' ? 'bg-[#eaedff] text-[#004ac6]' : 'bg-[#d3e4fe] text-[#004ac6]',
+              signedOffBy: wo.performed_by || 'Verified Engineer',
+            })));
+          }
+        }
       } catch (err) {
         console.warn('Maintenance live fetch notice:', err);
       }
@@ -237,9 +252,8 @@ export default function Maintenance() {
           box_id: 'BOX-001',
           task_type: logType,
           title: logType === 'sensor-calibration' ? 'Sensor Calibration' : logType,
-          performed_by: logTechnician,
+          checklist: { date: logDate, technician: logTechnician },
           notes: logNote || 'Scheduled calibration logged via Maintenance Console',
-          checklist: [logDate],
         }),
       });
     } catch (err) {
@@ -247,7 +261,7 @@ export default function Maintenance() {
     }
   }
 
-  function handleSaveWorkOrder(e) {
+  async function handleSaveWorkOrder(e) {
     e.preventDefault();
     if (!woTitle) return;
     const newWo = {
@@ -261,9 +275,32 @@ export default function Maintenance() {
     };
     setWorkOrders((prev) => [newWo, ...prev]);
     setIsWorkOrderDrawerOpen(false);
+    const titleToSave = woTitle;
+    const noteToSave = woNote;
+    const assigneeToSave = woAssignee;
+    const dueDateToSave = woDueDate;
     setWoTitle('');
     setWoNote('');
     showToast('Work order created successfully ✓');
+
+    try {
+      await fetch(`${API}/api/maintenance/work-orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+        },
+        body: JSON.stringify({
+          box_id: 'BOX-001',
+          task_type: 'preventive-maintenance',
+          title: titleToSave,
+          checklist: { due_date: dueDateToSave, assignee: assigneeToSave },
+          notes: noteToSave || `Work order assigned to ${assigneeToSave} due on ${dueDateToSave}`,
+        }),
+      });
+    } catch (err) {
+      console.warn('Save work order error:', err);
+    }
   }
 
   function handleConfirmCalibration() {

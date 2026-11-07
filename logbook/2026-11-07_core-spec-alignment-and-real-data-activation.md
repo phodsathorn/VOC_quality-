@@ -213,11 +213,36 @@
 
 ---
 
+---
+
+### [เวลา 21:10 น.] ปลดข้อมูลจำลองในหน้า Devices & Maintenance เชื่อมต่อข้อมูลจริง (Real Data Only)
+**ปัญหาและความต้องการ:**
+- ผู้ใช้ต้องการให้ระบบแสดงเฉพาะข้อมูลจริง (Real Data) เท่านั้น
+- ในหน้า `Devices.jsx` เดิมมีโหนดจำลอง `ESP32 Node 02` และ `Gateway Hub` ค้างอยู่จากเทมเพลตดีไซน์ รวมถึงเซนเซอร์จำลอง (`Mini PID`, `SGP40`, `TGS2602`, `MQ-137 Fault`)
+- ในหน้า `Maintenance.jsx` เดิมยังมีชื่อพนักงานจำลองหลุดค้าง (`K. Tanaka`, `R. Vance`) และการสร้าง Work Order ยังไม่ได้ยิงบันทึกลง API แบ็กเอนด์
+
+**สิ่งที่แก้ไข:**
+1. **`vocs-website/frontend/src/pages/Devices.jsx`**:
+   - ปลดโหนดจำลอง `ESP32 Node 02` และ `Gateway Hub` ออกทั้งหมด
+   - กำหนดให้แสดงผลอุปกรณ์จริงแบบไดนามิกตามที่ดึงได้จาก API `/api/devices` (ปัจจุบันคือ `BOX-001` กล่องจริงในห้องพ่นสีที่ 1)
+   - ปรับรายการเซนเซอร์ในการ์ดและ Drawer ให้ตรงกับแผงวงจรจริง 12 แชนแนลตาม `CORE_SPEC.md` (`MQ-3`, `MQ-2`, `MQ-135`, `MQ-8`, `MiCS-6814 CO`, `NO2`, `NH3`, `CCS811 TVOC`, `CCS811 eCO2`, `PMS5003 PM2.5`, `DHT22 Temp`, `DHT22 RH`) ปลดเซนเซอร์ Fault จำลองออกทั้งหมด
+2. **`vocs-website/frontend/src/pages/Maintenance.jsx`**:
+   - แก้ไขช่างเทคนิคที่ตกค้าง (`K. Tanaka`, `R. Vance`) เป็นบทบาทจริงในระบบ (`Process & Calibration Engineer`, `System Administrator`)
+   - ปรับการโหลด Work Orders จาก `GET /api/maintenance/work-orders` เข้าสู่ State อัตโนมัติ
+   - ผูกฟังก์ชัน `handleSaveWorkOrder` ให้ส่งข้อมูลบันทึกลงฐานข้อมูลจริงผ่าน `POST /api/maintenance/work-orders` พร้อมแนบ JWT Token
+
+**การตรวจสอบ:**
+- `npm --prefix vocs-website/frontend run build`: ผ่านสมบูรณ์ (`built in 270ms`, 0 errors)
+- `npm --prefix vocs-website/frontend run lint`: ผ่านสมบูรณ์ (0 errors, 69 warnings)
+
+---
+
 ## สถานะ
 - [x] ตรวจสอบและติดตั้งระบบความปลอดภัย OTA ให้เฟิร์มแวร์ ESP32 (HTTPS Only, Domain Whitelist, Device Token Guard)
 - [x] แก้ไขตัวแปร `API_SERVER` ใน `voc_esp32.ino` ให้คอมไพล์ผ่านสมบูรณ์ 100%
-- [x] ตรวจสอบระบบ Ingress/Egress Network และระบบตรวจสอบสิทธิ์ฝั่ง Backend API
-- [x] บันทึกผลการวิเคราะห์ความปลอดภัยและแนะนำแนวทางปฏิบัติบนสภาพแวดล้อม Production
+- [x] ปลด Mock Devices (`ESP32 Node 02`, `Gateway Hub`) และ Mock Sensors ออกจาก `Devices.jsx` แสดงเฉพาะฮาร์ดแวร์จริง `BOX-001`
+- [x] เชื่อมต่อใบสั่งงาน `Maintenance.jsx` เข้ากับฐานข้อมูลจริงผ่าน `POST /api/maintenance/work-orders`
+- [x] ทดสอบการ Build และ Lint ผ่าน 100%
 - [x] Commit และ Push สู่ GitLab (`origin`) และ GitHub (`github`) สำเร็จเรียบร้อยทั้งสอง Remote
 
 

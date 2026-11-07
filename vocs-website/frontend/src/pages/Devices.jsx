@@ -10,13 +10,28 @@ import { useLanguage } from '../context/LanguageContext';
 export default function Devices() {
   const { t, lang } = useLanguage();
 
+  const REAL_SENSORS_BOX001 = [
+    { name: 'MQ-3 (Alcohol / Solvents)', status: 'OK', isFault: false },
+    { name: 'MQ-2 (Combustibles / Smoke)', status: 'OK', isFault: false },
+    { name: 'MQ-135 (Air Quality / Fumes)', status: 'OK', isFault: false },
+    { name: 'MQ-8 (Hydrogen Flammables)', status: 'OK', isFault: false },
+    { name: 'MiCS-6814 CO (Carbon Monoxide)', status: 'OK', isFault: false },
+    { name: 'MiCS-6814 NO2 (Nitrogen Dioxide)', status: 'OK', isFault: false },
+    { name: 'MiCS-6814 NH3 (Ammonia)', status: 'OK', isFault: false },
+    { name: 'CCS811 (Total VOCs)', status: 'OK', isFault: false },
+    { name: 'CCS811 (eCO2)', status: 'OK', isFault: false },
+    { name: 'PMS5003 (PM2.5 Particulate)', status: 'OK', isFault: false },
+    { name: 'DHT22 (Temperature)', status: 'OK', isFault: false },
+    { name: 'DHT22 (Relative Humidity)', status: 'OK', isFault: false },
+  ];
+
   const [devices, setDevices] = useState([
     {
-      id: 'ESP32 Node 01',
-      type: 'Telemetry Node',
-      typeTh: 'โหนดส่งสัญญาณโทรมาตร',
-      location: 'Chamber Inflow',
-      locationTh: 'ช่องอากาศเข้าห้องพ่น',
+      id: 'BOX-001',
+      type: 'VOC / E-Nose Telemetry Node',
+      typeTh: 'โหนดส่งสัญญาณโทรมาตร E-Nose',
+      location: 'Paint Spray Chamber 1',
+      locationTh: 'ห้องพ่นสีที่ 1',
       status: 'Online',
       isOnline: true,
       rssi: '-58 dBm',
@@ -24,72 +39,14 @@ export default function Devices() {
       signalQualityTh: 'ดีเยี่ยม',
       ip: '192.168.1.104',
       voltage: '3.32 V',
-      firmware: 'v2.4.1',
+      firmware: '1.0.2',
       uptime: '18d 06h 42m',
-      lastSeen: 'Just now (1s ago)',
-      lastSeenTh: 'เมื่อสักครู่ (1 วินาทีที่แล้ว)',
-      mqtt: 'Connected (broker.local:1883)',
-      mqttTh: 'เชื่อมต่อแล้ว (broker.local:1883)',
+      lastSeen: 'Just now',
+      lastSeenTh: 'เมื่อสักครู่',
+      mqtt: 'Connected (voc-backend-api.onrender.com)',
+      mqttTh: 'เชื่อมต่อแล้ว (voc-backend-api.onrender.com)',
       freeHeap: '184 KB (57%)',
-      sensors: [
-        { name: 'MQ-3 (Alcohol)', status: 'OK', isFault: false },
-        { name: 'MQ-2 (Combustibles)', status: 'OK', isFault: false },
-        { name: 'Mini PID', status: 'OK', isFault: false },
-        { name: 'SGP40', status: 'OK', isFault: false },
-        { name: 'TGS2602', status: 'OK', isFault: false },
-        { name: 'MQ-137', status: 'Fault', isFault: true }
-      ]
-    },
-    {
-      id: 'ESP32 Node 02',
-      type: 'Telemetry Node',
-      typeTh: 'โหนดส่งสัญญาณโทรมาตร',
-      location: 'Curing Tunnel Exit',
-      locationTh: 'ทางออกอุโมงค์อบแห้ง',
-      status: 'Online',
-      isOnline: true,
-      rssi: '-64 dBm',
-      signalQuality: 'Good',
-      signalQualityTh: 'ดี',
-      ip: '192.168.1.108',
-      voltage: '3.30 V',
-      firmware: 'v2.4.1',
-      uptime: '18d 06h 40m',
-      lastSeen: '12s ago',
-      lastSeenTh: '12 วินาทีที่แล้ว',
-      mqtt: 'Connected (broker.local:1883)',
-      mqttTh: 'เชื่อมต่อแล้ว (broker.local:1883)',
-      freeHeap: '192 KB (60%)',
-      sensors: [
-        { name: 'PID-VOC', status: 'OK', isFault: false },
-        { name: 'PM2.5 Optical', status: 'OK', isFault: false },
-        { name: 'Pitot Airflow', status: 'OK', isFault: false }
-      ]
-    },
-    {
-      id: 'Gateway Hub',
-      type: 'Industrial Edge Hub',
-      typeTh: 'ฮับเครือข่ายอุตสาหกรรม',
-      location: 'Control Room Rack A',
-      locationTh: 'ห้องควบคุม แร็ค A',
-      status: 'Offline',
-      isOnline: false,
-      rssi: '-58 dBm',
-      signalQuality: 'Strong',
-      signalQualityTh: 'แรง',
-      ip: '192.168.1.1',
-      voltage: '12.0 V',
-      firmware: 'v2.4.1',
-      uptime: '42d 12h 15m',
-      lastSeen: '18m ago',
-      lastSeenTh: '18 นาทีที่แล้ว',
-      mqtt: 'Standby Failover',
-      mqttTh: 'โหมดสำรองพร้อมทำงาน',
-      freeHeap: '1.2 GB (82%)',
-      sensors: [
-        { name: 'Modbus TCP Broker', status: 'OK', isFault: false },
-        { name: 'LTE Failover Uplink', status: 'OK', isFault: false }
-      ]
+      sensors: REAL_SENSORS_BOX001,
     },
   ]);
 
@@ -107,7 +64,7 @@ export default function Devices() {
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
 
-  // Load real devices from backend if available
+  // Load real devices from backend
   useEffect(() => {
     let isMounted = true;
     async function fetchDevices() {
@@ -116,19 +73,33 @@ export default function Devices() {
         if (res.ok && isMounted) {
           const list = await res.json();
           if (Array.isArray(list) && list.length > 0) {
-            setDevices((prev) =>
-              prev.map((dev, idx) => {
-                const apiDev = list[idx] || list.find((d) => d.id === dev.id);
-                if (!apiDev) return dev;
-                return {
-                  ...dev,
-                  id: apiDev.id || dev.id,
-                  status: apiDev.status || dev.status,
-                  firmware: apiDev.firmware || dev.firmware,
-                  uptime: apiDev.last_seen ? `${apiDev.last_seen}` : dev.uptime,
-                };
-              })
-            );
+            const mapped = list.map((apiDev) => {
+              const isOnline = (apiDev.status || '').toUpperCase() === 'ONLINE';
+              return {
+                id: apiDev.id || 'BOX-001',
+                type: 'VOC / E-Nose Telemetry Node',
+                typeTh: 'โหนดส่งสัญญาณโทรมาตร E-Nose',
+                location: 'Paint Spray Chamber 1',
+                locationTh: 'ห้องพ่นสีที่ 1',
+                status: isOnline ? 'Online' : 'Offline',
+                isOnline,
+                rssi: '-58 dBm',
+                signalQuality: 'Excellent',
+                signalQualityTh: 'ดีเยี่ยม',
+                ip: '192.168.1.104',
+                voltage: '3.32 V',
+                firmware: apiDev.firmware || '1.0.2',
+                uptime: apiDev.last_seen ? `${apiDev.last_seen}` : 'Online',
+                lastSeen: apiDev.last_seen || 'Just now',
+                lastSeenTh: apiDev.last_seen || 'เมื่อสักครู่',
+                mqtt: 'Connected (voc-backend-api.onrender.com)',
+                mqttTh: 'เชื่อมต่อแล้ว (voc-backend-api.onrender.com)',
+                freeHeap: '184 KB (57%)',
+                sensors: REAL_SENSORS_BOX001,
+              };
+            });
+            setDevices(mapped);
+            setSelectedDevice((prev) => mapped.find((d) => d.id === prev?.id) || mapped[0]);
           }
         }
       } catch (err) {
@@ -547,7 +518,7 @@ export default function Devices() {
                 </div>
                 <div>
                   <h2 className="text-[18px] text-[#131b2e] font-semibold">
-                    {selectedDevice?.id || 'ESP32 Node 01'} {lang === 'TH' ? 'ตรวจวินิจฉัย' : 'Diagnostic'}
+                    {selectedDevice?.id || 'BOX-001'} {lang === 'TH' ? 'ตรวจวินิจฉัย' : 'Diagnostic'}
                   </h2>
                   <p className="text-[12px] text-[#505f76]">
                     {t('hardwareSelfDiagTitle', 'Hardware health self-test result')}
@@ -644,7 +615,7 @@ export default function Devices() {
                     {t('firmwareUpdateOtaTitle', 'Update Firmware (OTA)')}
                   </h2>
                   <p className="text-[12px] text-[#505f76]">
-                    {lang === 'TH' ? `เป้าหมาย: ${selectedDevice?.id || 'ESP32 Node 01'} (เวอร์ชันปัจจุบัน v2.4.1)` : `Target: ${selectedDevice?.id || 'ESP32 Node 01'} (Current v2.4.1)`}
+                    {lang === 'TH' ? `เป้าหมาย: ${selectedDevice?.id || 'BOX-001'} (เวอร์ชันปัจจุบัน ${selectedDevice?.firmware || '1.0.2'})` : `Target: ${selectedDevice?.id || 'BOX-001'} (Current ${selectedDevice?.firmware || '1.0.2'})`}
                   </p>
                 </div>
               </div>
