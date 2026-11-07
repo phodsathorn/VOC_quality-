@@ -16,7 +16,7 @@ import { API } from '../config';
 export default function Layout({ children }) {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { lang, setLang, t } = useLanguage();
+  const { lang, setLang, t, isThai } = useLanguage();
   const [soundActive, setSoundActive] = useState(() => isSoundEnabled());
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
   const [criticalBannerAlert, setCriticalBannerAlert] = useState(null);

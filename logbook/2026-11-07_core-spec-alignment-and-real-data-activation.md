@@ -31,6 +31,25 @@
 - `npm --prefix vocs-website/frontend run lint`: ผ่านเรียบร้อย (`0 errors, 65 warnings`)
 - ตรวจสอบการเรนเดอร์กราฟเรดาร์และเกจวัดทั้ง 4 ช่องบน Kiosk แสดงผลค่าจริงจากเซนเซอร์
 
+---
+
+### [เวลา 10:55 น.] แก้ไขบั๊กจอขาว (White Screen Fix) & ติดตั้ง Error Boundary
+**ปัญหาที่พบ:**
+- ผู้ใช้เข้าเว็บ `voc-quality.vercel.app` แล้วพบหน้าจอสีขาวล้วน (White Screen)
+- สาเหตุ: ใน `vocs-website/frontend/src/components/Layout.jsx` บรรทัดที่ 19 ไม่ได้ destructure ตัวแปร `isThai` จาก `useLanguage()` ส่งผลให้เกิด `ReferenceError: isThai is not defined` ขณะเรนเดอร์ปุ่มโปรไฟล์ผู้ใช้ และทำให้ React root unmount ทั้งหน้าจอ
+
+**สิ่งที่แก้ไข:**
+1. **`vocs-website/frontend/src/components/Layout.jsx`**: เพิ่ม `isThai` เข้าไปใน `const { lang, setLang, t, isThai } = useLanguage();`
+2. **`vocs-website/frontend/src/components/ErrorBoundary.jsx`**: สร้างคอมโพเนนต์ React Error Boundary ครอบคลุมทั้งสองภาษา (TH/EN) พร้อมปุ่ม "รีโหลดหน้านี้ / Reload Page" และ Technical Details Dropdown เพื่อป้องกันไม่ให้เกิดจอขาวล้วนในอนาคตหากมี unexpected error
+3. **`vocs-website/frontend/src/main.jsx`**: นำ `<ErrorBoundary>` มาครอบ `<App />`
+
+**การตรวจสอบ:**
+- ตรวจสอบทั่วทั้งโค้ดด้วย Node script: ไม่พบการเรียกใช้ `isThai` ที่ไม่ได้ประกาศอีก (`All isThai references are properly declared/destructured!`)
+- `npm --prefix vocs-website/frontend run build`: ผ่าน 100% (`built in 236ms`, 0 errors)
+- `npm --prefix vocs-website/frontend run lint`: ผ่าน (0 errors)
+
 ## งานค้างและขั้นตอนถัดไป
-- Commit และ Push การเปลี่ยนแปลงขึ้น Git remote ทั้ง `origin` (GitLab) และ `github` (GitHub)
-- เตรียมการสำหรับ Milestone M1 / M2: การพัฒนา Keras Small MLP และแปลงเป็น TFLite Micro สำหรับ ESP32
+- Commit และ Push การเปลี่ยนแปลงขึ้น Git remote ทั้ง `origin` (GitLab) และ `github` (GitHub) เพื่อให้ Vercel deploy อัตโนมัติ
+- ทดสอบเปิดหน้าเว็บ `voc-quality.vercel.app` เพื่อยืนยันว่าหน้าเว็บโหลดได้ปกติสมบูรณ์
+
+
