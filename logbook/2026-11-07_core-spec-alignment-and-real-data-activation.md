@@ -89,9 +89,30 @@
 - `npm --prefix vocs-website/frontend run build`: ผ่านเรียบร้อย (`built in 230ms`, 0 errors)
 - ตรวจสอบการยิง API `/api/dashboard/latest`: ค่าจริงจากดาต้าเบสถูกส่งผ่านเข้าสู่ตารางโทรมาตรและวิดเจ็ตทั้งหมดถูกต้อง
 
+---
+
+### [เวลา 19:15 น.] ตรวจสอบระบบทั้งโปรเจกต์ (Full Project Audit) & แก้ไข IndentationError ใน Backend
+**ปัญหาที่พบ:**
+- จากการรันตรวจสอบไวยากรณ์ Python ด้วย `py_compile` ทั่วทั้งโปรเจกต์ พบข้อผิดพลาดร้ายแรง `IndentationError: unexpected indent (main.py, line 4049)` ใน `vocs-website/backend/main.py`
+- สาเหตุเกิดจากการที่บล็อกข้อมูลจำลองปล่องไอเสีย `STACK-02` ชุดเก่าหลุดค้างอยู่นอกลิสต์ในฟังก์ชัน `list_exhaust_stacks()` ส่งผลให้เซิร์ฟเวอร์ Backend ไม่สามารถสตาร์ตได้หากมีการรีสตาร์ตหรือ Deploy ใหม่
+- มีการจัดระเบียบโครงสร้างโฟลเดอร์แยกหมวดหมู่ `hardware/` (firmware, pcb, wiring, validation, tests_and_diagnostics) และ `docs/` (architecture, product, reviews) พร้อมสร้าง `hardware/README.md` และปรับปรุง `paper_sensor_VOC.code-workspace`
+
+**สิ่งที่แก้ไข:**
+1. **`vocs-website/backend/main.py`**:
+   - ลบบล็อกโค้ดซ้ำซ้อนที่หลุดอยู่นอก Return Statement (บรรทัด 4049-4059) ออกทั้งหมด ทำให้โครงสร้างไวยากรณ์ Python ถูกต้อง 100%
+2. **การจัดระเบียบโฟลเดอร์**:
+   - รวบรวมงานฝั่งฮาร์ดแวร์ทั้งหมดไว้ในโฟลเดอร์ราก `hardware/` พร้อมเอกสารกำกับ `hardware/README.md`
+   - ปรับแต่ง `paper_sensor_VOC.code-workspace` เพื่อรองรับ Multi-root workspace ครอบคลุม 6 หมวดหมู่อย่างสมบูรณ์
+
+**การตรวจสอบ:**
+- `python -m py_compile main.py db.py line_adapter.py model_loader.py`: ผ่านสมบูรณ์ (Exit code 0, 0 syntax error)
+- `npm --prefix vocs-website/frontend run build`: ผ่านสมบูรณ์ (`built in 232ms`, 0 errors)
+- `npm --prefix vocs-website/frontend run lint`: ผ่านเรียบร้อย (0 errors, 67 warnings)
+- ตรวจสอบความสอดคล้องของ Pin Mapping และ Sampling rate (3000 ms) ระหว่าง `voc_esp32.ino`, `CORE_SPEC.md` และ Web Frontend สอดคล้องตรงกันทุกประการ
+
 ## งานค้างและขั้นตอนถัดไป
-- Commit และ Push การเปลี่ยนแปลงขึ้น Git remote ทั้ง `origin` (GitLab) และ `github` (GitHub) เพื่อให้ Vercel deploy อัตโนมัติ
-- ทดสอบเปิดหน้าเว็บ `voc-quality.vercel.app` เพื่อยืนยันว่าหน้าเว็บโหลดได้ปกติสมบูรณ์
+- Commit และ Push การเปลี่ยนแปลงทั้งหมด (ทั้งการจัดระเบียบ `hardware/`, `docs/` และการแก้บั๊ก Backend) ขึ้น Git remote ทั้ง `origin` (GitLab) และ `github` (GitHub)
+- ทดสอบการรัน Backend และ Frontend บน Production (Render & Vercel) เพื่อยืนยันความสมบูรณ์ 100%
 
 
 

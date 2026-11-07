@@ -4046,17 +4046,6 @@ async def list_exhaust_stacks():
             "active": True
         }
     ]
-            "stack_id": "STACK-02",
-            "name": "Exhaust Stack 02 (Drying Oven Line B) [DEMO ONLY]",
-            "process_type": "Thermal Cure Oven",
-            "flow_rate_m3_h": 8200.0,
-            "diameter_m": 0.65,
-            "temp_c": 85.0,
-            "is_verified_cems": False,
-            "cems_calibrated_at": None,
-            "active": True
-        }
-    ]
 
 
 @app.get("/api/emissions/permits")
