@@ -13,6 +13,9 @@ import { Drawer, Modal, calculatePm25Aqi, getAqiCategory } from '../components/u
 import { useLanguage } from '../context/LanguageContext';
 import { API } from '../config';
 
+import TelemetryDrawer from './dashboard/TelemetryDrawer';
+import SolventRadarModal from './dashboard/SolventRadarModal';
+
 const REFRESH_INTERVAL_MS = 3000;
 
 export default function Dashboard() {
@@ -801,272 +804,23 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* ── Sub-State Right-side Drawer: Live sensor telemetry (480px) ── */}
-      {isTelemetryDrawerOpen && (
-        <div
-          onClick={() => toggleTelemetryDrawer(false)}
-          className="fixed inset-0 bg-[#283044]/20 backdrop-blur-[2px] z-50 transition-opacity"
-        />
-      )}
-      <aside
-        aria-label="Live sensor telemetry"
-        className={`fixed top-0 right-0 h-full w-full sm:w-[520px] max-w-[100vw] bg-white shadow-2xl z-50 flex flex-col justify-between border-l border-[#eaedff] transition-transform duration-300 ${
-          isTelemetryDrawerOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        <div className="flex flex-col h-full overflow-hidden">
-          {/* Drawer Header */}
-          <div className="h-16 px-5 sm:px-6 border-b border-[#eaedff] flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-[#004ac6]/10 flex items-center justify-center text-[#004ac6]">
-                <Radio size={18} />
-              </div>
-              <div>
-                <h2 className="text-[18px] font-semibold leading-tight text-[#131b2e]">
-                  {t('liveTelemetryTitle')}
-                </h2>
-                <span className="text-[11px] text-[#505f76]">
-                  {isThai ? 'กล่องรวมสัญญาณ BOX-001 (ห้องพ่นสีที่ 1) · 12 แชนแนลตรวจวัด' : 'Sensor Enclosure BOX-001 (Booth 1) · 12 Channels'}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => toggleTelemetryDrawer(false)}
-              className="p-1.5 rounded-full text-[#505f76] hover:text-[#131b2e] hover:bg-[#eaedff] transition-colors flex items-center justify-center cursor-pointer"
-            >
-              <X size={20} />
-            </button>
-          </div>
+      {/* Sub-State Right-side Drawer: Live sensor telemetry */}
+      <TelemetryDrawer
+        isOpen={isTelemetryDrawerOpen}
+        onClose={() => toggleTelemetryDrawer(false)}
+        hasWarning={hasWarning}
+        allProbes={allProbes}
+        reading={reading}
+        boxId={boxId}
+      />
 
-          {/* Drawer Body / Table Content */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[11px] uppercase tracking-wider text-[#505f76] font-medium">
-                {t('realtimeProbeReadings')}
-              </span>
-              {hasWarning ? (
-                <div className="flex items-center gap-1.5 text-[11px] text-[#943700] font-medium">
-                  <span className="w-2 h-2 rounded-full bg-[#f97316] animate-pulse" />
-                  {t('warningExceeded')}
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 text-[11px] text-[#00AA55] font-medium">
-                  <span className="w-2 h-2 rounded-full bg-[#00CC66] animate-pulse" />
-                  {t('allSystemsNominal')}
-                </div>
-              )}
-            </div>
-
-            <div className="border border-[#eaedff] rounded-2xl overflow-x-auto bg-white shadow-xs">
-              <table className="w-full text-left border-collapse text-[13px] min-w-[440px]">
-                <thead>
-                  <tr className="bg-[#f2f3ff] border-b border-[#eaedff] text-[#505f76] font-medium text-[12px]">
-                    <th className="py-2.5 px-3 whitespace-nowrap">{t('sensorIdCol')}</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap">{t('targetGasCol')}</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap">{t('valueCol')}</th>
-                    <th className="py-2.5 px-3 text-right whitespace-nowrap">{t('thresholdCol')}</th>
-                    <th className="py-2.5 px-3 text-center whitespace-nowrap">{t('statusCol')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#eaedff] text-[#131b2e]">
-                  {allProbes.map((probe) => (
-                    <tr key={probe.id} className="hover:bg-[#eaedff]/40 transition-colors">
-                      <td className="py-2.5 px-3 font-semibold text-[#004ac6] whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span>{probe.id}</span>
-                          <span className="text-[10px] text-[#505f76] font-normal">{probe.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3 text-[#131b2e] whitespace-nowrap text-xs font-medium">{probe.target}</td>
-                      <td className="py-2.5 px-3 text-right font-medium tabular-nums whitespace-nowrap">{probe.val}</td>
-                      <td className="py-2.5 px-3 text-right text-[#505f76] tabular-nums whitespace-nowrap">{probe.thresh}</td>
-                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap ${
-                            probe.status === 'Warning' || probe.status === 'เฝ้าระวัง'
-                              ? 'bg-amber-50 text-amber-800 border-amber-200/80'
-                              : 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
-                          }`}
-                        >
-                          {probe.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Quick Summary Card inside Drawer */}
-            <div className="mt-5 p-4 rounded-2xl bg-[#f2f3ff] border border-[#eaedff]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[12px] font-semibold text-[#131b2e]">{t('samplingRateLabel')}</span>
-                <span className="text-[12px] text-[#505f76]">{t('samplingRateContinuous')}</span>
-              </div>
-              <div className="w-full bg-[#e2e7ff] h-1.5 rounded-full overflow-hidden">
-                <div className="bg-[#004ac6] h-full rounded-full w-full" />
-              </div>
-              <p className="text-[11px] text-[#505f76] mt-2">
-                {t('latestSyncNotice')}: {reading.recorded_at ? new Date(reading.recorded_at).toLocaleTimeString() : (isThai ? '3 วินาทีที่แล้ว' : '3 seconds ago')} {isThai ? 'ผ่านเกตเวย์ Modbus TCP' : 'via Modbus TCP gateway'}.
-              </p>
-            </div>
-          </div>
-
-          {/* Drawer Footer */}
-          <div className="p-4 sm:p-5 border-t border-[#eaedff] bg-white shrink-0 flex items-center justify-between">
-            <span className="text-[12px] text-[#505f76]">
-              {isThai ? 'รหัสกล่องตรวจวัด' : 'Enclosure ID'}: <span className="font-mono text-[#131b2e] font-semibold">{data?.box_id || 'BOX-001'}</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => toggleTelemetryDrawer(false)}
-              className="px-4 py-2 rounded-xl bg-[#eaedff] text-[#131b2e] text-[13px] font-medium hover:bg-[#dae2fd] transition-colors cursor-pointer"
-            >
-              {t('dismiss')}
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* ── Sub-State Solvent 8-Channel Radar Modal Dialog ── */}
-      {isRadarModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            onClick={() => setIsRadarModalOpen(false)}
-            className="fixed inset-0 bg-[#283044]/40 backdrop-blur-xs transition-opacity"
-          />
-          <div className="relative bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl border border-[#eaedff] z-10 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[11px] uppercase tracking-wider text-[#505f76] font-medium">
-                    {isThai ? 'การวิเคราะห์ลายนิ้วมือสารเคมี' : 'Chemical Fingerprint Analysis'}
-                  </span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-semibold text-[#004ac6] bg-[#004ac6]/10">
-                    {isThai ? `ตรงกัน ${solventMatch}%` : `${solventMatch}% match`}
-                  </span>
-                </div>
-                <h3 className="text-[32px] font-bold text-[#131b2e] leading-tight">
-                  {isThai
-                    ? (detectedLabel === 'ALCOHOL'
-                        ? 'ไอแอลกอฮอล์'
-                        : detectedLabel === 'THINNER'
-                        ? 'ไอทินเนอร์'
-                        : detectedLabel === 'SMOKE'
-                        ? 'ควัน / การเผาไหม้'
-                        : 'บรรยากาศบริสุทธิ์')
-                    : (detectedLabel === 'ALCOHOL'
-                        ? 'Alcohol Vapor'
-                        : detectedLabel === 'THINNER'
-                        ? 'Thinner Vapor'
-                        : detectedLabel === 'SMOKE'
-                        ? 'Smoke / Combustion'
-                        : 'Clean Ambient Air')}{' '}
-                  <span className="text-[20px] text-[#505f76] font-normal font-sans">
-                    {isThai ? `ความสอดคล้อง ${solventMatch}%` : `${solventMatch}% match`}
-                  </span>
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsRadarModalOpen(false)}
-                className="p-1.5 rounded-full text-[#505f76] hover:text-[#131b2e] hover:bg-[#eaedff] transition-colors cursor-pointer"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <p className="text-[13px] text-[#505f76] mb-4">
-              {isThai
-                ? 'การเปรียบเทียบสัญญาณแผงเซนเซอร์ตรวจวัดไอระเหยโลหะออกไซด์ 8 ช่องสัญญาณเทียบกับฐานข้อมูลลายเซ็นสารระเหย NIST'
-                : 'Expanded 8-channel metal-oxide sensor matrix comparison against reference NIST VOC signature library.'}
-            </p>
-
-            {/* Large 8-Channel Radar Chart */}
-            <div className="flex items-center justify-center py-4 bg-[#f2f3ff]/50 rounded-2xl border border-[#eaedff]">
-              <div className="w-64 h-64">
-                <svg className="w-full h-full overflow-visible" viewBox="0 0 240 240">
-                  <defs>
-                    <radialGradient cx="50%" cy="50%" id="modalRadarGlow" r="50%">
-                      <stop offset="0%" stopColor="#2563EB" stopOpacity="0.25" />
-                      <stop offset="100%" stopColor="#2563EB" stopOpacity="0.02" />
-                    </radialGradient>
-                  </defs>
-                  {/* Outer Octagon ring (R=90) */}
-                  <polygon
-                    fill="none"
-                    points="120,30 183.6,56.4 210,120 183.6,183.6 120,210 56.4,183.6 30,120 56.4,56.4"
-                    stroke="#D1D5DB"
-                    strokeDasharray="3 3"
-                    strokeWidth="1"
-                  />
-                  {/* Middle Octagon ring (R=60) */}
-                  <polygon
-                    fill="none"
-                    points="120,60 162.4,77.6 180,120 162.4,162.4 120,180 77.6,162.4 60,120 77.6,77.6"
-                    stroke="#E5E7EB"
-                    strokeWidth="1"
-                  />
-                  {/* Inner Octagon ring (R=30) */}
-                  <polygon
-                    fill="none"
-                    points="120,90 141.2,98.8 150,120 141.2,141.2 120,150 98.8,141.2 90,120 98.8,98.8"
-                    stroke="#E5E7EB"
-                    strokeWidth="1"
-                  />
-                  {/* 8 Axes */}
-                  <line x1="120" y1="120" x2="120" y2="30" stroke="#E5E7EB" strokeWidth="1" />
-                  <line x1="120" y1="120" x2="183.6" y2="56.4" stroke="#E5E7EB" strokeWidth="1" />
-                  <line x1="120" y1="120" x2="210" y2="120" stroke="#E5E7EB" strokeWidth="1" />
-                  <line x1="120" y1="120" x2="183.6" y2="183.6" stroke="#E5E7EB" strokeWidth="1" />
-                  <line x1="120" y1="120" x2="120" y2="210" stroke="#E5E7EB" strokeWidth="1" />
-                  <line x1="120" y1="120" x2="56.4" y2="183.6" stroke="#E5E7EB" strokeWidth="1" />
-                  <line x1="120" y1="120" x2="30" y2="120" stroke="#E5E7EB" strokeWidth="1" />
-                  <line x1="120" y1="120" x2="56.4" y2="56.4" stroke="#E5E7EB" strokeWidth="1" />
-
-                  {/* 8-Channel Solvent Fingerprint polygon */}
-                  <polygon
-                    fill="url(#modalRadarGlow)"
-                    points="120,40 166,74 195,120 155,155 120,180 88,152 50,120 81,81"
-                    stroke="#2563EB"
-                    strokeWidth="2"
-                  />
-                  {/* Data vertices */}
-                  <circle cx="120" cy="40" fill="#2563EB" r="3" />
-                  <circle cx="166" cy="74" fill="#2563EB" r="3" />
-                  <circle cx="195" cy="120" fill="#2563EB" r="3" />
-                  <circle cx="155" cy="155" fill="#2563EB" r="3" />
-                  <circle cx="120" cy="180" fill="#2563EB" r="3" />
-                  <circle cx="88" cy="152" fill="#2563EB" r="3" />
-                  <circle cx="50" cy="120" fill="#2563EB" r="3" />
-                  <circle cx="81" cy="81" fill="#2563EB" r="3" />
-                  {/* Real Hardware Sensor Channel Labels matching Stitch */}
-                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="middle" x="120" y="20">MQ-3 (Alcohol)</text>
-                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="start" x="195" y="50">MQ-2 (Combustibles)</text>
-                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="start" x="218" y="124">MQ-135 (Fumes)</text>
-                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="start" x="195" y="195">MQ-8 (H₂)</text>
-                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="middle" x="120" y="228">CCS811 (TVOC)</text>
-                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="end" x="45" y="195">MiCS-6814 (CO)</text>
-                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="end" x="22" y="124">MiCS-6814 (NO₂)</text>
-                  <text className="fill-[#505f76] text-[10px] font-semibold" textAnchor="end" x="45" y="50">MiCS-6814 (NH₃)</text>
-                </svg>
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-center justify-between text-[12px] text-[#505f76]">
-              <span>{isThai ? 'สารมาตรฐาน: การจำแนกตามชุดข้อมูลโมเดล (Alcohol / Ambient)' : 'Standard: Model Dataset Classification (Alcohol / Ambient)'}</span>
-              <button
-                type="button"
-                onClick={() => setIsRadarModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-[#004ac6] text-white text-[13px] font-medium hover:bg-[#2563eb] transition-colors cursor-pointer"
-              >
-                {t('done', 'Done')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Sub-State Solvent 8-Channel Radar Modal Dialog */}
+      <SolventRadarModal
+        isOpen={isRadarModalOpen}
+        onClose={() => setIsRadarModalOpen(false)}
+        solventMatch={solventMatch}
+        detectedLabel={detectedLabel}
+      />
     </div>
   );
 }

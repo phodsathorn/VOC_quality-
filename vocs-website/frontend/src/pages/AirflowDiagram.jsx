@@ -1,3 +1,5 @@
+import CarbonScrubberDrawer from "./airflow/CarbonScrubberDrawer";
+import SensorBoxTelemetryDrawer from "./airflow/SensorBoxTelemetryDrawer";
 import { useState, useEffect } from 'react';
 import {
   Wind, Activity, ArrowRight, X,
@@ -710,215 +712,19 @@ export default function AirflowDiagram() {
         </>
       )}
 
-      {/* ── Sub-State Right-side Drawer: Carbon Scrubber Telemetry (100% Stitch airflow_telemetry_drawer_pathway_details) ── */}
-      {isScrubberDrawerOpen && (
-        <>
-          <div
-            className="fixed inset-0 bg-[#131b2e]/25 backdrop-blur-[2px] z-50 transition-opacity"
-            onClick={() => setIsScrubberDrawerOpen(false)}
-          />
-          <aside className="fixed top-0 right-0 h-full w-full sm:w-[440px] bg-white shadow-2xl z-50 flex flex-col justify-between border-l border-[#eaedff] animate-in slide-in-from-right duration-300 overflow-y-auto">
-            {/* Header */}
-            <div className="p-8 border-b border-[#eaedff] flex items-start justify-between bg-[#faf8ff]/50">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#dbe1ff] flex items-center justify-center text-[#004ac6] mt-0.5">
-                  <span className="material-symbols-outlined text-[22px]">filter_alt</span>
-                </div>
-                <div className="flex flex-col">
-                  <h2 className="text-[20px] font-bold text-[#131b2e] leading-tight">
-                    {isThai ? 'โทรมาตรสครับเบอร์ถ่านกัมมันต์' : 'Carbon Scrubber Telemetry'}
-                  </h2>
-                  <span className="text-[12px] text-[#434655] mt-1 flex items-center gap-1.5 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-[#004ac6] inline-block" />
-                    {isThai ? 'ชุดถ่านกัมมันต์สายที่ 01 • เรียลไทม์' : 'Adsorption Bed Line 01 • Real-time'}
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsScrubberDrawerOpen(false)}
-                className="w-9 h-9 rounded-full hover:bg-[#eaedff] flex items-center justify-center text-[#434655] hover:text-[#131b2e] transition-colors cursor-pointer text-[20px] font-light"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Sub-State Right-side Drawer: Carbon Scrubber Telemetry */}
+      <CarbonScrubberDrawer
+        isOpen={isScrubberDrawerOpen}
+        onClose={() => setIsScrubberDrawerOpen(false)}
+        mediaPercent={mediaPercent}
+      />
 
-            {/* 3 BIG NUMBERS ONLY with ample whitespace */}
-            <div className="p-8 flex-1 flex flex-col justify-around gap-8 my-4">
-              {/* Number 1: Differential Pressure 312 Pa */}
-              <div className="flex flex-col p-6 rounded-2xl bg-[#f2f3ff]/60 hover:bg-[#f2f3ff] transition-colors border border-[#eaedff]">
-                <span className="text-[12px] font-semibold text-[#434655] uppercase tracking-widest mb-1">
-                  {isThai ? 'แรงดันตกคร่อม' : 'Differential pressure'}
-                </span>
-                <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-[54px] font-bold text-[#131b2e] tracking-tight leading-none tabular-nums">
-                    312
-                  </span>
-                  <span className="text-[22px] font-medium text-[#434655]">Pa</span>
-                </div>
-                <span className="text-[12px] text-[#004ac6] font-medium mt-2 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6] inline-block" />
-                  {isThai ? 'แรงต้านการไหลปกติ' : 'Nominal resistance'}
-                </span>
-              </div>
-
-              {/* Number 2: Efficiency 94.2% */}
-              <div className="flex flex-col p-6 rounded-2xl bg-[#f2f3ff]/60 hover:bg-[#f2f3ff] transition-colors border border-[#eaedff]">
-                <span className="text-[12px] font-semibold text-[#434655] uppercase tracking-widest mb-1">
-                  {isThai ? 'ประสิทธิภาพการดูดซับ' : 'Efficiency'}
-                </span>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-[54px] font-bold text-[#131b2e] tracking-tight leading-none tabular-nums">
-                    94.2
-                  </span>
-                  <span className="text-[28px] font-semibold text-[#434655]">%</span>
-                </div>
-                <span className="text-[12px] text-[#004ac6] font-medium mt-2 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6] inline-block" />
-                  {isThai ? 'อัตราดูดซับสารไฮโดรคาร์บอน' : 'Hydrocarbon adsorption yield'}
-                </span>
-              </div>
-
-              {/* Number 3: Filter life 42% */}
-              <div className="flex flex-col p-6 rounded-2xl bg-[#f2f3ff]/60 hover:bg-[#f2f3ff] transition-colors border border-[#eaedff]">
-                <span className="text-[12px] font-semibold text-[#434655] uppercase tracking-widest mb-1">
-                  {isThai ? 'อายุการใช้งานชั้นถ่าน' : 'Filter life'}
-                </span>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-[54px] font-bold text-[#131b2e] tracking-tight leading-none tabular-nums">
-                    {mediaPercent}
-                  </span>
-                  <span className="text-[28px] font-semibold text-[#434655]">%</span>
-                </div>
-                <span className="text-[12px] text-[#434655] font-medium mt-2 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#505f76] inline-block" />
-                  {isThai ? 'เหลืออายุการทำงาน 1,280 ชั่วโมง' : '1,280 operating hours remaining'}
-                </span>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-8 border-t border-[#eaedff] bg-[#faf8ff]/30 flex items-center justify-between">
-              <span className="text-[12px] text-[#434655]">
-                {isThai ? 'อัปเดต 3 วินาทีที่แล้ว' : 'Updated 3s ago'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsScrubberDrawerOpen(false)}
-                className="px-6 py-2 rounded-full bg-[#e2e7ff] hover:bg-[#d0e1fb] text-[#131b2e] font-semibold text-[13px] transition-colors cursor-pointer"
-              >
-                {isThai ? 'ปิดหน้าต่าง' : 'Dismiss'}
-              </button>
-            </div>
-          </aside>
-        </>
-      )}
-
-      {/* ── Sub-State Right-side Drawer: Live sensor telemetry (Sensor box mode) ── */}
-      {isSensorBoxTelemetryOpen && (
-        <>
-          <div
-            className="fixed inset-0 bg-[#131b2e]/25 backdrop-blur-[2px] z-50 transition-opacity"
-            onClick={() => setIsSensorBoxTelemetryOpen(false)}
-          />
-          <aside className="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white shadow-2xl z-50 flex flex-col justify-between border-l border-[#eaedff] animate-in slide-in-from-right duration-300">
-            {/* Header */}
-            <div className="h-16 px-6 border-b border-[#eaedff] flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#d0e1fb] flex items-center justify-center text-[#004ac6]">
-                  <Radio size={18} />
-                </div>
-                <div>
-                  <h2 className="text-[18px] font-bold text-[#131b2e] leading-tight">
-                    {isThai ? 'โทรมาตรเซนเซอร์เรียลไทม์' : 'Live sensor telemetry'}
-                  </h2>
-                  <span className="text-[11px] text-[#505f76]">
-                    {isThai ? 'กล่องรวมสัญญาณ BOX-001 • 5 แชนแนลหลัก' : 'Sensor Enclosure BOX-001 • 5 Core Channels'}
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsSensorBoxTelemetryOpen(false)}
-                className="p-1.5 rounded-full text-[#505f76] hover:text-[#131b2e] hover:bg-[#eaedff] transition-colors cursor-pointer"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] uppercase tracking-wider text-[#505f76] font-semibold">
-                  {isThai ? 'ค่าตรวจวัดหัววัดเรียลไทม์' : 'Real-time probe readings'}
-                </span>
-                <div className="flex items-center gap-1.5 text-[11px] text-[#00AA55] font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-[#00CC66] animate-pulse" />
-                  {isThai ? 'ทุกระบบทำงานปกติ' : 'All systems nominal'}
-                </div>
-              </div>
-
-              {/* Probe Table matching Stitch exactly */}
-              <div className="border border-[#eaedff] rounded-2xl overflow-hidden bg-white shadow-2xs">
-                <table className="w-full text-left text-[13px] border-collapse">
-                  <thead>
-                    <tr className="bg-[#f2f3ff] border-b border-[#eaedff] text-[#505f76] font-medium text-xs">
-                      <th className="py-2.5 px-4">{isThai ? 'รหัสเซนเซอร์' : 'Sensor ID'}</th>
-                      <th className="py-2.5 px-4">{isThai ? 'สารเป้าหมายที่ตรวจวัด' : 'Target Gas / Analyte'}</th>
-                      <th className="py-2.5 px-4 text-right">{isThai ? 'ค่าที่อ่านได้' : 'Value'}</th>
-                      <th className="py-2.5 px-4 text-right">{isThai ? 'เกณฑ์กำหนด' : 'Threshold'}</th>
-                      <th className="py-2.5 px-4 text-center">{isThai ? 'สถานะ' : 'Status'}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#eaedff] text-[#131b2e]">
-                    {probeRows.map((p) => (
-                      <tr key={p.id} className="hover:bg-[#eaedff]/40 transition-colors">
-                        <td className="py-3 px-4 font-bold text-[#131b2e]">{p.id}</td>
-                        <td className="py-3 px-4 text-[#131b2e] font-medium text-xs">{p.target}</td>
-                        <td className="py-3 px-4 text-right font-bold text-[#131b2e]">{p.val}</td>
-                        <td className="py-3 px-4 text-right text-[#505f76] text-xs">{p.thresh}</td>
-                        <td className="py-3 px-4 text-center">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#00CC66]/10 text-[#009944]">
-                            {p.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Sampling Rate Banner */}
-              <div className="p-4 rounded-2xl bg-[#f2f3ff] border border-[#eaedff]">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-[#131b2e]">{isThai ? 'อัตราการสุ่มตัวอย่าง' : 'Sampling Rate'}</span>
-                  <span className="text-xs text-[#505f76] font-medium">{isThai ? '2.5 Hz (ต่อเนื่อง)' : '2.5 Hz (Continuous)'}</span>
-                </div>
-                <div className="w-full bg-[#eaedff] h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-[#004ac6] h-full rounded-full w-full" />
-                </div>
-                <p className="text-[11px] text-[#505f76] mt-2">
-                  {isThai ? 'ซิงโครไนซ์ล่าสุดเมื่อ 3 วินาทีที่แล้วผ่านเกตเวย์ Modbus TCP' : 'Latest synchronization occurred 3 seconds ago via Modbus TCP gateway.'}
-                </p>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-6 border-t border-[#eaedff] bg-white flex items-center justify-between shrink-0">
-              <span className="text-xs text-[#505f76]">
-                {isThai ? 'รหัสแผงอุปกรณ์: ' : 'Array ID: '}<strong className="font-mono text-[#131b2e]">BOX-001</strong>
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsSensorBoxTelemetryOpen(false)}
-                className="px-5 py-2 rounded-2xl bg-[#eaedff] text-[#131b2e] text-xs font-semibold hover:bg-[#dbe1ff] transition-colors cursor-pointer"
-              >
-                {isThai ? 'ปิดหน้าต่าง' : 'Dismiss'}
-              </button>
-            </div>
-          </aside>
-        </>
-      )}
+      {/* Sub-State Right-side Drawer: Live sensor telemetry (Sensor box mode) */}
+      <SensorBoxTelemetryDrawer
+        isOpen={isSensorBoxTelemetryOpen}
+        onClose={() => setIsSensorBoxTelemetryOpen(false)}
+        probeRows={probeRows}
+      />
 
       {/* Global CSS for airflow flow animation */}
       <style>{`

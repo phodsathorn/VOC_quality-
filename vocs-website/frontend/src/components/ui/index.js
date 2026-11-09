@@ -6,4 +6,7 @@ export { default as StatCard } from './StatCard';
 export { default as PageHeader } from './PageHeader';
 export { default as Drawer } from './Drawer';
 export { default as Modal } from './Modal';
+export { default as StatusBadge } from './StatusBadge';
+export { default as Tabs } from './Tabs';
+export { default as ConfirmModal } from './ConfirmModal';
 export * from '../../utils/aqiHelper';

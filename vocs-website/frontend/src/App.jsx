@@ -1,22 +1,26 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
-import Dashboard from './pages/Dashboard';
-import Devices from './pages/Devices';
-import DataCollection from './pages/DataCollection';
-import Alerts from './pages/Alerts';
-import AirflowDiagram from './pages/AirflowDiagram';
-import Settings from './pages/Settings';
-import Guide from './pages/Guide';
-import Maintenance from './pages/Maintenance';
-import History from './pages/History';
-import Kiosk from './pages/Kiosk';
-import EmissionsReport from './pages/EmissionsReport';
-import AirQualityGuide from './pages/AirQualityGuide';
-import Roles from './pages/Roles';
-import SystemStates from './pages/SystemStates';
+import DashboardSkeleton from './components/DashboardSkeleton';
+
+// Code-split route components with React.lazy
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Devices = lazy(() => import('./pages/Devices'));
+const DataCollection = lazy(() => import('./pages/DataCollection'));
+const Alerts = lazy(() => import('./pages/Alerts'));
+const AirflowDiagram = lazy(() => import('./pages/AirflowDiagram'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Guide = lazy(() => import('./pages/Guide'));
+const Maintenance = lazy(() => import('./pages/Maintenance'));
+const History = lazy(() => import('./pages/History'));
+const Kiosk = lazy(() => import('./pages/Kiosk'));
+const EmissionsReport = lazy(() => import('./pages/EmissionsReport'));
+const AirQualityGuide = lazy(() => import('./pages/AirQualityGuide'));
+const Roles = lazy(() => import('./pages/Roles'));
+const SystemStates = lazy(() => import('./pages/SystemStates'));
 
 // RBAC Guard Component สำหรับป้องกันเส้นทาง URL โดยตรง
 function RoleProtectedRoute({ allowedRoles, children, fallback = "/" }) {
@@ -41,67 +45,69 @@ function AppContent() {
 
   return (
     <Layout>
-      <Routes>
-        {/* หน้าที่ทุกบทบาทเข้าถึงได้ */}
-        <Route path="/"                   element={<Dashboard />} />
-        <Route path="/air-quality-guide"  element={<AirQualityGuide />} />
-        <Route path="/aqi-info"           element={<Navigate to="/air-quality-guide" replace />} />
-        <Route path="/airflow"            element={<AirflowDiagram />} />
-        <Route path="/guide"              element={<Guide />} />
-        <Route path="/roles"              element={<Roles />} />
-        <Route path="/system-states"      element={<SystemStates />} />
+      <Suspense fallback={<DashboardSkeleton />}>
+        <Routes>
+          {/* หน้าที่ทุกบทบาทเข้าถึงได้ */}
+          <Route path="/"                   element={<Dashboard />} />
+          <Route path="/air-quality-guide"  element={<AirQualityGuide />} />
+          <Route path="/aqi-info"           element={<Navigate to="/air-quality-guide" replace />} />
+          <Route path="/airflow"            element={<AirflowDiagram />} />
+          <Route path="/guide"              element={<Guide />} />
+          <Route path="/roles"              element={<Roles />} />
+          <Route path="/system-states"      element={<SystemStates />} />
 
-        {/* หน้าสำหรับ Operator, Engineer, Admin */}
-        <Route path="/kiosk" element={
-          <RoleProtectedRoute allowedRoles={['admin', 'engineer', 'operator']}>
-            <Kiosk />
-          </RoleProtectedRoute>
-        } />
-        <Route path="/alerts" element={
-          <RoleProtectedRoute allowedRoles={['admin', 'engineer', 'operator']}>
-            <Alerts />
-          </RoleProtectedRoute>
-        } />
+          {/* หน้าสำหรับ Operator, Engineer, Admin */}
+          <Route path="/kiosk" element={
+            <RoleProtectedRoute allowedRoles={['admin', 'engineer', 'operator']}>
+              <Kiosk />
+            </RoleProtectedRoute>
+          } />
+          <Route path="/alerts" element={
+            <RoleProtectedRoute allowedRoles={['admin', 'engineer', 'operator']}>
+              <Alerts />
+            </RoleProtectedRoute>
+          } />
 
-        {/* หน้าสำหรับ Viewer, Operator, Engineer, Admin */}
-        <Route path="/history" element={
-          <RoleProtectedRoute allowedRoles={['admin', 'engineer', 'operator', 'viewer']}>
-            <History />
-          </RoleProtectedRoute>
-        } />
-        <Route path="/emissions" element={
-          <RoleProtectedRoute allowedRoles={['admin', 'engineer', 'operator', 'viewer']}>
-            <EmissionsReport />
-          </RoleProtectedRoute>
-        } />
+          {/* หน้าสำหรับ Viewer, Operator, Engineer, Admin */}
+          <Route path="/history" element={
+            <RoleProtectedRoute allowedRoles={['admin', 'engineer', 'operator', 'viewer']}>
+              <History />
+            </RoleProtectedRoute>
+          } />
+          <Route path="/emissions" element={
+            <RoleProtectedRoute allowedRoles={['admin', 'engineer', 'operator', 'viewer']}>
+              <EmissionsReport />
+            </RoleProtectedRoute>
+          } />
 
-        {/* หน้าสำหรับ Engineer, Admin */}
-        <Route path="/maintenance" element={
-          <RoleProtectedRoute allowedRoles={['admin', 'engineer']}>
-            <Maintenance />
-          </RoleProtectedRoute>
-        } />
-        <Route path="/devices" element={
-          <RoleProtectedRoute allowedRoles={['admin', 'engineer']}>
-            <Devices />
-          </RoleProtectedRoute>
-        } />
-        <Route path="/data-collection" element={
-          <RoleProtectedRoute allowedRoles={['admin', 'engineer']}>
-            <DataCollection />
-          </RoleProtectedRoute>
-        } />
+          {/* หน้าสำหรับ Engineer, Admin */}
+          <Route path="/maintenance" element={
+            <RoleProtectedRoute allowedRoles={['admin', 'engineer']}>
+              <Maintenance />
+            </RoleProtectedRoute>
+          } />
+          <Route path="/devices" element={
+            <RoleProtectedRoute allowedRoles={['admin', 'engineer']}>
+              <Devices />
+            </RoleProtectedRoute>
+          } />
+          <Route path="/data-collection" element={
+            <RoleProtectedRoute allowedRoles={['admin', 'engineer']}>
+              <DataCollection />
+            </RoleProtectedRoute>
+          } />
 
-        {/* หน้าเฉพาะ Admin เท่านั้น */}
-        <Route path="/settings" element={
-          <RoleProtectedRoute allowedRoles={['admin']}>
-            <Settings />
-          </RoleProtectedRoute>
-        } />
+          {/* หน้าเฉพาะ Admin เท่านั้น */}
+          <Route path="/settings" element={
+            <RoleProtectedRoute allowedRoles={['admin']}>
+              <Settings />
+            </RoleProtectedRoute>
+          } />
 
-        {/* Fallback เมื่อพิมพ์ URL ที่ไม่มีหรือไม่มีสิทธิ์ */}
-        <Route path="*" element={<Navigate to={role === 'operator' ? '/kiosk' : '/'} replace />} />
-      </Routes>
+          {/* Fallback เมื่อพิมพ์ URL ที่ไม่มีหรือไม่มีสิทธิ์ */}
+          <Route path="*" element={<Navigate to={role === 'operator' ? '/kiosk' : '/'} replace />} />
+        </Routes>
+      </Suspense>
     </Layout>
   );
 }

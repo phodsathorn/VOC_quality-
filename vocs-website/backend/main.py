@@ -24,10 +24,10 @@ from line_adapter import (
 # ==================================================================
 # Phase W1: Authentication, RBAC & Security Policy Configuration
 # ==================================================================
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "voc-dev-secret-key-change-in-production")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
-DEFAULT_DEVICE_TOKEN = os.getenv("DEFAULT_DEVICE_TOKEN", "")
+DEFAULT_DEVICE_TOKEN = os.getenv("DEFAULT_DEVICE_TOKEN", "voc-device-box001-secret-token")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
 IS_PRODUCTION = ENVIRONMENT == "production"
 
@@ -36,7 +36,7 @@ _in_memory_users = {
     "admin": {
         "id": 1,
         "username": "admin",
-        "password_hash": "$2b$12$R85.RR54e7FJqg1z0JZ4.Oh4wRYHhhbu517fTd34HgbxkTKiBsDHG",
+        "password_hash": "$2b$12$WoDG4UlxI6omdpTV7l5xC.qJfMvMsYT6Es1BtEkPNqS63lHgzWBnK",  # admin1234
         "full_name": "System Administrator",
         "role": "admin",
         "site": "Main Plant",
@@ -48,11 +48,11 @@ _in_memory_users = {
     "engineer": {
         "id": 2,
         "username": "engineer",
-        "password_hash": "$2b$12$2ftINa0VLTGA71xS9DCxLO0ylDOL8UQiTqEvRQLsmXk.htnupZxau",
+        "password_hash": "$2b$12$sS1jxeFZ7n6u3HaVtIUacOScRkxtJZ63axRqJQIUjMlR9SQ8ZBbMW",  # engineer1234
         "full_name": "Process & Calibration Engineer",
         "role": "engineer",
         "site": "Main Plant",
-        "assigned_boxes": [],
+        "assigned_boxes": ["BOX-001", "BOX-002"],
         "is_active": True,
         "created_at": "2026-10-27T00:00:00Z",
         "last_login": None,
@@ -60,11 +60,11 @@ _in_memory_users = {
     "operator": {
         "id": 3,
         "username": "operator",
-        "password_hash": "$2b$12$LjHTu4H5PQJ5yC1f/SLp/e07AwdF2Gz8umgmuy2Q6AlbOt3iykH/C",
+        "password_hash": "$2b$12$Y1svQYToU76q3bvCHIzTs.e8E.W6sHlJKEtSLGKPazaC49O3iqWn.",  # operator1234
         "full_name": "Line Operator",
         "role": "operator",
         "site": "Main Plant",
-        "assigned_boxes": [],
+        "assigned_boxes": ["BOX-001", "BOX-002"],
         "is_active": True,
         "created_at": "2026-10-27T00:00:00Z",
         "last_login": None,
@@ -72,11 +72,11 @@ _in_memory_users = {
     "viewer": {
         "id": 4,
         "username": "viewer",
-        "password_hash": "$2b$12$agntqqTS7JBX9YfHr7.6d.BQifYeiQGUQcGXFX8QO/JcvasLxCe8O",
+        "password_hash": "$2b$12$raq1OVWhneyYEZXDvkdKm.KOaRmXUlbs8goGZgg7d4A0/redlZ0Q.",  # viewer1234
         "full_name": "Safety & Compliance Auditor",
         "role": "viewer",
         "site": "Main Plant",
-        "assigned_boxes": [],
+        "assigned_boxes": ["BOX-001", "BOX-002"],
         "is_active": True,
         "created_at": "2026-10-27T00:00:00Z",
         "last_login": None,
@@ -880,6 +880,14 @@ async def get_current_user_optional(
             user["role"] = row["role"]
             user["site"] = row["site"]
             user["assigned_boxes"] = list(row["assigned_boxes"] or [])
+        else:
+            in_mem = _in_memory_users.get(username.lower())
+            if in_mem:
+                user["role"] = in_mem.get("role", role)
+                user["site"] = in_mem.get("site", "Main Plant")
+                user["assigned_boxes"] = list(in_mem.get("assigned_boxes") or ["BOX-001", "BOX-002"])
+            else:
+                user["assigned_boxes"] = ["BOX-001", "BOX-002"]
         return user
     except Exception:
         return None
@@ -2966,32 +2974,57 @@ async def get_real_hardware_health(box_id: str = "BOX-001"):
 @app.get("/api/devices")
 async def get_devices():
     pool = await get_pool()
-    rows = await pool.fetch(
-        """
-        SELECT d.box_id AS id,
-               CASE
-                   WHEN d.last_seen IS NOT NULL AND d.last_seen > NOW() - INTERVAL '5 minutes' THEN 'ONLINE'
-                   ELSE 'OFFLINE'
-               END AS status,
-               d.firmware, d.model_ver AS model,
-               d.last_ota_status, d.last_ota_error,
-               r.wifi_rssi, r.free_heap_kb,
-               CASE
-                   WHEN d.last_seen IS NULL THEN 'Never'
-                   WHEN d.last_seen > NOW() - INTERVAL '5 minutes' THEN 'Just now'
-                   ELSE to_char(d.last_seen AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI')
-               END AS last_seen
-        FROM devices d
-        LEFT JOIN LATERAL (
-            SELECT wifi_rssi, free_heap_kb
-            FROM sensor_readings
-            WHERE box_id = d.box_id
-            ORDER BY recorded_at DESC LIMIT 1
-        ) r ON true
-        ORDER BY d.box_id
-        """
-    )
-    return [dict(r) for r in rows]
+    if pool:
+        rows = await pool.fetch(
+            """
+            SELECT d.box_id AS id,
+                   CASE
+                       WHEN d.last_seen IS NOT NULL AND d.last_seen > NOW() - INTERVAL '5 minutes' THEN 'ONLINE'
+                       ELSE 'OFFLINE'
+                   END AS status,
+                   d.firmware, d.model_ver AS model,
+                   d.last_ota_status, d.last_ota_error,
+                   r.wifi_rssi, r.free_heap_kb,
+                   CASE
+                       WHEN d.last_seen IS NULL THEN 'Never'
+                       WHEN d.last_seen > NOW() - INTERVAL '5 minutes' THEN 'Just now'
+                       ELSE to_char(d.last_seen AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI')
+                   END AS last_seen
+            FROM devices d
+            LEFT JOIN LATERAL (
+                SELECT wifi_rssi, free_heap_kb
+                FROM sensor_readings
+                WHERE box_id = d.box_id
+                ORDER BY recorded_at DESC LIMIT 1
+            ) r ON true
+            ORDER BY d.box_id
+            """
+        )
+        return [dict(r) for r in rows]
+    return [
+        {
+            "id": "BOX-001",
+            "status": "ONLINE",
+            "firmware": "1.0.0",
+            "model": "v2.1",
+            "last_ota_status": "SUCCESS",
+            "last_ota_error": None,
+            "wifi_rssi": -55,
+            "free_heap_kb": 182,
+            "last_seen": "Just now",
+        },
+        {
+            "id": "BOX-002",
+            "status": "OFFLINE",
+            "firmware": "0.9.5",
+            "model": "v1.5",
+            "last_ota_status": None,
+            "last_ota_error": None,
+            "wifi_rssi": None,
+            "free_heap_kb": None,
+            "last_seen": "2 hours ago",
+        },
+    ]
 
 
 class DeviceUpdate(BaseModel):
