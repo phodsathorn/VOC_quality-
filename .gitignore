@@ -23,6 +23,8 @@ build/
 # Temporary / Scratch files
 *.tmp
 *.bak
+tmp/
+output/
 
 # Node.js & Frontend
 node_modules/

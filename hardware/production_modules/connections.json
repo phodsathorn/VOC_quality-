@@ -1,0 +1,1230 @@
+{
+  "parts": [
+    {
+      "reference": "J1",
+      "value": "5.00V +/-0.10V regulated input",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "+5V IN",
+          "5V_IN"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "F1",
+      "value": "3A fuse - final rating by load",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "5V_IN"
+        ],
+        [
+          2,
+          "2",
+          "5V_FUSED"
+        ]
+      ]
+    },
+    {
+      "reference": "SW1",
+      "value": "Power switch >=3A",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "5V_FUSED"
+        ],
+        [
+          2,
+          "2",
+          "5V_SYS"
+        ]
+      ]
+    },
+    {
+      "reference": "U2",
+      "value": "AP2112K-3.3TRG1",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "VIN",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "EN",
+          "5V_SYS"
+        ],
+        [
+          4,
+          "NC",
+          null
+        ],
+        [
+          5,
+          "VOUT",
+          "3V3_SENS"
+        ]
+      ]
+    },
+    {
+      "reference": "C1",
+      "value": "100uF / 10V",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C2",
+      "value": "1uF X7R / 10V (VIN)",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C3",
+      "value": "4.7uF X7R / 10V (VOUT)",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "U1",
+      "value": "ESP32-WROOM-32 DevKit (NOT S3)",
+      "scope": "module",
+      "pins": [
+        [
+          "VIN",
+          "VIN / 5V",
+          "5V_SYS"
+        ],
+        [
+          "GND",
+          "GND",
+          "GND"
+        ],
+        [
+          "21",
+          "GPIO21 SDA1",
+          "I2C1_SDA"
+        ],
+        [
+          "22",
+          "GPIO22 SCL1",
+          "I2C1_SCL"
+        ],
+        [
+          "32",
+          "GPIO32 SDA2",
+          "I2C2_SDA"
+        ],
+        [
+          "13",
+          "GPIO13 SCL2",
+          "I2C2_SCL"
+        ],
+        [
+          "16",
+          "GPIO16 RX2",
+          "O3_TX"
+        ],
+        [
+          "17",
+          "GPIO17 TX2",
+          "O3_RX"
+        ],
+        [
+          "18",
+          "GPIO18 RX1",
+          "CO_TX"
+        ],
+        [
+          "19",
+          "GPIO19 TX1",
+          "CO_RX"
+        ],
+        [
+          "25",
+          "GPIO25 OUT",
+          "FAN_IN_EN"
+        ],
+        [
+          "26",
+          "GPIO26 OUT",
+          "FAN_OUT_EN"
+        ]
+      ]
+    },
+    {
+      "reference": "J2",
+      "value": "SHT40 module / 0x44",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "3V3",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "SDA",
+          "I2C1_SDA"
+        ],
+        [
+          4,
+          "SCL",
+          "I2C1_SCL"
+        ]
+      ]
+    },
+    {
+      "reference": "J3",
+      "value": "SGP41 module / 0x59",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "3V3",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "SDA",
+          "I2C1_SDA"
+        ],
+        [
+          4,
+          "SCL",
+          "I2C1_SCL"
+        ]
+      ]
+    },
+    {
+      "reference": "J4",
+      "value": "BME680 module / 0x76",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "3V3",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "SDA",
+          "I2C1_SDA"
+        ],
+        [
+          4,
+          "SCL",
+          "I2C1_SCL"
+        ]
+      ]
+    },
+    {
+      "reference": "R1",
+      "value": "4.7k pull-up (DNP if on modules)",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "I2C1_SDA"
+        ]
+      ]
+    },
+    {
+      "reference": "R2",
+      "value": "4.7k pull-up (DNP if on modules)",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "I2C1_SCL"
+        ]
+      ]
+    },
+    {
+      "reference": "C4",
+      "value": "100nF near J2",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C5",
+      "value": "100nF near J3",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C6",
+      "value": "100nF near J4",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "J5",
+      "value": "SPS30 / 0x69 - native pin assignment",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "VDD 5V",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "SDA / RX",
+          "I2C2_SDA"
+        ],
+        [
+          3,
+          "SCL / TX",
+          "I2C2_SCL"
+        ],
+        [
+          4,
+          "SEL = I2C",
+          "GND"
+        ],
+        [
+          5,
+          "GND",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "R3",
+      "value": "4.7k to 3.3V",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "I2C2_SDA"
+        ]
+      ]
+    },
+    {
+      "reference": "R4",
+      "value": "4.7k to 3.3V",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "I2C2_SCL"
+        ]
+      ]
+    },
+    {
+      "reference": "C7",
+      "value": "100nF + local module decoupling",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "J6",
+      "value": "Winsen ZE03-O3 (range by application)",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "VCC 5.0V",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "TXD -> MCU RX2",
+          "O3_TX"
+        ],
+        [
+          4,
+          "RXD <- MCU TX2",
+          "O3_RX"
+        ]
+      ]
+    },
+    {
+      "reference": "J7",
+      "value": "Winsen ZE03-CO (range by application)",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "VCC 5.0V",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "TXD -> MCU RX1",
+          "CO_TX"
+        ],
+        [
+          4,
+          "RXD <- MCU TX1",
+          "CO_RX"
+        ]
+      ]
+    },
+    {
+      "reference": "C8",
+      "value": "100nF near J6",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C9",
+      "value": "100nF near J7",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "J8",
+      "value": "ADS1115 module / 0x48",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "VDD",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "SDA",
+          "I2C1_SDA"
+        ],
+        [
+          4,
+          "SCL",
+          "I2C1_SCL"
+        ]
+      ]
+    },
+    {
+      "reference": "J9",
+      "value": "ADS1115 analog header",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "A0 RED",
+          "ADC_RED"
+        ],
+        [
+          2,
+          "A1 OX",
+          "ADC_OX"
+        ],
+        [
+          3,
+          "A2 NH3",
+          "ADC_NH3"
+        ],
+        [
+          4,
+          "A3 O3 opt.",
+          "ADC_MQ131"
+        ]
+      ]
+    },
+    {
+      "reference": "J10",
+      "value": "MiCS-6814 ANALOG module (heater circuit onboard)",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "VCC 5V",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "RED / CO",
+          "MICS_RED"
+        ],
+        [
+          4,
+          "OX / NO2",
+          "MICS_OX"
+        ],
+        [
+          5,
+          "NH3",
+          "MICS_NH3"
+        ]
+      ]
+    },
+    {
+      "reference": "J11",
+      "value": "MQ-131 LOW-CONCENTRATION module (OPTIONAL)",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "VCC 5V",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "AOUT",
+          "MQ131_AOUT"
+        ],
+        [
+          4,
+          "DOUT unused",
+          null
+        ]
+      ]
+    },
+    {
+      "reference": "R5",
+      "value": "10k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "MICS_RED"
+        ],
+        [
+          2,
+          "2",
+          "ADC_RED"
+        ]
+      ]
+    },
+    {
+      "reference": "R6",
+      "value": "15k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_RED"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C10",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_RED"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "R7",
+      "value": "10k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "MICS_OX"
+        ],
+        [
+          2,
+          "2",
+          "ADC_OX"
+        ]
+      ]
+    },
+    {
+      "reference": "R8",
+      "value": "15k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_OX"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C11",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_OX"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "R9",
+      "value": "10k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "MICS_NH3"
+        ],
+        [
+          2,
+          "2",
+          "ADC_NH3"
+        ]
+      ]
+    },
+    {
+      "reference": "R10",
+      "value": "15k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_NH3"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C12",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_NH3"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "R11",
+      "value": "10k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "MQ131_AOUT"
+        ],
+        [
+          2,
+          "2",
+          "ADC_MQ131"
+        ]
+      ]
+    },
+    {
+      "reference": "R12",
+      "value": "15k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_MQ131"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C13",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_MQ131"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "J12",
+      "value": "5V fan / <=0.5A",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "FAN +",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "FAN -",
+          "FAN_IN_NEG"
+        ]
+      ]
+    },
+    {
+      "reference": "Q1",
+      "value": "AO3400A",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "G",
+          "GATE_IN"
+        ],
+        [
+          2,
+          "S",
+          "GND"
+        ],
+        [
+          3,
+          "D",
+          "FAN_IN_NEG"
+        ]
+      ]
+    },
+    {
+      "reference": "R13",
+      "value": "100R gate series",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "FAN_IN_EN"
+        ],
+        [
+          2,
+          "2",
+          "GATE_IN"
+        ]
+      ]
+    },
+    {
+      "reference": "R14",
+      "value": "100k gate pull-down",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "GATE_IN"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "D1",
+      "value": "SS14 (K to +5V)",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "A",
+          "FAN_IN_NEG"
+        ],
+        [
+          2,
+          "K",
+          "5V_SYS"
+        ]
+      ]
+    },
+    {
+      "reference": "J13",
+      "value": "5V fan / <=0.5A",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "FAN +",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "FAN -",
+          "FAN_OUT_NEG"
+        ]
+      ]
+    },
+    {
+      "reference": "Q2",
+      "value": "AO3400A",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "G",
+          "GATE_OUT"
+        ],
+        [
+          2,
+          "S",
+          "GND"
+        ],
+        [
+          3,
+          "D",
+          "FAN_OUT_NEG"
+        ]
+      ]
+    },
+    {
+      "reference": "R15",
+      "value": "100R gate series",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "FAN_OUT_EN"
+        ],
+        [
+          2,
+          "2",
+          "GATE_OUT"
+        ]
+      ]
+    },
+    {
+      "reference": "R16",
+      "value": "100k gate pull-down",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "GATE_OUT"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "D2",
+      "value": "SS14 (K to +5V)",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "A",
+          "FAN_OUT_NEG"
+        ],
+        [
+          2,
+          "K",
+          "5V_SYS"
+        ]
+      ]
+    }
+  ],
+  "nets": {
+    "5V_IN": [
+      "J1.1 (+5V IN)",
+      "F1.1 (1)"
+    ],
+    "GND": [
+      "J1.2 (GND)",
+      "U2.2 (GND)",
+      "C1.2 (2)",
+      "C2.2 (2)",
+      "C3.2 (2)",
+      "U1.GND (GND)",
+      "J2.2 (GND)",
+      "J3.2 (GND)",
+      "J4.2 (GND)",
+      "C4.2 (2)",
+      "C5.2 (2)",
+      "C6.2 (2)",
+      "J5.4 (SEL = I2C)",
+      "J5.5 (GND)",
+      "C7.2 (2)",
+      "J6.2 (GND)",
+      "J7.2 (GND)",
+      "C8.2 (2)",
+      "C9.2 (2)",
+      "J8.2 (GND)",
+      "J10.2 (GND)",
+      "J11.2 (GND)",
+      "R6.2 (2)",
+      "C10.2 (2)",
+      "R8.2 (2)",
+      "C11.2 (2)",
+      "R10.2 (2)",
+      "C12.2 (2)",
+      "R12.2 (2)",
+      "C13.2 (2)",
+      "Q1.2 (S)",
+      "R14.2 (2)",
+      "Q2.2 (S)",
+      "R16.2 (2)"
+    ],
+    "5V_FUSED": [
+      "F1.2 (2)",
+      "SW1.1 (1)"
+    ],
+    "5V_SYS": [
+      "SW1.2 (2)",
+      "U2.1 (VIN)",
+      "U2.3 (EN)",
+      "C1.1 (1)",
+      "C2.1 (1)",
+      "U1.VIN (VIN / 5V)",
+      "J5.1 (VDD 5V)",
+      "C7.1 (1)",
+      "J6.1 (VCC 5.0V)",
+      "J7.1 (VCC 5.0V)",
+      "C8.1 (1)",
+      "C9.1 (1)",
+      "J10.1 (VCC 5V)",
+      "J11.1 (VCC 5V)",
+      "J12.1 (FAN +)",
+      "D1.2 (K)",
+      "J13.1 (FAN +)",
+      "D2.2 (K)"
+    ],
+    "3V3_SENS": [
+      "U2.5 (VOUT)",
+      "C3.1 (1)",
+      "J2.1 (3V3)",
+      "J3.1 (3V3)",
+      "J4.1 (3V3)",
+      "R1.1 (1)",
+      "R2.1 (1)",
+      "C4.1 (1)",
+      "C5.1 (1)",
+      "C6.1 (1)",
+      "R3.1 (1)",
+      "R4.1 (1)",
+      "J8.1 (VDD)"
+    ],
+    "I2C1_SDA": [
+      "U1.21 (GPIO21 SDA1)",
+      "J2.3 (SDA)",
+      "J3.3 (SDA)",
+      "J4.3 (SDA)",
+      "R1.2 (2)",
+      "J8.3 (SDA)"
+    ],
+    "I2C1_SCL": [
+      "U1.22 (GPIO22 SCL1)",
+      "J2.4 (SCL)",
+      "J3.4 (SCL)",
+      "J4.4 (SCL)",
+      "R2.2 (2)",
+      "J8.4 (SCL)"
+    ],
+    "I2C2_SDA": [
+      "U1.32 (GPIO32 SDA2)",
+      "J5.2 (SDA / RX)",
+      "R3.2 (2)"
+    ],
+    "I2C2_SCL": [
+      "U1.13 (GPIO13 SCL2)",
+      "J5.3 (SCL / TX)",
+      "R4.2 (2)"
+    ],
+    "O3_TX": [
+      "U1.16 (GPIO16 RX2)",
+      "J6.3 (TXD -> MCU RX2)"
+    ],
+    "O3_RX": [
+      "U1.17 (GPIO17 TX2)",
+      "J6.4 (RXD <- MCU TX2)"
+    ],
+    "CO_TX": [
+      "U1.18 (GPIO18 RX1)",
+      "J7.3 (TXD -> MCU RX1)"
+    ],
+    "CO_RX": [
+      "U1.19 (GPIO19 TX1)",
+      "J7.4 (RXD <- MCU TX1)"
+    ],
+    "FAN_IN_EN": [
+      "U1.25 (GPIO25 OUT)",
+      "R13.1 (1)"
+    ],
+    "FAN_OUT_EN": [
+      "U1.26 (GPIO26 OUT)",
+      "R15.1 (1)"
+    ],
+    "ADC_RED": [
+      "J9.1 (A0 RED)",
+      "R5.2 (2)",
+      "R6.1 (1)",
+      "C10.1 (1)"
+    ],
+    "ADC_OX": [
+      "J9.2 (A1 OX)",
+      "R7.2 (2)",
+      "R8.1 (1)",
+      "C11.1 (1)"
+    ],
+    "ADC_NH3": [
+      "J9.3 (A2 NH3)",
+      "R9.2 (2)",
+      "R10.1 (1)",
+      "C12.1 (1)"
+    ],
+    "ADC_MQ131": [
+      "J9.4 (A3 O3 opt.)",
+      "R11.2 (2)",
+      "R12.1 (1)",
+      "C13.1 (1)"
+    ],
+    "MICS_RED": [
+      "J10.3 (RED / CO)",
+      "R5.1 (1)"
+    ],
+    "MICS_OX": [
+      "J10.4 (OX / NO2)",
+      "R7.1 (1)"
+    ],
+    "MICS_NH3": [
+      "J10.5 (NH3)",
+      "R9.1 (1)"
+    ],
+    "MQ131_AOUT": [
+      "J11.3 (AOUT)",
+      "R11.1 (1)"
+    ],
+    "FAN_IN_NEG": [
+      "J12.2 (FAN -)",
+      "Q1.3 (D)",
+      "D1.1 (A)"
+    ],
+    "GATE_IN": [
+      "Q1.1 (G)",
+      "R13.2 (2)",
+      "R14.1 (1)"
+    ],
+    "FAN_OUT_NEG": [
+      "J13.2 (FAN -)",
+      "Q2.3 (D)",
+      "D2.1 (A)"
+    ],
+    "GATE_OUT": [
+      "Q2.1 (G)",
+      "R15.2 (2)",
+      "R16.1 (1)"
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "status": "source checks passed; CAD ERC and physical validation pending",
+  "components": 51,
+  "nets": 32,
+  "firmware_pin_defines_checked": 14,
+  "divider_worst_case_V": 3.1751497005988027
+}

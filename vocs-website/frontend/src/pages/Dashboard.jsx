@@ -442,14 +442,17 @@ export default function Dashboard() {
         },
       ];
 
+  const hasEco2 = Number.isFinite(reading.eco2);
+  const eco2AboveTarget = hasEco2 && reading.eco2 >= 1000;
+
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col gap-5 sm:gap-6 2xl:gap-8 w-full">
       {/* ── Block 1: 4-Metric Primary Telemetry Row (Matching Stitch AI 1:1) ── */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 sm:gap-6">
         {/* Card 1: Air Quality Index */}
         <div
           onClick={() => toggleTelemetryDrawer(true)}
-          className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden cursor-pointer hover:shadow-md transition-all group"
+          className="min-w-0 bg-white rounded-3xl 2xl:rounded-[2rem] p-5 2xl:p-7 flex flex-col justify-between gap-4 min-h-[210px] 2xl:min-h-[230px] relative overflow-hidden cursor-pointer hover:shadow-md transition-all group"
         >
           {/* Top Row: Label + Badge */}
           <div>
@@ -504,7 +507,7 @@ export default function Dashboard() {
         {/* Card 2: TVOC Real-time Concentration */}
         <div
           onClick={() => toggleTelemetryDrawer(true)}
-          className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden cursor-pointer hover:shadow-md transition-all group"
+          className="min-w-0 bg-white rounded-3xl 2xl:rounded-[2rem] p-5 2xl:p-7 flex flex-col justify-between gap-4 min-h-[210px] 2xl:min-h-[230px] relative overflow-hidden cursor-pointer hover:shadow-md transition-all group"
           id="tvocCard"
         >
           {/* Top Row: Label + Sensor Icon */}
@@ -539,7 +542,7 @@ export default function Dashboard() {
         </div>
 
         {/* Card 3: Exhaust Fan State */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden">
+        <div className="min-w-0 bg-white rounded-3xl 2xl:rounded-[2rem] p-5 2xl:p-7 flex flex-col justify-between gap-4 min-h-[210px] 2xl:min-h-[230px] relative overflow-hidden">
           {/* Top Row: Label + Glowing Active Indicator */}
           <div>
             <div className="flex items-center justify-between">
@@ -569,16 +572,16 @@ export default function Dashboard() {
         </div>
 
         {/* Card 4: eCO2 Estimated Concentration (Harmonized with Cards 1-3) */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between h-[210px] relative overflow-hidden">
+        <div className="min-w-0 bg-white rounded-3xl 2xl:rounded-[2rem] p-5 2xl:p-7 flex flex-col justify-between gap-4 min-h-[210px] 2xl:min-h-[230px] relative overflow-hidden">
           {/* Top Row: Label + Status Badge */}
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
                 {isThai ? 'ก๊าซคาร์บอนไดออกไซด์ (eCO₂)' : 'ECO₂ (ESTIMATED)'}
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                {isThai ? 'ปกติ' : 'Nominal'}
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#505f76] bg-[#eaedff]">
+                <span className={`w-1.5 h-1.5 shrink-0 rounded-full ${!hasEco2 ? 'bg-slate-400' : eco2AboveTarget ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                {!hasEco2 ? (isThai ? 'ไม่มีข้อมูล' : 'No reading') : eco2AboveTarget ? (isThai ? 'เกินเกณฑ์' : 'Above target') : (isThai ? 'ปกติ' : 'Nominal')}
               </span>
             </div>
             <span className="text-[11px] text-[#505f76]">
@@ -589,7 +592,7 @@ export default function Dashboard() {
           {/* Center Metric */}
           <div className="flex items-baseline gap-2">
             <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight">
-              {reading.eco2 ? Math.round(reading.eco2) : 450}
+              {hasEco2 ? Math.round(reading.eco2) : '--'}
             </span>
             <span className="text-[20px] font-semibold text-[#505f76]">ppm</span>
           </div>
@@ -607,7 +610,7 @@ export default function Dashboard() {
       {/* ── Block 2 & 3: Combined Analytics Grid (Trend Line + Chemical Fingerprint) ── */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Block 2: Line Chart (col-span-8) */}
-        <div className="lg:col-span-8 bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[320px]">
+        <div className="lg:col-span-8 min-w-0 bg-white rounded-3xl 2xl:rounded-[2rem] p-5 sm:p-7 2xl:p-9 flex flex-col justify-between min-h-[320px] lg:min-h-[390px] 2xl:min-h-[470px]">
           {/* Header */}
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
@@ -633,7 +636,7 @@ export default function Dashboard() {
 
           {/* SVG Line Chart Canvas strictly matching dashboard_2 */}
           <div className="w-full flex-1 flex flex-col justify-end">
-            <div className="relative w-full h-44">
+            <div className="relative w-full h-44 lg:h-56 2xl:h-64">
               <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 700 160">
                 <defs>
                   <linearGradient id="tvocAreaGradient" x1="0" x2="0" y1="0" y2="1">
@@ -669,7 +672,7 @@ export default function Dashboard() {
         {/* Block 3: Fingerprint / Detected Solvent (col-span-4 matching dashboard_2) */}
         <div
           onClick={() => setIsRadarModalOpen(true)}
-          className="lg:col-span-4 bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between min-h-[320px] cursor-pointer hover:shadow-md transition-all group"
+          className="lg:col-span-4 min-w-0 bg-white rounded-3xl 2xl:rounded-[2rem] p-5 sm:p-7 2xl:p-9 flex flex-col justify-between min-h-[320px] cursor-pointer hover:shadow-md transition-all group"
         >
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -766,7 +769,7 @@ export default function Dashboard() {
       </section>
 
       {/* ── Block 4: Recent Alerts (Strictly 3 Items matching dashboard_2) ── */}
-      <section className="bg-white rounded-3xl p-6 shadow-sm">
+      <section className="bg-white rounded-3xl 2xl:rounded-[2rem] p-5 sm:p-7 2xl:p-9">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[20px] font-semibold text-[#131b2e]">{t('recentAlerts', 'Recent alerts')}</h2>
           <Link to="/alerts" className="text-[13px] font-semibold text-[#004ac6] hover:underline inline-flex items-center gap-1">
@@ -788,7 +791,7 @@ export default function Dashboard() {
                   className="w-2.5 h-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: alert.color }}
                 />
-                <span className="text-[14px] text-[#131b2e] truncate">{alert.text}</span>
+                <span className="text-[14px] text-[#131b2e] wrap-anywhere">{alert.text}</span>
               </div>
               <span className="text-[12px] text-[#505f76] font-medium shrink-0 ml-4">
                 {alert.time}

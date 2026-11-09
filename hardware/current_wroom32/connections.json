@@ -1,0 +1,1386 @@
+{
+  "parts": [
+    {
+      "reference": "J1",
+      "value": "5V DC regulated / load budget TBD",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "5V IN",
+          "5V_IN"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "F1",
+      "value": "Fuse: size for wiring + measured load",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "5V_IN"
+        ],
+        [
+          2,
+          "2",
+          "5V_SYS"
+        ]
+      ]
+    },
+    {
+      "reference": "U2",
+      "value": "AP2112K-3.3TRG1 / sensor rail",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "VIN",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "EN",
+          "5V_SYS"
+        ],
+        [
+          4,
+          "NC",
+          null
+        ],
+        [
+          5,
+          "VOUT",
+          "3V3_SENS"
+        ]
+      ]
+    },
+    {
+      "reference": "C1",
+      "value": "100uF 10V",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C2",
+      "value": "1uF X7R input",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C3",
+      "value": "4.7uF X7R output",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "U1",
+      "value": "ESP32-WROOM-32 / 38-pin DevKit",
+      "scope": "module",
+      "pins": [
+        [
+          "VIN",
+          "5V",
+          "5V_SYS"
+        ],
+        [
+          "GND",
+          "GND",
+          "GND"
+        ],
+        [
+          "27",
+          "GPIO27 DHT_PIN",
+          "DHT_DATA"
+        ],
+        [
+          "21",
+          "GPIO21 I2C1_SDA",
+          "CCS_SDA"
+        ],
+        [
+          "22",
+          "GPIO22 I2C1_SCL",
+          "CCS_SCL"
+        ],
+        [
+          "32",
+          "GPIO32 I2C2_SDA",
+          "ADS_SDA"
+        ],
+        [
+          "13",
+          "GPIO13 I2C2_SCL",
+          "ADS_SCL"
+        ],
+        [
+          "16",
+          "GPIO16 PMS_RX",
+          "PMS_TXD"
+        ],
+        [
+          "17",
+          "GPIO17 PMS_TX",
+          "PMS_RXD"
+        ],
+        [
+          "23",
+          "GPIO23 PMS_SET_PIN",
+          "PMS_SET"
+        ],
+        [
+          "33",
+          "GPIO33 MQ2_PIN",
+          "ADC_MQ2"
+        ],
+        [
+          "36",
+          "GPIO36 MQ3_PIN",
+          "ADC_MQ3"
+        ],
+        [
+          "34",
+          "GPIO34 MQ8_PIN",
+          "ADC_MQ8"
+        ],
+        [
+          "39",
+          "GPIO39 MQ135_PIN",
+          "ADC_MQ135"
+        ],
+        [
+          "25",
+          "GPIO25 FAN_INTAKE",
+          "RELAY_IN1"
+        ],
+        [
+          "26",
+          "GPIO26 FAN_EXHAUST",
+          "RELAY_IN2"
+        ]
+      ]
+    },
+    {
+      "reference": "J2",
+      "value": "DHT22 module harness",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "VCC 3V3",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "DATA",
+          "DHT_DATA"
+        ]
+      ]
+    },
+    {
+      "reference": "R1",
+      "value": "4.7k (DNP if already fitted)",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "DHT_DATA"
+        ]
+      ]
+    },
+    {
+      "reference": "J3",
+      "value": "CCS811 breakout / 0x5B",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "3V3 supply",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "SDA",
+          "CCS_SDA"
+        ],
+        [
+          4,
+          "SCL",
+          "CCS_SCL"
+        ],
+        [
+          5,
+          "nWAKE",
+          "GND"
+        ],
+        [
+          6,
+          "ADDR HIGH",
+          "3V3_SENS"
+        ],
+        [
+          7,
+          "nRESET",
+          "CCS_RESET"
+        ],
+        [
+          8,
+          "nINT unused",
+          null
+        ]
+      ]
+    },
+    {
+      "reference": "R2",
+      "value": "4.7k optional pull-up",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "CCS_SDA"
+        ]
+      ]
+    },
+    {
+      "reference": "R3",
+      "value": "4.7k optional pull-up",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "CCS_SCL"
+        ]
+      ]
+    },
+    {
+      "reference": "R4",
+      "value": "10k reset pull-up",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "CCS_RESET"
+        ]
+      ]
+    },
+    {
+      "reference": "C4",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "J4",
+      "value": "PMS5003 (native pins)",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "VCC 5V",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "SET",
+          "PMS_SET"
+        ],
+        [
+          4,
+          "RXD <- GPIO17",
+          "PMS_RXD"
+        ],
+        [
+          5,
+          "TXD -> GPIO16",
+          "PMS_TXD"
+        ],
+        [
+          6,
+          "RESET",
+          "PMS_RESET"
+        ],
+        [
+          7,
+          "NC",
+          null
+        ],
+        [
+          8,
+          "NC",
+          null
+        ]
+      ]
+    },
+    {
+      "reference": "R5",
+      "value": "10k reset pull-up",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "PMS_RESET"
+        ]
+      ]
+    },
+    {
+      "reference": "C5",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C6",
+      "value": "10uF 10V",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "J5",
+      "value": "ADS1115 module harness",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "VDD",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "SDA",
+          "ADS_SDA"
+        ],
+        [
+          4,
+          "SCL",
+          "ADS_SCL"
+        ],
+        [
+          5,
+          "ADDR",
+          "GND"
+        ],
+        [
+          6,
+          "A0 CO/RED",
+          "ADC_RED"
+        ],
+        [
+          7,
+          "A1 NO2/OX",
+          "ADC_OX"
+        ],
+        [
+          8,
+          "A2 NH3",
+          "ADC_NH3"
+        ],
+        [
+          9,
+          "A3 unused",
+          "GND"
+        ],
+        [
+          10,
+          "ALERT unused",
+          null
+        ]
+      ]
+    },
+    {
+      "reference": "R6",
+      "value": "4.7k optional pull-up",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "ADS_SDA"
+        ]
+      ]
+    },
+    {
+      "reference": "R7",
+      "value": "4.7k optional pull-up",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "ADS_SCL"
+        ]
+      ]
+    },
+    {
+      "reference": "C7",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "3V3_SENS"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "K1",
+      "value": "2PH6391A 2-channel module (logical)",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "VCC",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "IN1 - verify 3V3 compatible",
+          "RELAY_IN1"
+        ],
+        [
+          4,
+          "IN2 - verify 3V3 compatible",
+          "RELAY_IN2"
+        ],
+        [
+          5,
+          "COM1",
+          "5V_SYS"
+        ],
+        [
+          6,
+          "NO1",
+          "FAN1_POS"
+        ],
+        [
+          7,
+          "NC1 unused",
+          null
+        ],
+        [
+          8,
+          "COM2",
+          "5V_SYS"
+        ],
+        [
+          9,
+          "NO2",
+          "FAN2_POS"
+        ],
+        [
+          10,
+          "NC2 unused",
+          null
+        ]
+      ]
+    },
+    {
+      "reference": "J6",
+      "value": "Intake 5V DC fan",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "+",
+          "FAN1_POS"
+        ],
+        [
+          2,
+          "-",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "J7",
+      "value": "Exhaust 5V DC fan",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "+",
+          "FAN2_POS"
+        ],
+        [
+          2,
+          "-",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "J8",
+      "value": "MiCS-6814 analog module / onboard heater drive",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "5V",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "CO / RED",
+          "RAW_RED"
+        ],
+        [
+          4,
+          "NO2 / OX",
+          "RAW_OX"
+        ],
+        [
+          5,
+          "NH3",
+          "RAW_NH3"
+        ]
+      ]
+    },
+    {
+      "reference": "R8",
+      "value": "10k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "RAW_RED"
+        ],
+        [
+          2,
+          "2",
+          "ADC_RED"
+        ]
+      ]
+    },
+    {
+      "reference": "R9",
+      "value": "15k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_RED"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C8",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_RED"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "R10",
+      "value": "10k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "RAW_OX"
+        ],
+        [
+          2,
+          "2",
+          "ADC_OX"
+        ]
+      ]
+    },
+    {
+      "reference": "R11",
+      "value": "15k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_OX"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C9",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_OX"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "R12",
+      "value": "10k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "RAW_NH3"
+        ],
+        [
+          2,
+          "2",
+          "ADC_NH3"
+        ]
+      ]
+    },
+    {
+      "reference": "R13",
+      "value": "15k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_NH3"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C10",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_NH3"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "J9",
+      "value": "MQ2 5V module",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "5V",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "AOUT",
+          "RAW_MQ2"
+        ],
+        [
+          4,
+          "DOUT unused",
+          null
+        ]
+      ]
+    },
+    {
+      "reference": "R14",
+      "value": "10k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "RAW_MQ2"
+        ],
+        [
+          2,
+          "2",
+          "ADC_MQ2"
+        ]
+      ]
+    },
+    {
+      "reference": "R15",
+      "value": "15k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_MQ2"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C11",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_MQ2"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "J10",
+      "value": "MQ3 5V module",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "5V",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "AOUT",
+          "RAW_MQ3"
+        ],
+        [
+          4,
+          "DOUT unused",
+          null
+        ]
+      ]
+    },
+    {
+      "reference": "R16",
+      "value": "10k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "RAW_MQ3"
+        ],
+        [
+          2,
+          "2",
+          "ADC_MQ3"
+        ]
+      ]
+    },
+    {
+      "reference": "R17",
+      "value": "15k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_MQ3"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C12",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_MQ3"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "J11",
+      "value": "MQ8 5V module",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "5V",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "AOUT",
+          "RAW_MQ8"
+        ],
+        [
+          4,
+          "DOUT unused",
+          null
+        ]
+      ]
+    },
+    {
+      "reference": "R18",
+      "value": "10k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "RAW_MQ8"
+        ],
+        [
+          2,
+          "2",
+          "ADC_MQ8"
+        ]
+      ]
+    },
+    {
+      "reference": "R19",
+      "value": "15k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_MQ8"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C13",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_MQ8"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "J12",
+      "value": "MQ135 5V module",
+      "scope": "module",
+      "pins": [
+        [
+          1,
+          "5V",
+          "5V_SYS"
+        ],
+        [
+          2,
+          "GND",
+          "GND"
+        ],
+        [
+          3,
+          "AOUT",
+          "RAW_MQ135"
+        ],
+        [
+          4,
+          "DOUT unused",
+          null
+        ]
+      ]
+    },
+    {
+      "reference": "R20",
+      "value": "10k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "RAW_MQ135"
+        ],
+        [
+          2,
+          "2",
+          "ADC_MQ135"
+        ]
+      ]
+    },
+    {
+      "reference": "R21",
+      "value": "15k 1%",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_MQ135"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    },
+    {
+      "reference": "C14",
+      "value": "100nF",
+      "scope": "carrier",
+      "pins": [
+        [
+          1,
+          "1",
+          "ADC_MQ135"
+        ],
+        [
+          2,
+          "2",
+          "GND"
+        ]
+      ]
+    }
+  ],
+  "nets": {
+    "5V_IN": [
+      "J1.1 (5V IN)",
+      "F1.1 (1)"
+    ],
+    "GND": [
+      "J1.2 (GND)",
+      "U2.2 (GND)",
+      "C1.2 (2)",
+      "C2.2 (2)",
+      "C3.2 (2)",
+      "U1.GND (GND)",
+      "J2.2 (GND)",
+      "J3.2 (GND)",
+      "J3.5 (nWAKE)",
+      "C4.2 (2)",
+      "J4.2 (GND)",
+      "C5.2 (2)",
+      "C6.2 (2)",
+      "J5.2 (GND)",
+      "J5.5 (ADDR)",
+      "J5.9 (A3 unused)",
+      "C7.2 (2)",
+      "K1.2 (GND)",
+      "J6.2 (-)",
+      "J7.2 (-)",
+      "J8.2 (GND)",
+      "R9.2 (2)",
+      "C8.2 (2)",
+      "R11.2 (2)",
+      "C9.2 (2)",
+      "R13.2 (2)",
+      "C10.2 (2)",
+      "J9.2 (GND)",
+      "R15.2 (2)",
+      "C11.2 (2)",
+      "J10.2 (GND)",
+      "R17.2 (2)",
+      "C12.2 (2)",
+      "J11.2 (GND)",
+      "R19.2 (2)",
+      "C13.2 (2)",
+      "J12.2 (GND)",
+      "R21.2 (2)",
+      "C14.2 (2)"
+    ],
+    "5V_SYS": [
+      "F1.2 (2)",
+      "U2.1 (VIN)",
+      "U2.3 (EN)",
+      "C1.1 (1)",
+      "C2.1 (1)",
+      "U1.VIN (5V)",
+      "J4.1 (VCC 5V)",
+      "C5.1 (1)",
+      "C6.1 (1)",
+      "K1.1 (VCC)",
+      "K1.5 (COM1)",
+      "K1.8 (COM2)",
+      "J8.1 (5V)",
+      "J9.1 (5V)",
+      "J10.1 (5V)",
+      "J11.1 (5V)",
+      "J12.1 (5V)"
+    ],
+    "3V3_SENS": [
+      "U2.5 (VOUT)",
+      "C3.1 (1)",
+      "J2.1 (VCC 3V3)",
+      "R1.1 (1)",
+      "J3.1 (3V3 supply)",
+      "J3.6 (ADDR HIGH)",
+      "R2.1 (1)",
+      "R3.1 (1)",
+      "R4.1 (1)",
+      "C4.1 (1)",
+      "R5.1 (1)",
+      "J5.1 (VDD)",
+      "R6.1 (1)",
+      "R7.1 (1)",
+      "C7.1 (1)"
+    ],
+    "DHT_DATA": [
+      "U1.27 (GPIO27 DHT_PIN)",
+      "J2.3 (DATA)",
+      "R1.2 (2)"
+    ],
+    "CCS_SDA": [
+      "U1.21 (GPIO21 I2C1_SDA)",
+      "J3.3 (SDA)",
+      "R2.2 (2)"
+    ],
+    "CCS_SCL": [
+      "U1.22 (GPIO22 I2C1_SCL)",
+      "J3.4 (SCL)",
+      "R3.2 (2)"
+    ],
+    "ADS_SDA": [
+      "U1.32 (GPIO32 I2C2_SDA)",
+      "J5.3 (SDA)",
+      "R6.2 (2)"
+    ],
+    "ADS_SCL": [
+      "U1.13 (GPIO13 I2C2_SCL)",
+      "J5.4 (SCL)",
+      "R7.2 (2)"
+    ],
+    "PMS_TXD": [
+      "U1.16 (GPIO16 PMS_RX)",
+      "J4.5 (TXD -> GPIO16)"
+    ],
+    "PMS_RXD": [
+      "U1.17 (GPIO17 PMS_TX)",
+      "J4.4 (RXD <- GPIO17)"
+    ],
+    "PMS_SET": [
+      "U1.23 (GPIO23 PMS_SET_PIN)",
+      "J4.3 (SET)"
+    ],
+    "ADC_MQ2": [
+      "U1.33 (GPIO33 MQ2_PIN)",
+      "R14.2 (2)",
+      "R15.1 (1)",
+      "C11.1 (1)"
+    ],
+    "ADC_MQ3": [
+      "U1.36 (GPIO36 MQ3_PIN)",
+      "R16.2 (2)",
+      "R17.1 (1)",
+      "C12.1 (1)"
+    ],
+    "ADC_MQ8": [
+      "U1.34 (GPIO34 MQ8_PIN)",
+      "R18.2 (2)",
+      "R19.1 (1)",
+      "C13.1 (1)"
+    ],
+    "ADC_MQ135": [
+      "U1.39 (GPIO39 MQ135_PIN)",
+      "R20.2 (2)",
+      "R21.1 (1)",
+      "C14.1 (1)"
+    ],
+    "RELAY_IN1": [
+      "U1.25 (GPIO25 FAN_INTAKE)",
+      "K1.3 (IN1 - verify 3V3 compatible)"
+    ],
+    "RELAY_IN2": [
+      "U1.26 (GPIO26 FAN_EXHAUST)",
+      "K1.4 (IN2 - verify 3V3 compatible)"
+    ],
+    "CCS_RESET": [
+      "J3.7 (nRESET)",
+      "R4.2 (2)"
+    ],
+    "PMS_RESET": [
+      "J4.6 (RESET)",
+      "R5.2 (2)"
+    ],
+    "ADC_RED": [
+      "J5.6 (A0 CO/RED)",
+      "R8.2 (2)",
+      "R9.1 (1)",
+      "C8.1 (1)"
+    ],
+    "ADC_OX": [
+      "J5.7 (A1 NO2/OX)",
+      "R10.2 (2)",
+      "R11.1 (1)",
+      "C9.1 (1)"
+    ],
+    "ADC_NH3": [
+      "J5.8 (A2 NH3)",
+      "R12.2 (2)",
+      "R13.1 (1)",
+      "C10.1 (1)"
+    ],
+    "FAN1_POS": [
+      "K1.6 (NO1)",
+      "J6.1 (+)"
+    ],
+    "FAN2_POS": [
+      "K1.9 (NO2)",
+      "J7.1 (+)"
+    ],
+    "RAW_RED": [
+      "J8.3 (CO / RED)",
+      "R8.1 (1)"
+    ],
+    "RAW_OX": [
+      "J8.4 (NO2 / OX)",
+      "R10.1 (1)"
+    ],
+    "RAW_NH3": [
+      "J8.5 (NH3)",
+      "R12.1 (1)"
+    ],
+    "RAW_MQ2": [
+      "J9.3 (AOUT)",
+      "R14.1 (1)"
+    ],
+    "RAW_MQ3": [
+      "J10.3 (AOUT)",
+      "R16.1 (1)"
+    ],
+    "RAW_MQ8": [
+      "J11.3 (AOUT)",
+      "R18.1 (1)"
+    ],
+    "RAW_MQ135": [
+      "J12.3 (AOUT)",
+      "R20.1 (1)"
+    ]
+  },
+  "firmware_pin_defines": {
+    "DHT_PIN": 27,
+    "I2C1_SDA": 21,
+    "I2C1_SCL": 22,
+    "I2C2_SDA": 32,
+    "I2C2_SCL": 13,
+    "PMS_RX": 16,
+    "PMS_TX": 17,
+    "PMS_SET_PIN": 23,
+    "MQ2_PIN": 33,
+    "MQ3_PIN": 36,
+    "MQ8_PIN": 34,
+    "MQ135_PIN": 39,
+    "FAN_INTAKE": 25,
+    "FAN_EXHAUST": 26
+  }
+}

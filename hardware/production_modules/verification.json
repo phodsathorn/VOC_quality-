@@ -1,0 +1,12 @@
+{
+  "status": "source structure verified after EasyEDA Pro import",
+  "components": 50,
+  "reference_designators": 50,
+  "named_nets": 27,
+  "page_uuid": "2b93c2959cb0c000",
+  "limitations": [
+    "PCB netlist export blocked by 50 unassigned footprints.",
+    "Source structure verification is not electrical simulation or complete ERC.",
+    "Module SKUs, harness pin order, MCU headers and footprints require selection before PCB."
+  ]
+}
