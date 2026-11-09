@@ -160,7 +160,7 @@ export default function Maintenance() {
       assignee: 'Process & Calibration Engineer',
       dueDate: 'Oct 29, 2025',
       status: 'In Progress',
-      statusColor: 'bg-[#d3e4fe] text-[#004ac6]',
+      statusColor: 'bg-sky-50 text-sky-700 border border-sky-200/80',
       signedOffBy: 'Pending',
     },
     {
@@ -169,7 +169,7 @@ export default function Maintenance() {
       assignee: 'Process & Calibration Engineer',
       dueDate: 'Oct 28, 2025',
       status: 'Due soon',
-      statusColor: 'bg-[#ffdbcd] text-[#943700]',
+      statusColor: 'bg-amber-50 text-amber-800 border border-amber-200/80',
       signedOffBy: 'Pending',
     },
     {
@@ -178,7 +178,7 @@ export default function Maintenance() {
       assignee: 'Line Operator',
       dueDate: 'Oct 21, 2025',
       status: 'Completed',
-      statusColor: 'bg-[#eaedff] text-[#004ac6]',
+      statusColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80',
       signedOffBy: 'Process & Calibration Engineer',
     },
     {
@@ -187,7 +187,7 @@ export default function Maintenance() {
       assignee: 'Process & Calibration Engineer',
       dueDate: 'Oct 15, 2025',
       status: 'Completed',
-      statusColor: 'bg-[#eaedff] text-[#004ac6]',
+      statusColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80',
       signedOffBy: 'Safety & Compliance Auditor',
     },
   ]);
@@ -223,7 +223,7 @@ export default function Maintenance() {
               assignee: wo.performed_by || 'Process & Calibration Engineer',
               dueDate: wo.completed_at || wo.created_at || 'Scheduled',
               status: wo.status === 'COMPLETED' ? 'Completed' : (wo.status || 'In Progress'),
-              statusColor: wo.status === 'COMPLETED' ? 'bg-[#eaedff] text-[#004ac6]' : 'bg-[#d3e4fe] text-[#004ac6]',
+              statusColor: wo.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80' : 'bg-sky-50 text-sky-700 border border-sky-200/80',
               signedOffBy: wo.performed_by || 'Verified Engineer',
             })));
           }
@@ -524,15 +524,15 @@ export default function Maintenance() {
                         <button
                           type="button"
                           onClick={() => setCalibModalSensor(s)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold transition-all cursor-pointer ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold border transition-all cursor-pointer ${
                             s.isDueSoon
-                              ? 'bg-[#ffdbcd] text-[#943700] hover:bg-[#ffb596]'
-                              : 'bg-[#eaedff] text-[#004ac6] hover:bg-[#dbe1ff]'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200/80 hover:bg-amber-100'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100'
                           }`}
                         >
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${
-                              s.isDueSoon ? 'bg-[#943700]' : 'bg-[#004ac6]'
+                              s.isDueSoon ? 'bg-amber-500' : 'bg-emerald-500'
                             }`}
                           />
                           <span>{s.isDueSoon ? t('dueSoon', 'Due soon') : t('calibrated', 'Calibrated')}</span>
@@ -1004,7 +1004,7 @@ export default function Maintenance() {
             className="fixed inset-0 bg-[#131b2e]/40 backdrop-blur-sm transition-opacity"
             onClick={() => setCalibModalSensor(null)}
           />
-          <div className="relative bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl flex flex-col gap-5 z-10 border border-[#eaedff] animate-fade-in">
+          <div className="relative bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl flex flex-col gap-5 z-10 border border-[#eaedff] animate-fade-in">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-[#e2e7ff] text-[#004ac6] flex items-center justify-center">
                 <Wrench size={20} />

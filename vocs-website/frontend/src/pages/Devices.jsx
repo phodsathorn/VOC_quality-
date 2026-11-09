@@ -221,7 +221,7 @@ export default function Devices() {
       </div>
 
       {/* ── 3 Main Device Cards Grid matching Stitch 1:1 ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {devices.map((d) => {
           const isSelected = drawerOpen && selectedDevice?.id === d.id;
           return (
@@ -241,23 +241,23 @@ export default function Devices() {
                     {d.id}
                   </span>
                   <div
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] font-semibold ${
                       d.isOnline
-                        ? 'bg-[#f2f3ff] text-[#004ac6]'
-                        : 'bg-[#eaedff] text-[#505f76]'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                        : 'bg-rose-50 text-rose-700 border-rose-200/80'
                     }`}
                   >
                     <span className="relative flex h-2 w-2">
                       {d.isOnline && (
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#004ac6] opacity-75" />
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
                       )}
                       <span
                         className={`relative inline-flex rounded-full h-2 w-2 ${
-                          d.isOnline ? 'bg-[#004ac6]' : 'bg-[#737686]'
+                          d.isOnline ? 'bg-emerald-500' : 'bg-rose-500'
                         }`}
                       />
                     </span>
-                    <span className="text-[12px] font-semibold">
+                    <span>
                       {d.isOnline ? t('online', 'Online') : t('offline', 'Offline')}
                     </span>
                   </div>
@@ -266,7 +266,7 @@ export default function Devices() {
                 <div className="flex items-center gap-2.5 text-[#131b2e]">
                   <Wifi
                     size={22}
-                    className={d.isOnline ? 'text-[#004ac6]' : 'text-[#737686]'}
+                    className={d.isOnline ? 'text-emerald-600' : 'text-rose-500'}
                   />
                   <span className="text-[22px] font-semibold leading-none tracking-tight tabular-nums">
                     {d.rssi}
@@ -317,9 +317,12 @@ export default function Devices() {
                       {selectedDevice.id}
                     </span>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`w-1.5 h-1.5 rounded-full inline-block ${selectedDevice.isOnline ? 'bg-[#004ac6]' : 'bg-[#737686]'}`} />
+                      <span className={`w-2 h-2 rounded-full inline-block ${selectedDevice.isOnline ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      <span className={`text-[12px] font-semibold ${selectedDevice.isOnline ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {selectedDevice.isOnline ? t('online', 'Online') : t('offline', 'Offline')}
+                      </span>
                       <span className="text-[12px] text-[#505f76] font-medium">
-                        {selectedDevice.isOnline ? t('online', 'Online') : t('offline', 'Offline')} • {lang === 'TH' ? selectedDevice.typeTh : selectedDevice.type}
+                        • {lang === 'TH' ? selectedDevice.typeTh : selectedDevice.type}
                       </span>
                     </div>
                   </div>
@@ -404,7 +407,7 @@ export default function Devices() {
                   <div className="flex items-center justify-between py-2.5 px-3 rounded-2xl bg-[#f2f3ff]">
                     <span className="text-[13px] text-[#505f76]">{t('mqttBroker', 'MQTT')}</span>
                     <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#004ac6] inline-block" />
+                      <span className={`w-2 h-2 rounded-full inline-block ${selectedDevice.isOnline ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                       <span className="text-[13px] font-semibold text-[#131b2e]">
                         {lang === 'TH' ? selectedDevice.mqttTh : selectedDevice.mqtt}
                       </span>
@@ -433,15 +436,15 @@ export default function Devices() {
                       <div className="flex items-center gap-2">
                         <Activity
                           size={16}
-                          className={sensor.isFault ? 'text-[#ba1a1a]' : 'text-[#004ac6]'}
+                          className={sensor.isFault ? 'text-rose-600' : 'text-emerald-600'}
                         />
                         <span className="text-[13px] font-semibold text-[#131b2e]">{sensor.name}</span>
                       </div>
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
                           sensor.isFault
-                            ? 'bg-[#ba1a1a] text-white'
-                            : 'bg-[#e2e7ff] text-[#004ac6]'
+                            ? 'bg-rose-50 text-rose-700 border-rose-200/80'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
                         }`}
                       >
                         {sensor.status}
@@ -508,7 +511,7 @@ export default function Devices() {
       {/* ── Modal 1: Generate Device Token matching Stitch ── */}
       {isTokenModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#131b2e]/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-[440px] bg-white rounded-3xl shadow-2xl border border-[#eaedff] p-6 sm:p-8 flex flex-col gap-4">
+          <div className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-[#eaedff] p-5 sm:p-8 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-[#e2e7ff] flex items-center justify-center text-[#004ac6]">
@@ -572,7 +575,7 @@ export default function Devices() {
       {/* ── Modal 2: Hardware Self-Diagnostics matching Stitch ── */}
       {isDiagModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#131b2e]/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-[460px] bg-white rounded-3xl shadow-2xl border border-[#eaedff] p-6 sm:p-8 flex flex-col gap-4">
+          <div className="w-full max-w-[460px] max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-[#eaedff] p-5 sm:p-8 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-2xl bg-[#e2e7ff] flex items-center justify-center text-[#004ac6]">
@@ -607,38 +610,38 @@ export default function Devices() {
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between py-2 px-3 rounded-2xl bg-[#f2f3ff]">
                   <div className="flex items-center gap-2">
-                    <Check size={16} className="text-[#004ac6]" />
+                    <Check size={16} className="text-emerald-600" />
                     <span className="text-[13px] font-medium text-[#131b2e]">{t('powerRailStability', 'Power Rail Stability')}</span>
                   </div>
-                  <span className="text-[12px] font-semibold text-[#004ac6] font-mono">PASS (3.32V)</span>
+                  <span className="text-[12px] font-semibold text-emerald-700 font-mono">PASS (3.32V)</span>
                 </div>
                 <div className="flex items-center justify-between py-2 px-3 rounded-2xl bg-[#f2f3ff]">
                   <div className="flex items-center gap-2">
-                    <Check size={16} className="text-[#004ac6]" />
+                    <Check size={16} className="text-emerald-600" />
                     <span className="text-[13px] font-medium text-[#131b2e]">{t('i2cBusAdc', 'I2C Bus & Sensor ADC')}</span>
                   </div>
-                  <span className="text-[12px] font-semibold text-[#004ac6] font-mono">PASS (6/6 channels)</span>
+                  <span className="text-[12px] font-semibold text-emerald-700 font-mono">PASS (6/6 channels)</span>
                 </div>
                 <div className="flex items-center justify-between py-2 px-3 rounded-2xl bg-[#f2f3ff]">
                   <div className="flex items-center gap-2">
-                    <Check size={16} className="text-[#004ac6]" />
+                    <Check size={16} className="text-emerald-600" />
                     <span className="text-[13px] font-medium text-[#131b2e]">{t('flashMemoryIntegrity', 'Flash Memory Integrity')}</span>
                   </div>
-                  <span className="text-[12px] font-semibold text-[#004ac6] font-mono">PASS (MD5 verified)</span>
+                  <span className="text-[12px] font-semibold text-emerald-700 font-mono">PASS (MD5 verified)</span>
                 </div>
                 <div className="flex items-center justify-between py-2 px-3 rounded-2xl bg-[#f2f3ff]">
                   <div className="flex items-center gap-2">
-                    <Check size={16} className="text-[#004ac6]" />
+                    <Check size={16} className="text-emerald-600" />
                     <span className="text-[13px] font-medium text-[#131b2e]">{t('wifiMqttLatency', 'WiFi & MQTT Latency')}</span>
                   </div>
-                  <span className="text-[12px] font-semibold text-[#004ac6] font-mono">PASS (12ms)</span>
+                  <span className="text-[12px] font-semibold text-emerald-700 font-mono">PASS (12ms)</span>
                 </div>
                 <div className="flex items-center justify-between py-2 px-3 rounded-2xl bg-[#f2f3ff]">
                   <div className="flex items-center gap-2">
-                    <Check size={16} className="text-[#004ac6]" />
+                    <Check size={16} className="text-emerald-600" />
                     <span className="text-[13px] font-medium text-[#131b2e]">{t('sensorHeaterCircuit', 'Sensor Heater Circuit')}</span>
                   </div>
-                  <span className="text-[12px] font-semibold text-[#004ac6] font-mono">{lang === 'TH' ? 'PASS (วอร์มหัววัด MQ พร้อมใช้งาน)' : 'PASS (Sensors Preheated)'}</span>
+                  <span className="text-[12px] font-semibold text-emerald-700 font-mono">{lang === 'TH' ? 'PASS (วอร์มหัววัด MQ พร้อมใช้งาน)' : 'PASS (Sensors Preheated)'}</span>
                 </div>
               </div>
             )}
@@ -666,7 +669,7 @@ export default function Devices() {
       {/* ── Modal 3: Update Firmware (OTA) Real Upload Flow ── */}
       {isOtaModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#131b2e]/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-[500px] bg-white rounded-3xl shadow-2xl border border-[#eaedff] p-6 sm:p-8 flex flex-col gap-4">
+          <div className="w-full max-w-[500px] max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-[#eaedff] p-5 sm:p-8 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-2xl bg-[#e2e7ff] flex items-center justify-center text-[#004ac6]">

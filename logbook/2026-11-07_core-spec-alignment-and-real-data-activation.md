@@ -302,16 +302,52 @@
 
 ---
 
+### [เวลา 22:45 น.] ปรับปรุง UI Header, ลบรูป User มุมขวาบน, แก้ไขสี Status ตามมาตรฐานสากล และแก้ไขจุดตกหล่นด้าน Responsive
+**ปัญหาและความต้องการ:**
+1. **รูป User มุมขวาบน:** ผู้ใช้แจ้งว่ากดรูป User ที่มุมขวาบนของ Header แล้วไม่มีอะไรเกิดขึ้น และมีโปรไฟล์ผู้ใช้อยู่ที่มุมล่างซ้ายของ Sidebar อยู่แล้ว จึงต้องการให้ลบรูป User มุมขวาบนออก และทำให้การคลิกโปรไฟล์ที่มุมล่างซ้ายใช้งานได้สะดวก
+2. **สี Status กลืนและไม่ตรงมาตรฐาน:** สีป้ายสถานะเดิมใช้โทนฟ้า-ม่วงซีด (`bg-[#eaedff] text-[#004ac6]`) ทั้งในกรณี Online, Calibrated และ Normal ทำให้ดูกลืนไปกับพื้นหลังและไม่สื่อความหมายทางวิศวกรรมความปลอดภัย ต้องการปรับให้เป็นสีตามมาตรฐานสากล (เขียว Emerald สำหรับ Online/Normal/Safe/Calibrated, แดง Rose สำหรับ Offline/Critical, ส้มเหลือง Amber สำหรับ Warning/Due soon, ฟ้า Sky สำหรับ In Progress/Advisory)
+3. **ปัญหา Responsive Layout หลุด:** บนหน้าจอมือถือ/แท็บเล็ต แถบ Header เกิดการบีบตัวและข้อความตกหล่น, โมดอลต่าง ๆ (Token, Diagnostics, OTA Upload, Radar) ขาดการกำหนด `max-h-[90vh] overflow-y-auto` ทำให้ในแนวนอนหรือจอมือถือไม่สามารถเลื่อนกดปุ่มด้านล่างได้, และ Grid การ์ดอุปกรณ์ก้าวกระโดดจาก 1 คอลัมน์เป็น 3 คอลัมน์บนแท็บเล็ต
+
+**สิ่งที่แก้ไข:**
+1. **`vocs-website/frontend/src/components/Layout.jsx`**:
+   - ลบปุ่มรูปภาพ User Avatar ที่มุมขวาบนของ Header ออกตามที่ผู้ใช้ร้องขอ
+   - ปรับปรุงการ์ด User Profile มุมล่างซ้ายของ Sidebar ให้คลิกที่การ์ดแล้วสามารถเปิด/ปิดเมนูการตั้งค่าและออกจากระบบได้ทันที
+   - ปรับปรุง Header ให้รองรับ Responsive สมบูรณ์: ข้อความชื่อสถานที่ตัดทอนอย่างยืดหยุ่น (`truncate` บนจอมือถือ), ปรับ Padding แนวนอน `px-3 sm:px-4 md:px-8` ป้องกันการล้นจอ
+   - ปรับปรุงสีป้ายสถานะ Gateway ใน Header:
+     - **Online:** พื้นหลัง `bg-emerald-50`, ขอบ `border-emerald-200/80`, ข้อความ `text-emerald-700`, จุดกระพริบ `bg-emerald-500`
+     - **Offline:** พื้นหลัง `bg-rose-50`, ขอบ `border-rose-200/80`, ข้อความ `text-rose-700`, จุดคงที่ `bg-rose-500`
+2. **`vocs-website/frontend/src/pages/Devices.jsx`**:
+   - ปรับปรุง Grid การ์ดอุปกรณ์ให้ไหลลื่นตามขนาดหน้าจอ: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6` (รองรับจอมือถือ 1 คอลัมน์, แท็บเล็ต 2 คอลัมน์, จอคอมพิวเตอร์ 3 คอลัมน์)
+   - ปรับปรุงสีป้ายสถานะบนการ์ดอุปกรณ์และ Drawer ด้านข้าง: ใช้งานคู่สี Emerald (เขียว) และ Rose (แดง) ชัดเจน มีขอบและตัวหนังสือคมชัด
+   - ปรับปรุงแถบรายการเซนเซอร์ใน Drawer: เซนเซอร์ปกติแสดงสีเขียว Emerald พร้อมขอบ
+   - เพิ่ม `max-h-[90vh] overflow-y-auto` ให้กับทั้ง 3 โมดอล (Generate Token, Hardware Self-Diagnostics, OTA Upload) รองรับการใช้งานบนมือถือทุกขนาดและแนวนอน
+   - ในหน้าตรวจวินิจฉัย (Self-Diagnostics): ปรับสีเครื่องหมายถูกและผลลัพธ์ PASS เป็นสีเขียว Emerald มาตรฐาน
+3. **`vocs-website/frontend/src/pages/Dashboard.jsx`**:
+   - ปรับสีป้ายสถานะ eCO₂ และตารางโพรบเซนเซอร์ให้ใช้สีเขียว Emerald (ปกติ) และสีส้ม Amber (เฝ้าระวัง)
+   - เพิ่ม `max-h-[90vh] overflow-y-auto` และปรับ Padding ให้กับหน้าต่าง Solvent Radar Fingerprint Modal
+4. **`vocs-website/frontend/src/pages/Maintenance.jsx`**:
+   - ปรับปรุงปุ่มสถานะการสอบเทียบ: `Calibrated` ใช้สีเขียว Emerald (`bg-emerald-50 text-emerald-700 border-emerald-200/80`) และ `Due soon` ใช้สีส้ม Amber (`bg-amber-50 text-amber-800 border-amber-200/80`)
+   - ปรับปรุงตาราง Work Orders: Completed (เขียว Emerald), In Progress (ฟ้า Sky), Due soon (ส้ม Amber)
+   - เพิ่ม `max-h-[90vh] overflow-y-auto` ให้กับโมดอลยืนยันการสอบเทียบ
+5. **`vocs-website/frontend/src/pages/Alerts.jsx` & `History.jsx`**:
+   - ปรับปรุงโทนสีระดับความรุนแรงและสถานะให้เป็นระบบเดียวกันทั่วทั้งเว็บ: Critical/Open (แดง Rose), Warning (ส้ม Amber), Normal/Resolved (เขียว Emerald), In Review/Acknowledged (ฟ้า Sky)
+
+**การตรวจสอบ:**
+- `npm --prefix vocs-website/frontend run build`: ผ่านสมบูรณ์ 100% (`built in 213ms`, 0 errors)
+- `npm --prefix vocs-website/frontend run lint`: ผ่านสมบูรณ์ 100% (`0 errors`)
+
+---
+
 ## สถานะ
 - [x] ตรวจสอบและติดตั้งระบบความปลอดภัย OTA ให้เฟิร์มแวร์ ESP32 (HTTPS Only, Domain Whitelist, Device Token Guard)
 - [x] แก้ไขตัวแปร `API_SERVER` ใน `voc_esp32.ino` ให้คอมไพล์ผ่านสมบูรณ์ 100%
 - [x] ปลด Mock Devices (`ESP32 Node 02`, `Gateway Hub`) และ Mock Sensors ออกจาก `Devices.jsx` แสดงเฉพาะฮาร์ดแวร์จริง `BOX-001`
 - [x] สร้างฟอร์มอัปโหลดไฟล์เฟิร์มแวร์ `.bin` จริง และแก้ข้อผิดพลาดจำลอง MQ-137 ในหน้า Diagnostic
 - [x] ปรับแก้ระบบตรวจจับสถานะเชื่อมต่อจริง (Real Live Heartbeat) ทั่วทั้งระบบ: แสดง `ออฟไลน์` สีแดงเมื่อบอร์ดขาดการเชื่อมต่อ
+- [x] ลบรูปโปรไฟล์มุมขวาบนของ Header ออก และเชื่อมโยงโปรไฟล์มุมล่างซ้ายให้เปิดเมนูได้โดยตรง
+- [x] ปรับเปลี่ยนชุดสีสถานะทั้งหมด (Status Badges) ให้เป็นสีมาตรฐานสากล (Emerald Green / Rose Red / Amber Orange / Sky Blue)
+- [x] แก้ไขจุดบกพร่องด้าน Responsive บนหน้าจอทุกขนาด (Header auto-wrap, Modal vertical scroll, Grid layout)
 - [x] ทดสอบการ Build และ Lint ผ่าน 100%
-- [x] Commit และ Push สู่ GitLab (`origin`) และ GitHub (`github`) สำเร็จเรียบร้อยทั้งสอง Remote
-
-
-
+- [x] บันทึก Logbook และพร้อมสำหรับการ Commit & Push สู่ GitLab และ GitHub
 
 

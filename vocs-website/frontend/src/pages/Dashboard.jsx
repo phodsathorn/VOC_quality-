@@ -576,8 +576,8 @@ export default function Dashboard() {
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
                 {isThai ? 'ก๊าซคาร์บอนไดออกไซด์ (eCO₂)' : 'ECO₂ (ESTIMATED)'}
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#131b2e] bg-[#eaedff]">
-                <span className="w-2 h-2 rounded-full bg-[#00CC66]" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 {isThai ? 'ปกติ' : 'Nominal'}
               </span>
             </div>
@@ -880,10 +880,10 @@ export default function Dashboard() {
                       <td className="py-2.5 px-3 text-right text-[#505f76] tabular-nums whitespace-nowrap">{probe.thresh}</td>
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap ${
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap ${
                             probe.status === 'Warning' || probe.status === 'เฝ้าระวัง'
-                              ? 'bg-[#ffdbcd] text-[#943700]'
-                              : 'bg-[#00CC66]/10 text-[#009944]'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200/80'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
                           }`}
                         >
                           {probe.status}
@@ -933,7 +933,7 @@ export default function Dashboard() {
             onClick={() => setIsRadarModalOpen(false)}
             className="fixed inset-0 bg-[#283044]/40 backdrop-blur-xs transition-opacity"
           />
-          <div className="relative bg-white rounded-3xl max-w-lg w-full p-8 shadow-2xl border border-[#eaedff] z-10 animate-in fade-in zoom-in-95 duration-200">
+          <div className="relative bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 shadow-2xl border border-[#eaedff] z-10 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
