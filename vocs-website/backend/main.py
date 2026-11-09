@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Depends, Header, Query
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Depends, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from pydantic import BaseModel
@@ -1540,7 +1540,7 @@ def _save_ota_meta(meta: dict):
 @app.post("/api/ota/upload")
 async def upload_ota_firmware(
     request: Request,
-    version: str = "1.0.2",
+    version: str = Form("1.0.3"),
     file: UploadFile = File(...),
     _auth: bool = Depends(verify_admin_key),
 ):
@@ -1553,6 +1553,12 @@ async def upload_ota_firmware(
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
     
     ver_clean = version.strip()
+    if not ver_clean:
+        raise HTTPException(status_code=400, detail="Firmware version cannot be empty")
+    # Clean leading 'v' if present e.g. "v1.0.3" -> "1.0.3"
+    if ver_clean.lower().startswith("v") and len(ver_clean) > 1:
+        ver_clean = ver_clean[1:].strip()
+
     versioned_file = OTA_DIR / f"firmware_{ver_clean}.bin"
     with open(versioned_file, "wb") as f:
         f.write(content)
@@ -1687,9 +1693,21 @@ class OtaReportPayload(BaseModel):
     error_detail: Optional[str] = None
 
 @app.post("/api/ota/report")
-async def report_ota_status(payload: OtaReportPayload):
+async def report_ota_status(
+    payload: OtaReportPayload,
+    request: Request,
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+    x_device_token: Optional[str] = Header(None, alias="X-Device-Token"),
+):
     """ESP32 รายงานผลการแฟลช หรือแจ้งข้อผิดพลาดเมื่ออัปเดตไม่สำเร็จ"""
     pool = await get_pool()
+    dev_token = x_device_token
+    if not dev_token and authorization and authorization.startswith("Bearer "):
+        dev_token = authorization[7:].strip()
+    if IS_PRODUCTION and dev_token:
+        if not await _verify_device_auth(payload.box_id, dev_token, pool):
+            raise HTTPException(status_code=401, detail="Unauthorized: Invalid device token for OTA report")
+
     if pool:
         try:
             await pool.execute(
@@ -1739,22 +1757,44 @@ async def get_ota_status(request: Request):
 async def _verify_ota_client_auth(
     request: Request,
     authorization: Optional[str] = Header(None, alias="Authorization"),
-    x_device_token: Optional[str] = Header(None, alias="X-Device-Token")
+    x_device_token: Optional[str] = Header(None, alias="X-Device-Token"),
+    token: Optional[str] = Query(None),
 ):
     """
     ตรวจสอบสิทธิ์การเข้าถึงไฟล์และ API OTA:
-    ต้องเป็น Device Token ที่ถูกต้อง หรือ User JWT (Admin/Engineer)
+    ต้องเป็น Device Token ที่ถูกต้อง (ผ่าน Header X-Device-Token, ?token= Query, หรือ Basic Auth)
+    หรือ User JWT (Admin/Engineer)
     """
     pool = await get_pool()
-    if x_device_token:
-        if await _verify_device_auth("BOX-001", x_device_token, pool):
-            return {"type": "device"}
+    dev_token = x_device_token or token
+    if not dev_token and authorization:
+        auth_clean = authorization.strip()
+        if auth_clean.startswith("Basic "):
+            import base64
+            try:
+                decoded = base64.b64decode(auth_clean[6:]).decode("utf-8")
+                parts = decoded.split(":", 1)
+                dev_token = parts[1] if len(parts) > 1 and parts[1] else parts[0]
+            except Exception:
+                pass
+        elif auth_clean.startswith("Bearer "):
+            bearer_val = auth_clean[7:].strip()
+            if bearer_val.count(".") != 2:
+                dev_token = bearer_val
+        elif not auth_clean.startswith("Bearer "):
+            dev_token = auth_clean
+
+    if dev_token:
+        if await _verify_device_auth("BOX-001", dev_token, pool):
+            return {"type": "device", "token": dev_token}
+
     user = await get_current_user_optional(request, authorization)
     if user and user.get("role") in ("admin", "engineer"):
         return {"type": "user", "user": user}
+
     raise HTTPException(
         status_code=401,
-        detail="Unauthorized: Valid X-Device-Token or Admin/Engineer JWT Bearer token required for OTA access."
+        detail="Unauthorized: Valid X-Device-Token, ?token query, or Admin/Engineer JWT Bearer token required for OTA access."
     )
 
 
@@ -3368,11 +3408,29 @@ async def ingest_reading(payload: IngestPayload, request: Request):
 
     # 6. Check OTA Firmware for ESP32
     ota_info = _load_ota_meta()
+    is_ota_avail = bool(ota_info.get("available", False) and OTA_BIN_PATH.exists())
+    ota_download_url = ota_info.get("url", "") or ""
+    if is_ota_avail and ota_download_url and device_token:
+        sep = "&" if "?" in ota_download_url else "?"
+        ota_download_url = f"{ota_download_url}{sep}token={device_token}"
+
     ota_resp = {
-        "available": bool(ota_info.get("available", False) and OTA_BIN_PATH.exists()),
+        "available": is_ota_avail,
         "version": ota_info.get("version", "") or "",
-        "url": ota_info.get("url", "") or "",
+        "url": ota_download_url,
+        "rollback": bool(ota_info.get("rollback", False)),
     }
+
+    # Auto-mark SUCCESS if device reports matching active OTA firmware
+    if payload.firmware_ver and ota_info.get("version") == payload.firmware_ver:
+        if pool:
+            try:
+                await pool.execute(
+                    "UPDATE devices SET last_ota_status = 'SUCCESS', last_ota_error = NULL WHERE box_id = $1 AND (last_ota_status IS NULL OR last_ota_status != 'SUCCESS')",
+                    payload.box_id
+                )
+            except Exception:
+                pass
 
     return {
         "status": "ok",

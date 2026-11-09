@@ -32,6 +32,7 @@
 #include <WebServer.h>
 #include <Update.h>
 #include <HTTPUpdate.h>
+#include <esp_ota_ops.h>
 
 #if __has_include("secrets.h")
   #include "secrets.h"  // Local-only Wi-Fi credentials; see secrets.example.h
@@ -80,6 +81,26 @@ void reportOtaStatus(const char* status, int errCode, const char* errDetail);
 void performCloudOTA(const char* ota_url);
 void pollDeviceCommand();
 void reportCalibration(int calibrationId);
+
+// ─── Semantic Versioning Helper (CORE_SPEC 6.5) ─────────────
+bool parseSemVer(const char* verStr, int &major, int &minor, int &patch) {
+  if (!verStr || strlen(verStr) == 0) return false;
+  while (*verStr == 'v' || *verStr == 'V' || *verStr == ' ') verStr++;
+  major = 0; minor = 0; patch = 0;
+  return (sscanf(verStr, "%d.%d.%d", &major, &minor, &patch) >= 2);
+}
+
+bool isNewerVersion(const char* remoteVer, const char* localVer) {
+  int rMaj = 0, rMin = 0, rPat = 0;
+  int lMaj = 0, lMin = 0, lPat = 0;
+  if (!parseSemVer(remoteVer, rMaj, rMin, rPat)) return false;
+  if (!parseSemVer(localVer, lMaj, lMin, lPat)) return false;
+  if (rMaj > lMaj) return true;
+  if (rMaj < lMaj) return false;
+  if (rMin > lMin) return true;
+  if (rMin < lMin) return false;
+  return rPat > lPat;
+}
 
 // ─── Premium Glassmorphic Web OTA Template (Stored in Flash PROGMEM) ──
 const char OTA_PAGE[] PROGMEM = R"rawliteral(
@@ -721,7 +742,17 @@ void setup() {
 #if defined(NU_USERNAME) && defined(NU_PASSWORD)
     performNuWebLogin();
 #endif
-    reportOtaStatus("SUCCESS", 0, "Online and running");
+
+    // CORE_SPEC 6.5: Verify Dual-Partition Boot & Cancel Hardware Rollback
+    const esp_partition_t *runningPart = esp_ota_get_running_partition();
+    esp_ota_img_states_t ota_state;
+    if (esp_ota_get_state_partition(runningPart, &ota_state) == ESP_OK) {
+      if (ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
+        Serial.println("[OTA System] New firmware partition verified! Marking boot as VALID.");
+        esp_ota_mark_app_valid_cancel_rollback();
+        reportOtaStatus("SUCCESS", 0, "Dual-partition boot verified and confirmed");
+      }
+    }
   } else {
     Serial.println("\n[WiFi] Waiting for network connection in background...");
   }
@@ -946,13 +977,24 @@ void sendData(const SensorData& d) {
       float conf       = resp_doc["ai"]["confidence"] | 0.0;
       Serial.printf("[AI]  %s (%.1f%%)\n", pred, conf);
 
-      // ─── Cloud Pull OTA Auto Update ──────────────────────────
+      // ─── Cloud Pull OTA Auto Update (CORE_SPEC 6.5) ──────────
       bool otaAvailable = resp_doc["ota"]["available"] | false;
       const char* otaVer = resp_doc["ota"]["version"] | "";
       const char* otaUrl = resp_doc["ota"]["url"] | "";
+      bool isRollback    = resp_doc["ota"]["rollback"] | false;
 
-      if (otaAvailable && strlen(otaVer) > 0 && strcmp(otaVer, FIRMWARE_VER) != 0 && strlen(otaUrl) > 0) {
-        Serial.printf("\n[Cloud OTA] New version detected: %s (current: %s)\n", otaVer, FIRMWARE_VER);
+      bool shouldUpdate = false;
+      if (otaAvailable && strlen(otaVer) > 0 && strlen(otaUrl) > 0) {
+        if (isRollback && strcmp(otaVer, FIRMWARE_VER) != 0) {
+          shouldUpdate = true;
+          Serial.printf("\n[Cloud OTA] Rollback target detected: %s (current: %s)\n", otaVer, FIRMWARE_VER);
+        } else if (isNewerVersion(otaVer, FIRMWARE_VER)) {
+          shouldUpdate = true;
+          Serial.printf("\n[Cloud OTA] Newer version available: %s (current: %s)\n", otaVer, FIRMWARE_VER);
+        }
+      }
+
+      if (shouldUpdate) {
         http.end();
         performCloudOTA(otaUrl);
         return;
@@ -993,11 +1035,10 @@ void performCloudOTA(const char* ota_url) {
     return;
   }
 
-  // Security Gate 2: Domain Whitelist (Only allow trusted backend server)
+  // Security Gate 2: Strict Domain Whitelist (Only allow trusted backend server)
   bool isTrustedDomain = false;
   if (strncmp(ota_url, API_SERVER, strlen(API_SERVER)) == 0 ||
-      strstr(ota_url, "onrender.com") != NULL ||
-      strstr(ota_url, "voc-backend-api") != NULL) {
+      strncmp(ota_url, "https://voc-backend-api.onrender.com", 36) == 0) {
     isTrustedDomain = true;
   }
 
@@ -1007,17 +1048,22 @@ void performCloudOTA(const char* ota_url) {
     return;
   }
 
+  // Prepare authenticated download URL
+  String targetUrl = String(ota_url);
+  #ifdef DEVICE_TOKEN
+  if (strlen(DEVICE_TOKEN) > 0) {
+    if (targetUrl.indexOf("token=") == -1) {
+      targetUrl += (targetUrl.indexOf('?') == -1 ? "?token=" : "&token=") + String(DEVICE_TOKEN);
+    }
+    httpUpdate.setAuthorization("device", DEVICE_TOKEN);
+  }
+  #endif
+
   WiFiClientSecure otaClient;
   otaClient.setInsecure();
   httpUpdate.rebootOnUpdate(true);
 
-  #ifdef DEVICE_TOKEN
-  if (strlen(DEVICE_TOKEN) > 0) {
-    httpUpdate.setAuthorization(DEVICE_TOKEN);
-  }
-  #endif
-
-  t_httpUpdate_return ret = httpUpdate.update(otaClient, ota_url);
+  t_httpUpdate_return ret = httpUpdate.update(otaClient, targetUrl.c_str());
   if (ret == HTTP_UPDATE_FAILED) {
     int errCode = httpUpdate.getLastError();
     String errStr = httpUpdate.getLastErrorString();

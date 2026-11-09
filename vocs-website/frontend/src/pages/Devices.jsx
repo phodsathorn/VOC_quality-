@@ -65,6 +65,7 @@ export default function Devices() {
   const [otaUploadResult, setOtaUploadResult] = useState(null);
   const [otaError, setOtaError] = useState(null);
   const [otaProgress, setOtaProgress] = useState(0);
+  const [otaHistory, setOtaHistory] = useState([]);
 
   const [isDiagModalOpen, setIsDiagModalOpen] = useState(false);
   const [diagRunning, setDiagRunning] = useState(false);
@@ -126,6 +127,18 @@ export default function Devices() {
     }, 1800);
   }
 
+  async function fetchOtaHistory() {
+    try {
+      const res = await fetch(`${API}/api/ota/history`);
+      if (res.ok) {
+        const data = await res.json();
+        setOtaHistory(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.warn('OTA history fetch notice:', err);
+    }
+  }
+
   function startOta() {
     setIsOtaModalOpen(true);
     setOtaUploadSuccess(false);
@@ -133,9 +146,45 @@ export default function Devices() {
     setOtaError(null);
     setOtaFile(null);
     setOtaProgress(0);
+    fetchOtaHistory();
   }
 
-  async function handleUploadFirmware(e) {
+  async function handleRollback(targetVer) {
+    if (!targetVer) return;
+    const confirmMsg = lang === 'TH'
+      ? `ยืนยันการถอยกลับ (Rollback) สู่เวอร์ชัน ${targetVer}?\nกล่อง ESP32 จะดึงเวอร์ชันนี้ไปแฟลชแทนเวอร์ชันปัจจุบัน`
+      : `Confirm rollback to firmware version ${targetVer}?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsUploadingOta(true);
+    setOtaError(null);
+    try {
+      const token = localStorage.getItem('token') || '';
+      const res = await fetch(`${API}/api/ota/rollback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : { 'X-Admin-Key': 'change-me-in-production-2026' }),
+        },
+        body: JSON.stringify({ version: targetVer }),
+      });
+      if (res.ok) {
+        setOtaUploadSuccess(true);
+        setOtaUploadResult({ message: `Rollback to v${targetVer} scheduled` });
+        fetchOtaHistory();
+        fetchDevices();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setOtaError(err.detail || 'Rollback failed');
+      }
+    } catch (err) {
+      setOtaError(err.message || 'Rollback request failed');
+    } finally {
+      setIsUploadingOta(false);
+    }
+  }
+
+  function handleUploadFirmware(e) {
     if (e) e.preventDefault();
     if (!otaFile) {
       setOtaError(lang === 'TH' ? 'กรุณาเลือกไฟล์เฟิร์มแวร์ .bin ก่อนกดอัปโหลด' : 'Please select a .bin firmware file');
@@ -149,47 +198,57 @@ export default function Devices() {
     setIsUploadingOta(true);
     setOtaError(null);
     setOtaUploadSuccess(false);
-    setOtaProgress(25);
+    setOtaProgress(0);
 
     const formData = new FormData();
     formData.append('file', otaFile);
     formData.append('version', otaVersionInput.trim() || '1.0.3');
 
-    try {
-      const token = localStorage.getItem('token') || '';
-      const progressTimer = setInterval(() => {
-        setOtaProgress((prev) => (prev < 85 ? prev + 15 : prev));
-      }, 250);
+    const token = localStorage.getItem('token') || '';
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API}/api/ota/upload`);
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    } else {
+      xhr.setRequestHeader('X-Admin-Key', 'change-me-in-production-2026');
+    }
 
-      const res = await fetch(`${API}/api/ota/upload`, {
-        method: 'POST',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : { 'X-Admin-Key': 'change-me-in-production-2026' }),
-        },
-        body: formData,
-      });
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setOtaProgress(percent);
+      }
+    };
 
-      clearInterval(progressTimer);
-
-      if (res.ok) {
-        const data = await res.json();
+    xhr.onload = () => {
+      setIsUploadingOta(false);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          setOtaUploadResult(data);
+        } catch {
+          setOtaUploadResult({});
+        }
         setOtaProgress(100);
         setOtaUploadSuccess(true);
-        setOtaUploadResult(data);
-        setTimeout(() => {
-          fetchDevices();
-        }, 1500);
+        fetchOtaHistory();
+        setTimeout(fetchDevices, 1500);
       } else {
-        const err = await res.json().catch(() => ({}));
-        setOtaError(err.detail || 'Upload failed');
-        setOtaProgress(0);
+        try {
+          const err = JSON.parse(xhr.responseText);
+          setOtaError(err.detail || 'Upload failed');
+        } catch {
+          setOtaError(`Upload failed (${xhr.status})`);
+        }
       }
-    } catch (err) {
-      setOtaError(err.message || 'Network error during upload');
-      setOtaProgress(0);
-    } finally {
+    };
+
+    xhr.onerror = () => {
       setIsUploadingOta(false);
-    }
+      setOtaError(lang === 'TH' ? 'เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย' : 'Network connection error during upload');
+    };
+
+    xhr.send(formData);
   }
 
   function handleRunDiagnostics() {
@@ -816,6 +875,50 @@ export default function Devices() {
                     : 'Or update locally via LAN at http://<ESP32_IP>/update (Username: admin)'}
                 </span>
               </div>
+
+              {/* Firmware History & 1-Click Rollback */}
+              {otaHistory.length > 0 && (
+                <div className="flex flex-col gap-2 pt-3 border-t border-[#eaedff]">
+                  <span className="text-[12px] font-semibold uppercase tracking-wider text-[#505f76]">
+                    {lang === 'TH' ? 'ประวัติเฟิร์มแวร์ & ถอยกลับ (Rollback)' : 'Firmware History & Rollback'}
+                  </span>
+                  <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto">
+                    {otaHistory.map((item) => {
+                      const isCurrent = item.status === 'ACTIVE';
+                      return (
+                        <div
+                          key={item.id || item.version}
+                          className="flex items-center justify-between p-2.5 rounded-xl bg-[#f2f3ff] text-xs"
+                        >
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5 font-semibold text-[#131b2e]">
+                              <span className="font-mono">v{item.version}</span>
+                              {isCurrent && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px]">
+                                  {lang === 'TH' ? 'ใช้งานอยู่' : 'ACTIVE'}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-[#505f76]">
+                              {item.released_at || item.created_at || '—'}
+                            </span>
+                          </div>
+                          {!isCurrent && (
+                            <button
+                              type="button"
+                              onClick={() => handleRollback(item.version)}
+                              disabled={isUploadingOta}
+                              className="px-2.5 py-1 rounded-lg bg-white border border-[#c3c6d7] text-[#004ac6] hover:bg-[#eaedff] font-medium transition-colors text-[11px] cursor-pointer"
+                            >
+                              {lang === 'TH' ? 'ถอยกลับ' : 'Rollback'}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex items-center justify-end gap-2 pt-2">

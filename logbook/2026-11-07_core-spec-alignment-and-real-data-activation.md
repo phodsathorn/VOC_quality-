@@ -338,6 +338,36 @@
 
 ---
 
+### [เวลา 23:30 น.] แก้ไขระบบ Cloud OTA สู่มาตรฐาน CORE_SPEC 6.5 (SemVer Guard, Auth Mismatch Fix, Dual Partition Validation & 1-Click Rollback)
+**ปัญหาและความต้องการ:**
+1. **เวอร์ชันที่อัปโหลดหลุดหาย:** หน้าเว็บส่ง `version` ใน Multipart Form Data แต่ FastAPI ใน `main.py` ประกาศเป็น Default Param ทำให้มองหา Query String และตกหล่นเป็น `1.0.2` เสมอ
+2. **การเปรียบเทียบเวอร์ชันด้วย `!=`:** ในเฟิร์มแวร์เทียบเวอร์ชันแบบ String Inequality ทำให้เสี่ยงต่อการเกิด Downgrade และลูปรีแฟลชไม่รู้จบ
+3. **ปัญหา 401 Unauthorized ตอนดาวน์โหลดไบนารี:** `httpUpdate` ส่ง Header `Authorization: Basic ...` แต่ Backend ตรวจเฉพาะ `X-Device-Token` หรือ User Bearer JWT
+4. **ความปลอดภัย URL Whitelist:** ตรวจเช็คด้วย Substring `strstr("onrender.com")` หลวมเกินไป
+5. **ขาดการยืนยัน Partition บูตจริง และไม่มีปุ่ม Rollback บนหน้าเว็บ:** ไม่มีกลไก `esp_ota_mark_app_valid_cancel_rollback()` และหน้าเว็บไม่มีปุ่มสั่ง Rollback สู่เวอร์ชันก่อนหน้า
+
+**สิ่งที่แก้ไข:**
+1. **`vocs-website/backend/main.py`**:
+   - ปรับ `@app.post("/api/ota/upload")` ให้รับ `version: str = Form("1.0.3")` พร้อมฟังก์ชัน Clean และ Sanitize รูปแบบ SemVer
+   - ปรับปรุง `_verify_ota_client_auth`: รองรับ `X-Device-Token`, Query Parameter `?token=...`, และถอดรหัส Token จาก `Authorization: Basic` หรือ `Bearer`
+   - ใน `POST /api/ingest`: แนบ `?token={token}` ไปกับลิงก์ดาวน์โหลด OTA และตั้งค่า Auto-mark `last_ota_status = 'SUCCESS'` เมื่อกล่องส่ง Ingest รอบแรกด้วยเวอร์ชันใหม่ที่ตรงกับ OTA
+   - ปรับปรุง `POST /api/ota/report`: ตรวจสอบสิทธิ์ Device Token ป้องกันการยิงรายงาน FAILED ปลอม
+2. **`hardware/firmware/voc_esp32/voc_esp32.ino`**:
+   - เพิ่มฟังก์ชัน `parseSemVer()` และ `isNewerVersion()`: บอร์ดจะยอมรับการอัปเดตเฉพาะเมื่อเวอร์ชัน Cloud สูงกว่าเฟิร์มแวร์ปัจจุบัน หรือมีการระบุ Flag Rollback จากระบบเท่านั้น
+   - ปรับปรุง `performCloudOTA()`: ล็อกความปลอดภัยระดับ HTTPS และ Strict Host Whitelist (เฉพาะ `API_SERVER` หรือ Render Host ทางการ) และแนบ Token ไปกับ URL อัตโนมัติ
+   - เพิ่ม `esp_ota_mark_app_valid_cancel_rollback()` ใน `setup()`: ตรวจสอบสถานะ `ESP_OTA_IMG_PENDING_VERIFY` หากเฟิร์มแวร์ใหม่บูตติดและทำงานได้ จะทำการยืนยัน Partition เป็น VALID และส่งรายงาน SUCCESS ไปยังเซิร์ฟเวอร์
+3. **`vocs-website/frontend/src/pages/Devices.jsx`**:
+   - เปลี่ยน Progress Bar จากตัวจับเวลาจำลอง (`setInterval`) เป็นการวัดเปอร์เซ็นต์อัปโหลดจริงผ่าน `XMLHttpRequest.upload.onprogress`
+   - เพิ่มการดึงประวัติเวอร์ชันเฟิร์มแวร์จาก `GET /api/ota/history` มาแสดงในการ์ดจัดการ OTA
+   - เพิ่มปุ่ม **"ถอยกลับ (Rollback)"** ซึ่งจะเรียก `POST /api/ota/rollback` ไปยังเซิร์ฟเวอร์ได้ทันทีใน 1-Click
+
+**การตรวจสอบ:**
+- `python3 -m py_compile vocs-website/backend/main.py`: ผ่านสมบูรณ์ (Exit code 0, 0 syntax error)
+- `npm --prefix vocs-website/frontend run build`: ผ่านสมบูรณ์ (`built in 209ms`, 0 errors)
+- `npm --prefix vocs-website/frontend run lint`: ผ่านสมบูรณ์ (`0 errors`)
+
+---
+
 ## สถานะ
 - [x] ตรวจสอบและติดตั้งระบบความปลอดภัย OTA ให้เฟิร์มแวร์ ESP32 (HTTPS Only, Domain Whitelist, Device Token Guard)
 - [x] แก้ไขตัวแปร `API_SERVER` ใน `voc_esp32.ino` ให้คอมไพล์ผ่านสมบูรณ์ 100%
@@ -347,7 +377,10 @@
 - [x] ลบรูปโปรไฟล์มุมขวาบนของ Header ออก และเชื่อมโยงโปรไฟล์มุมล่างซ้ายให้เปิดเมนูได้โดยตรง
 - [x] ปรับเปลี่ยนชุดสีสถานะทั้งหมด (Status Badges) ให้เป็นสีมาตรฐานสากล (Emerald Green / Rose Red / Amber Orange / Sky Blue)
 - [x] แก้ไขจุดบกพร่องด้าน Responsive บนหน้าจอทุกขนาด (Header auto-wrap, Modal vertical scroll, Grid layout)
+- [x] แก้ไขจุดอ่อนระบบ Cloud OTA ทั้งหมดตาม CORE_SPEC 6.5 (SemVer Guard, Auth Mismatch Fix, Dual Partition Boot Validation, 1-Click Rollback UI)
 - [x] ทดสอบการ Build และ Lint ผ่าน 100%
 - [x] บันทึก Logbook และพร้อมสำหรับการ Commit & Push สู่ GitLab และ GitHub
+
+
 
 
