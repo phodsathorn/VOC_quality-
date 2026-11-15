@@ -170,7 +170,7 @@ THRESHOLDS = {
 
 
 # ==================================================================
-# RATE LIMITER — Token bucket per IP สำหรับ /api/ingest
+# RATE LIMITER — Token bucket per IP สำหรับ /api/ingest และ Login Guard
 # ==================================================================
 _rate_buckets: dict = defaultdict(lambda: {"tokens": 10.0, "last": time.monotonic()})
 RATE_LIMIT_RPS  = 5    # requests per second ต่อ IP
@@ -187,6 +187,33 @@ def _check_rate_limit(ip: str) -> bool:
         bucket["tokens"] -= 1
         return True
     return False
+
+# Rate Limiter ป้องกันการโจมตีแบบ Brute-force ในหน้าเข้าสู่ระบบ (/api/auth/login)
+_login_failures: dict = defaultdict(lambda: {"count": 0, "reset_at": 0.0})
+LOGIN_RATE_LIMIT_MAX_FAILS = 5
+LOGIN_RATE_LIMIT_LOCKOUT_SEC = 60.0
+
+def _check_login_rate_limit(ip: str) -> bool:
+    """คืน True ถ้า allowed, False ถ้าถูกระงับชั่วคราวจากการเดารหัสผ่านซ้ำ"""
+    now = time.monotonic()
+    entry = _login_failures[ip]
+    if now > entry["reset_at"]:
+        entry["count"] = 0
+        entry["reset_at"] = now + LOGIN_RATE_LIMIT_LOCKOUT_SEC
+    return entry["count"] < LOGIN_RATE_LIMIT_MAX_FAILS
+
+def _record_login_failure(ip: str):
+    now = time.monotonic()
+    entry = _login_failures[ip]
+    if now > entry["reset_at"]:
+        entry["count"] = 1
+        entry["reset_at"] = now + LOGIN_RATE_LIMIT_LOCKOUT_SEC
+    else:
+        entry["count"] += 1
+
+def _reset_login_failures(ip: str):
+    if ip in _login_failures:
+        del _login_failures[ip]
 
 
 # ==================================================================
@@ -486,13 +513,17 @@ async def _init_db_tables():
                 CREATE INDEX IF NOT EXISTS idx_audit_events_user ON audit_events (username, timestamp DESC);
                 CREATE INDEX IF NOT EXISTS idx_audit_events_resource ON audit_events (resource_type, resource_id);
 
-                INSERT INTO users (username, password_hash, full_name, role, site)
+                INSERT INTO users (username, password_hash, full_name, role, site, assigned_boxes)
                 VALUES
-                    ('admin',    '$2b$12$R85.RR54e7FJqg1z0JZ4.Oh4wRYHhhbu517fTd34HgbxkTKiBsDHG', 'System Administrator',        'admin',    'Main Plant'),
-                    ('engineer', '$2b$12$2ftINa0VLTGA71xS9DCxLO0ylDOL8UQiTqEvRQLsmXk.htnupZxau', 'Process & Calibration Engineer', 'engineer', 'Main Plant'),
-                    ('operator', '$2b$12$LjHTu4H5PQJ5yC1f/SLp/e07AwdF2Gz8umgmuy2Q6AlbOt3iykH/C', 'Line Operator',                 'operator', 'Main Plant'),
-                    ('viewer',   '$2b$12$agntqqTS7JBX9YfHr7.6d.BQifYeiQGUQcGXFX8QO/JcvasLxCe8O', 'Safety & Compliance Auditor',   'viewer',   'Main Plant')
-                ON CONFLICT (username) DO NOTHING;
+                    ('admin',    '$2b$12$R85.RR54e7FJqg1z0JZ4.Oh4wRYHhhbu517fTd34HgbxkTKiBsDHG', 'System Administrator',        'admin',    'Main Plant', '{}'),
+                    ('engineer', '$2b$12$2ftINa0VLTGA71xS9DCxLO0ylDOL8UQiTqEvRQLsmXk.htnupZxau', 'Process & Calibration Engineer', 'engineer', 'Main Plant', '{"BOX-001", "BOX-002"}'),
+                    ('operator', '$2b$12$LjHTu4H5PQJ5yC1f/SLp/e07AwdF2Gz8umgmuy2Q6AlbOt3iykH/C', 'Line Operator',                 'operator', 'Main Plant', '{"BOX-001", "BOX-002"}'),
+                    ('viewer',   '$2b$12$agntqqTS7JBX9YfHr7.6d.BQifYeiQGUQcGXFX8QO/JcvasLxCe8O', 'Safety & Compliance Auditor',   'viewer',   'Main Plant', '{}')
+                ON CONFLICT (username) DO UPDATE
+                SET assigned_boxes = EXCLUDED.assigned_boxes
+                WHERE users.assigned_boxes IS NULL OR users.assigned_boxes = '{}';
+
+                UPDATE users SET assigned_boxes = '{"BOX-001", "BOX-002"}' WHERE role IN ('operator', 'engineer') AND (assigned_boxes IS NULL OR assigned_boxes = '{}');
 
                 UPDATE devices SET device_token_hash = '$2b$12$R85.RR54e7FJqg1z0JZ4.Oh4wRYHhhbu517fTd34HgbxkTKiBsDHG' WHERE box_id = 'BOX-001' AND device_token_hash IS NULL;
 
@@ -672,8 +703,41 @@ async def _init_db_tables():
                     UNIQUE (line_user_id, box_id)
                 );
                 CREATE INDEX IF NOT EXISTS idx_line_sub_box ON line_subscribers (box_id, is_active);
+
+                -- Phase 2 Persistence: Maintenance & Sensor Calibration Health State Table
+                CREATE TABLE IF NOT EXISTS maintenance_state (
+                    key VARCHAR(50) PRIMARY KEY,
+                    state JSONB NOT NULL,
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                );
             """)
-            print("[DB] Self-healing schema init completed.")
+
+            # Load or seed persistent maintenance state
+            sensor_state_row = await pool.fetchrow("SELECT state FROM maintenance_state WHERE key = 'sensors'")
+            if sensor_state_row:
+                s_state = sensor_state_row["state"]
+                if isinstance(s_state, str):
+                    s_state = json.loads(s_state)
+                _MAINTENANCE_STATE["sensors"].update(s_state)
+            else:
+                await pool.execute(
+                    "INSERT INTO maintenance_state (key, state) VALUES ('sensors', $1::jsonb) ON CONFLICT (key) DO NOTHING",
+                    json.dumps(_MAINTENANCE_STATE["sensors"])
+                )
+
+            filter_state_row = await pool.fetchrow("SELECT state FROM maintenance_state WHERE key = 'filter'")
+            if filter_state_row:
+                f_state = filter_state_row["state"]
+                if isinstance(f_state, str):
+                    f_state = json.loads(f_state)
+                _MAINTENANCE_STATE["filter"].update(f_state)
+            else:
+                await pool.execute(
+                    "INSERT INTO maintenance_state (key, state) VALUES ('filter', $1::jsonb) ON CONFLICT (key) DO NOTHING",
+                    json.dumps(_MAINTENANCE_STATE["filter"])
+                )
+
+            print("[DB] Self-healing schema init completed with persistent maintenance state.")
     except Exception as e:
         print(f"[DB] Init tables warning: {e}")
 
@@ -748,7 +812,7 @@ else:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r"https://voc-quality(-[a-z0-9-]+)?\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1020,10 +1084,24 @@ class UserUpdateRequest(BaseModel):
 
 @app.post("/api/auth/login")
 async def login(body: LoginRequest, request: Request):
-    """เข้าสู่ระบบด้วย Username/Password (JWT Auth) พร้อมบันทึก Audit Event"""
+    """เข้าสู่ระบบด้วย Username/Password (JWT Auth) พร้อมบันทึก Audit Event และจำกัด Rate Limit"""
     username = body.username.strip()
     password = body.password
     ip = request.client.host if request.client else "unknown"
+
+    if not _check_login_rate_limit(ip):
+        await record_audit_event(
+            action="LOGIN_RATE_LIMITED",
+            resource_type="USER",
+            resource_id=username,
+            details={"reason": "Excessive failed login attempts from IP"},
+            status="BLOCKED",
+            ip=ip
+        )
+        raise HTTPException(
+            status_code=429,
+            detail="มีการพยายามเข้าสู่ระบบไม่ถูกต้องเกินกำหนด กรุณารอ 60 วินาทีก่อนลองใหม่อีกครั้ง"
+        )
 
     pool = await get_pool()
     user_row = None
@@ -1043,6 +1121,7 @@ async def login(body: LoginRequest, request: Request):
         user_row = _in_memory_users[username.lower()]
 
     if not user_row or not user_row.get("is_active", True):
+        _record_login_failure(ip)
         await record_audit_event(
             action="LOGIN_FAILED",
             resource_type="USER",
@@ -1054,6 +1133,7 @@ async def login(body: LoginRequest, request: Request):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     if not verify_password(password, user_row["password_hash"]):
+        _record_login_failure(ip)
         await record_audit_event(
             action="LOGIN_FAILED",
             resource_type="USER",
@@ -1063,6 +1143,9 @@ async def login(body: LoginRequest, request: Request):
             ip=ip
         )
         raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    # ล้างประวัติ Failed Login เมื่อล็อกอินสำเร็จ
+    _reset_login_failures(ip)
 
     if pool:
         try:
@@ -1963,8 +2046,11 @@ async def clear_ota(_auth: bool = Depends(verify_admin_key)):
 # SYSTEM & AUDIT LOGS ENDPOINTS
 # ==================================================================
 @app.get("/api/logs")
-async def get_system_logs(limit: int = 50):
-    """ดึง Log การทำงานของระบบย้อนหลัง ไม่หายแม้ reload หน้าเว็บ"""
+async def get_system_logs(
+    limit: int = 50,
+    current_user: dict = Depends(require_roles("admin", "engineer"))
+):
+    """ดึง Log การทำงานของระบบย้อนหลัง ไม่หายแม้ reload หน้าเว็บ (สิทธิ์ Admin, Engineer)"""
     pool = await get_pool()
     if not pool:
         return []
@@ -1990,8 +2076,11 @@ class LogCreate(BaseModel):
     detail: Optional[str] = ""
 
 @app.post("/api/logs")
-async def create_system_log(body: LogCreate):
-    """บันทึก Log การกระทำจากหน้าเว็บ"""
+async def create_system_log(
+    body: LogCreate,
+    current_user: dict = Depends(require_roles("admin", "engineer", "operator"))
+):
+    """บันทึก Log การกระทำจากหน้าเว็บ (สิทธิ์ Authenticated Staff)"""
     await log_activity(body.category, body.action, body.status, body.detail)
     return {"status": "ok"}
 
@@ -2016,8 +2105,11 @@ class ThresholdUpdate(BaseModel):
 
 
 @app.patch("/api/thresholds")
-async def update_thresholds(body: ThresholdUpdate):
-    """อัปเดต threshold — เรียกจากหน้า Settings เมื่อกดบันทึก"""
+async def update_thresholds(
+    body: ThresholdUpdate,
+    current_user: dict = Depends(require_roles("admin"))
+):
+    """อัปเดต threshold — สิทธิ์ Admin เท่านั้น เมื่อกดบันทึกจากหน้า Settings"""
     global THRESHOLDS
     if body.tvoc_warn     is not None: THRESHOLDS["tvoc"]["warn"]     = body.tvoc_warn
     if body.tvoc_critical is not None: THRESHOLDS["tvoc"]["critical"] = body.tvoc_critical
@@ -4539,13 +4631,28 @@ async def get_maintenance_status():
     return _calculate_maintenance_view()
 
 @app.post("/api/maintenance/calibrate/{sensor_id}")
-async def calibrate_sensor(sensor_id: str):
-    """ทำการสอบเทียบ Zero-Air Baseline ให้กับ sensor"""
+async def calibrate_sensor(
+    sensor_id: str,
+    current_user: dict = Depends(require_roles("admin", "engineer"))
+):
+    """ทำการสอบเทียบ Zero-Air Baseline ให้กับ sensor (สิทธิ์ Admin, Engineer พร้อมบันทึกถาวรลง DB)"""
     if sensor_id not in SENSOR_SPECS:
         raise HTTPException(status_code=404, detail="Unknown sensor id")
     _MAINTENANCE_STATE["sensors"][sensor_id]["drift"] = 0.015
     _MAINTENANCE_STATE["sensors"][sensor_id]["noise"] = 0.02
     _MAINTENANCE_STATE["sensors"][sensor_id]["lastCalDaysAgo"] = 0
+
+    # บันทึกสถานะลงฐานข้อมูลถาวร ไม่สูญหายเมื่อเซิร์ฟเวอร์รีสตาร์ท
+    pool = await get_pool()
+    if pool:
+        try:
+            await pool.execute(
+                "UPDATE maintenance_state SET state = $1::jsonb, updated_at = NOW() WHERE key = 'sensors'",
+                json.dumps(_MAINTENANCE_STATE["sensors"])
+            )
+        except Exception as e:
+            print(f"[Maintenance DB Sync Error] {e}")
+
     return {
         "success": True,
         "sensor_id": sensor_id,
@@ -4554,10 +4661,24 @@ async def calibrate_sensor(sensor_id: str):
     }
 
 @app.post("/api/maintenance/replace-filter")
-async def replace_filter():
-    """รีเซ็ตอายุไส้กรองเมื่อมีการเปลี่ยนตัวใหม่"""
+async def replace_filter(
+    current_user: dict = Depends(require_roles("admin", "engineer"))
+):
+    """รีเซ็ตอายุไส้กรองเมื่อมีการเปลี่ยนตัวใหม่ (สิทธิ์ Admin, Engineer พร้อมบันทึกถาวรลง DB)"""
     _MAINTENANCE_STATE["filter"]["age"] = 0
     _MAINTENANCE_STATE["filter"]["replacedDate"] = time.strftime("%Y-%m-%d")
+
+    # บันทึกสถานะลงฐานข้อมูลถาวร
+    pool = await get_pool()
+    if pool:
+        try:
+            await pool.execute(
+                "UPDATE maintenance_state SET state = $1::jsonb, updated_at = NOW() WHERE key = 'filter'",
+                json.dumps(_MAINTENANCE_STATE["filter"])
+            )
+        except Exception as e:
+            print(f"[Maintenance DB Sync Error] {e}")
+
     return {
         "success": True,
         "message": "Filter replaced successfully. Health Index reset to 100%.",
@@ -4565,8 +4686,10 @@ async def replace_filter():
     }
 
 @app.post("/api/maintenance/diagnostic")
-async def run_diagnostics():
-    """รันการตรวจสอบวินิจฉัยทั้งระบบ 4 ขั้นตอน"""
+async def run_diagnostics(
+    current_user: dict = Depends(require_roles("admin", "engineer"))
+):
+    """รันการตรวจสอบวินิจฉัยทั้งระบบ 4 ขั้นตอน (สิทธิ์ Admin, Engineer)"""
     await asyncio.sleep(0.5)
     view = _calculate_maintenance_view()
     issues = [s for s in view["sensors"] if s["hi"] <= s["warnHI"]]

@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function DataCollection() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { t, lang } = useLanguage();
 
   const [compound, setCompound] = useState('Ambient');
@@ -100,7 +100,7 @@ export default function DataCollection() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
             box_id: 'BOX-001',

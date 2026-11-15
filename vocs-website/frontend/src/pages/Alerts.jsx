@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function Alerts() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { t, isThai } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [severityFilter, setSeverityFilter] = useState('All');
@@ -225,7 +225,7 @@ export default function Alerts() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ source_screen: 'Web Dashboard' }),
       });
@@ -256,7 +256,7 @@ export default function Alerts() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           note: mitigationNote || actionSelection,

@@ -190,12 +190,12 @@ ON CONFLICT (box_id) DO NOTHING;
 -- Initial Development Role Accounts:
 -- In production, these sample credentials must be rotated immediately or provisioned
 -- securely via administrative CLI / environment secrets. DO NOT commit plaintext passwords.
-INSERT INTO users (username, password_hash, full_name, role, site)
+INSERT INTO users (username, password_hash, full_name, role, site, assigned_boxes)
 VALUES
-    ('admin',    '$2b$12$R85.RR54e7FJqg1z0JZ4.Oh4wRYHhhbu517fTd34HgbxkTKiBsDHG', 'System Administrator',        'admin',    'Main Plant'),
-    ('engineer', '$2b$12$2ftINa0VLTGA71xS9DCxLO0ylDOL8UQiTqEvRQLsmXk.htnupZxau', 'Process & Calibration Engineer', 'engineer', 'Main Plant'),
-    ('operator', '$2b$12$LjHTu4H5PQJ5yC1f/SLp/e07AwdF2Gz8umgmuy2Q6AlbOt3iykH/C', 'Line Operator',                 'operator', 'Main Plant'),
-    ('viewer',   '$2b$12$agntqqTS7JBX9YfHr7.6d.BQifYeiQGUQcGXFX8QO/JcvasLxCe8O', 'Safety & Compliance Auditor',   'viewer',   'Main Plant')
+    ('admin',    '$2b$12$R85.RR54e7FJqg1z0JZ4.Oh4wRYHhhbu517fTd34HgbxkTKiBsDHG', 'System Administrator',        'admin',    'Main Plant', '{}'),
+    ('engineer', '$2b$12$2ftINa0VLTGA71xS9DCxLO0ylDOL8UQiTqEvRQLsmXk.htnupZxau', 'Process & Calibration Engineer', 'engineer', 'Main Plant', '{"BOX-001", "BOX-002"}'),
+    ('operator', '$2b$12$LjHTu4H5PQJ5yC1f/SLp/e07AwdF2Gz8umgmuy2Q6AlbOt3iykH/C', 'Line Operator',                 'operator', 'Main Plant', '{"BOX-001", "BOX-002"}'),
+    ('viewer',   '$2b$12$agntqqTS7JBX9YfHr7.6d.BQifYeiQGUQcGXFX8QO/JcvasLxCe8O', 'Safety & Compliance Auditor',   'viewer',   'Main Plant', '{}')
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO sensor_readings (box_id, recorded_at, temp, rh, pm25, tvoc, eco2, mq3, mq135, mq8, mics_co, no2, nh3)
@@ -362,11 +362,31 @@ CREATE TABLE IF NOT EXISTS line_subscribers (
 );
 CREATE INDEX IF NOT EXISTS idx_line_sub_box ON line_subscribers (box_id, is_active);
 
--- Sample paired subscribers
-INSERT INTO line_subscribers (line_user_id, box_id, display_name, is_active)
+-- =================================================================
+-- Phase 2: Sensor & Filter Maintenance State Persistence
+-- =================================================================
+
+CREATE TABLE IF NOT EXISTS maintenance_state (
+    key         VARCHAR(50) PRIMARY KEY,
+    state       JSONB NOT NULL,
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+INSERT INTO maintenance_state (key, state)
 VALUES
-    ('U_demo_engineer_01', 'BOX-001', 'Somchai (Lead Engineer)', TRUE),
-    ('U_demo_safety_officer', 'BOX-001', 'Wichai (Safety Officer)', TRUE),
-    ('U_demo_line_b_mgr', 'BOX-002', 'Anan (Line B Supervisor)', TRUE)
-ON CONFLICT (line_user_id, box_id) DO NOTHING;
+    ('sensors', '{
+        "mq2":    {"age": 180, "drift": 0.12, "noise": 0.08, "lastCalDaysAgo": 70},
+        "mq3":    {"age": 210, "drift": 0.18, "noise": 0.10, "lastCalDaysAgo": 85},
+        "mq8":    {"age": 95,  "drift": 0.06, "noise": 0.05, "lastCalDaysAgo": 30},
+        "mq135":  {"age": 320, "drift": 0.28, "noise": 0.16, "lastCalDaysAgo": 110},
+        "ccs811": {"age": 60,  "drift": 0.04, "noise": 0.03, "lastCalDaysAgo": 25},
+        "mics":   {"age": 145, "drift": 0.11, "noise": 0.07, "lastCalDaysAgo": 50},
+        "pms":    {"age": 400, "drift": 0.22, "noise": 0.12, "lastCalDaysAgo": 140},
+        "dht22":  {"age": 30,  "drift": 0.02, "noise": 0.01, "lastCalDaysAgo": 15}
+    }'::jsonb),
+    ('filter', '{
+        "age": 95,
+        "replacedDate": null
+    }'::jsonb)
+ON CONFLICT (key) DO NOTHING;
 

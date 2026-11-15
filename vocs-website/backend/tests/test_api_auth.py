@@ -90,6 +90,23 @@ class TestApiAuth(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(admin_res.status, 200, f"Admin should be allowed on /api/users, got {admin_res.status}")
         self.assertIsInstance(admin_res.json, list)
 
+    async def test_07_login_rate_limiting(self):
+        """Test that excessive failed logins trigger HTTP 429 Rate Limit."""
+        from main import _reset_login_failures
+        _reset_login_failures("127.0.0.1")
+
+        for _ in range(5):
+            res = await self.client.post("/api/auth/login", json_body={"username": "admin", "password": "wrongpassword"})
+            self.assertEqual(res.status, 401)
+
+        # 6th attempt should be blocked with 429
+        blocked_res = await self.client.post("/api/auth/login", json_body={"username": "admin", "password": "wrongpassword"})
+        self.assertEqual(blocked_res.status, 429)
+        self.assertIn("เกินกำหนด", blocked_res.text)
+
+        # Cleanup
+        _reset_login_failures("127.0.0.1")
+
 
 if __name__ == "__main__":
     unittest.main()

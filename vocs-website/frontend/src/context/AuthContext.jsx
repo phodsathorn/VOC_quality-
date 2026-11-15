@@ -60,8 +60,8 @@ export function AuthProvider({ children }) {
       // Resilient Fallback สำหรับโหมดสาธิต/ทดสอบเมื่อเซิร์ฟเวอร์ Render กำลังตื่นตัวหรือออฟไลน์
       const fallbackUsers = {
         admin:    { id: 1, username: 'admin',    full_name: 'System Administrator',           role: 'admin',    site: 'Main Plant', assigned_boxes: [] },
-        engineer: { id: 2, username: 'engineer', full_name: 'Process & Calibration Engineer', role: 'engineer', site: 'Main Plant', assigned_boxes: [] },
-        operator: { id: 3, username: 'operator', full_name: 'Line Operator',                  role: 'operator', site: 'Main Plant', assigned_boxes: [] },
+        engineer: { id: 2, username: 'engineer', full_name: 'Process & Calibration Engineer', role: 'engineer', site: 'Main Plant', assigned_boxes: ['BOX-001', 'BOX-002'] },
+        operator: { id: 3, username: 'operator', full_name: 'Line Operator',                  role: 'operator', site: 'Main Plant', assigned_boxes: ['BOX-001', 'BOX-002'] },
         viewer:   { id: 4, username: 'viewer',   full_name: 'Environmental Safety Officer',   role: 'viewer',   site: 'Main Plant', assigned_boxes: [] }
       };
       const fallbackPasswords = {

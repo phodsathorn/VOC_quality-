@@ -41,7 +41,10 @@ class TestApiMaintenanceAndOta(unittest.IsolatedAsyncioTestCase):
         self.assertIn("calOverdue", sensor)
 
     async def test_02_calibrate_sensor(self):
-        """Test calibrating sensor resets drift and noise."""
+        """Test calibrating sensor resets drift and noise (requires engineer/admin auth)."""
+        token = await self._get_auth_token("engineer", "engineer1234")
+        self.client.set_auth_token(token)
+
         res = await self.client.post("/api/maintenance/calibrate/mq3")
         self.assertEqual(res.status, 200)
         data = res.json
@@ -50,6 +53,9 @@ class TestApiMaintenanceAndOta(unittest.IsolatedAsyncioTestCase):
 
     async def test_03_calibrate_unknown_sensor_404(self):
         """Test calibrating non-existent sensor returns 404 Not Found."""
+        token = await self._get_auth_token("engineer", "engineer1234")
+        self.client.set_auth_token(token)
+
         res = await self.client.post("/api/maintenance/calibrate/unknown_sensor_xyz")
         self.assertEqual(res.status, 404)
 
