@@ -419,10 +419,17 @@ async def sla_escalation_monitor_task():
 
 
 async def _init_db_tables():
-    """สร้างตารางที่จำเป็นสำหรับ OTA Safety, History และ Logs อัตโนมัติเมื่อ Backend สตาร์ต"""
+    """สร้างตารางและรัน Database Migrations อัตโนมัติเมื่อ Backend สตาร์ต"""
     try:
         pool = await get_pool()
         if pool:
+            # Phase 3: Run versioned migrations
+            try:
+                from migrator import run_migrations
+                await run_migrations(pool=pool)
+            except Exception as me:
+                print(f"[DB] Versioned migrations notice: {me}")
+
             await pool.execute("""
                 CREATE TABLE IF NOT EXISTS ota_firmwares (
                     id SERIAL PRIMARY KEY,
@@ -1054,8 +1061,22 @@ async def verify_admin_key(
 
 @app.get("/")
 @app.head("/")
+@app.get("/health")
+@app.get("/api/health")
 async def root_health():
-    return {"status": "ok", "service": "voc-backend-api"}
+    db_connected = False
+    try:
+        pool = await get_pool()
+        if pool:
+            db_connected = not pool._closed
+    except Exception:
+        db_connected = False
+
+    return {
+        "status": "ok",
+        "service": "voc-backend-api",
+        "database": "connected" if db_connected else "disconnected",
+    }
 
 
 # ==================================================================
@@ -1954,6 +1975,7 @@ async def verify_ota_signature(
 # Phase W4: MODEL ARTIFACT GOVERNANCE (No raw pickle uploads allowed)
 # ==================================================================
 class ModelArtifactRegister(BaseModel):
+    model_config = {"protected_namespaces": ()}
     model_ver: str
     sha256_hash: str
     algorithm: str
@@ -3120,6 +3142,7 @@ async def get_devices():
 
 
 class DeviceUpdate(BaseModel):
+    model_config = {"protected_namespaces": ()}
     firmware: Optional[str] = None
     model_ver: Optional[str] = None
     status: Optional[str] = None

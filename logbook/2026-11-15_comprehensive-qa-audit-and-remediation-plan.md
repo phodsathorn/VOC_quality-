@@ -192,3 +192,38 @@
    - Frontend Lint & Production Build: 0 Errors, Bundle 271 kB (gzip 84 kB)
 
 
+
+---
+
+## อัปเดตเวลา 22:25 ICT — การลงมือแก้ไขและยกระดับ Phase 3 (Architecture, Migrations & Integration Testing)
+
+### สิ่งที่ได้พัฒนาและปรับปรุงใน Phase 3 (Changes Implemented)
+
+1. **Versioned Database Migrations System (`backend/migrator.py` & `backend/migrations/`):**
+   - พัฒนาระบบ Database Migration แบบ Transactional และ Versioned ใน `backend/migrator.py` ที่สร้างและตรวจสอบตาราง `schema_migrations` อัตโนมัติ ป้องกันการรัน SQL ซ้ำและบันทึกประวัติการเปลี่ยนแปลงของฐานข้อมูลในทุก Deployment
+   - จัดโครงสร้าง Schema Migration ออกเป็นไฟล์มาตรฐานตามลำดับเวอร์ชัน:
+     - `001_initial_schema.sql`: โครงสร้างตารางหลัก (Users, Devices, Audit Events, Firmware, Alerts, Sensor Readings)
+     - `002_stacks_and_emissions.sql`: โครงสร้างตารางสิ่งแวดล้อม (Emission Stacks, Environmental Permits, Compliance Logs, Exceedances)
+     - `003_line_and_maintenance.sql`: โครงสร้างตารางการบำรุงรักษาและการแจ้งเตือน (Maintenance State, Sensor Calibrations, Work Orders, Line Subscriptions)
+   - เชื่อมต่อ `run_migrations(pool=pool)` เข้ากับฟังก์ชัน Startup `_init_db_tables()` ใน `backend/main.py` ทำงานอย่างปลอดภัยและเงียบ (Graceful degradation) แม้ไม่มี Database เชื่อมต่อ
+
+2. **End-to-End Integration Test Suite (`backend/tests/test_api_integration.py`):**
+   - เพิ่มการทดสอบ Integration Lifecycle ครบวงจร 3 รูปแบบ:
+     - `test_01_full_incident_lifecycle`: ทดสอบ Admin ปรับค่า Threshold -> ข้อมูลก๊าซเกินเกณฑ์ไหลเข้า -> Alert ถูกสร้างพร้อม SLA -> Operator เข้าสู่ระบบตรวจสอบสิทธิ์ประจำกล่องและกด Acknowledge -> Engineer เข้ามาตรวจสอบและกด Resolve สำเร็จ
+     - `test_02_maintenance_calibration_lifecycle`: ทดสอบความปลอดภัยการบล็อกคำขอที่ไม่ยืนยันตัวตน (401) -> Engineer เข้าสู่ระบบทำการ Zero-Air Calibration บนเซนเซอร์ MQ-3 -> Health Index & Drift ถูกคำนวณและบันทึกใหม่ -> บันทึกการเปลี่ยนแผ่นกรองคาร์บอน (Health 100%)
+     - `test_03_system_health_and_observability`: ตรวจสอบ Endpoint การตรวจสุขภาพระบบ `/health`, `/api/health`, และ `/` ให้ส่งคืนสถานะบริการและการเชื่อมต่อฐานข้อมูล
+
+3. **Observability & Health Checks Standardization (`backend/main.py`):**
+   - เพิ่ม Routing สำหรับ `/health` และ `/api/health` เพิ่มเติมจาก `/` เดิม เพื่อรองรับ Kubernetes Liveness/Readiness probes, Cloud Uptime monitors และ Docker healthchecks พร้อมตรวจสอบสถานะของ `get_pool()`
+   - แก้ไข Pydantic v2 Protected Namespace Warnings (`model_ver` บน `ModelArtifactRegister` และ `DeviceUpdate`) ด้วย `model_config = {"protected_namespaces": ()}` ทำให้ Test Output สะอาด ปราศจาก Warning
+
+4. **Migrator Unit Tests (`backend/tests/test_migrator.py`):**
+   - ตรวจสอบความถูกต้องของไฟล์ Migration (การตั้งชื่อ 00X, ลำดับการเรียง, เนื้อหา SQL ไม่ว่างเปล่า)
+   - ตรวจสอบพฤติกรรม Graceful exit เมื่อไม่มี Database URL
+
+### ผลการทดสอบ Regression Testing หลัง Phase 3
+
+- **Backend Tests:** 28/28 passed (100% PASS ใน 4.80s, 0 Warnings, 0 Failures)
+- **Frontend Tests:** 16/16 passed (100% PASS ใน 42ms)
+- **Frontend Build:** ผ่านฉลุย Bundle 271 kB (gzip 84.76 kB)
+- **Git Remotes:** เตรียมพร้อม Push ขึ้น GitLab และ GitHub
