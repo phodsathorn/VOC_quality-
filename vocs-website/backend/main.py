@@ -2,11 +2,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Depends, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
+from fastapi.responses import StreamingResponse, JSONResponse, FileResponse, PlainTextResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from pathlib import Path
-import csv, io, time, asyncio, json, os, secrets, hashlib, hmac
+import csv, io, time, asyncio, json, os, sys, secrets, hashlib, hmac
 import urllib.request
 from collections import defaultdict
 import jwt
@@ -827,18 +827,42 @@ app.add_middleware(
 )
 
 # ------------------------------------------------------------------
-# SECURITY HEADERS MIDDLEWARE (Phase W1)
+# SECURITY HEADERS & OPERATIONAL METRICS MIDDLEWARE (Phase 4)
 # ------------------------------------------------------------------
+_APP_START_TIME = time.time()
+_METRICS = {
+    "total_requests": 0,
+    "total_errors": 0,
+    "ingest_requests": 0,
+    "total_latency_ms": 0.0,
+}
+
 @app.middleware("http")
-async def security_headers_middleware(request: Request, call_next):
-    response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=()"
-    response.headers["Content-Security-Policy"] = "frame-ancestors 'none'; object-src 'none'; base-uri 'none'"
-    return response
+async def security_and_metrics_middleware(request: Request, call_next):
+    start = time.perf_counter()
+    response = None
+    try:
+        response = await call_next(request)
+        if response.status_code >= 500:
+            _METRICS["total_errors"] += 1
+        return response
+    except Exception:
+        _METRICS["total_errors"] += 1
+        raise
+    finally:
+        duration_ms = (time.perf_counter() - start) * 1000.0
+        _METRICS["total_requests"] += 1
+        _METRICS["total_latency_ms"] += duration_ms
+        if request.url.path == "/api/readings":
+            _METRICS["ingest_requests"] += 1
+        if response is not None:
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=()"
+            response.headers["Content-Security-Policy"] = "frame-ancestors 'none'; object-src 'none'; base-uri 'none'"
+            response.headers["X-Response-Time"] = f"{duration_ms:.2f}ms"
 
 
 # ------------------------------------------------------------------
@@ -1077,6 +1101,88 @@ async def root_health():
         "service": "voc-backend-api",
         "database": "connected" if db_connected else "disconnected",
     }
+
+
+@app.get("/api/metrics")
+async def get_system_metrics():
+    """
+    Phase 4: Operational Metrics & Telemetry Observability
+    Provides real-time SRE metrics: uptime, memory, request volume, average latency,
+    active alerts count, and database pool status.
+    """
+    uptime_sec = round(time.time() - _APP_START_TIME, 2)
+    avg_latency = round(
+        _METRICS["total_latency_ms"] / max(1, _METRICS["total_requests"]), 2
+    )
+
+    mem_mb = 0.0
+    try:
+        import resource
+        rusage = resource.getrusage(resource.RUSAGE_SELF)
+        if sys.platform == "darwin":
+            mem_mb = round(rusage.ru_maxrss / (1024 * 1024), 2)
+        else:
+            mem_mb = round(rusage.ru_maxrss / 1024, 2)
+    except Exception:
+        mem_mb = 0.0
+
+    db_stats = {"status": "disconnected", "active_connections": 0, "max_size": 0}
+    try:
+        pool = await get_pool()
+        if pool and not pool._closed:
+            db_stats["status"] = "connected"
+            db_stats["active_connections"] = len(pool._holders) if hasattr(pool, "_holders") else 0
+            db_stats["max_size"] = getattr(pool, "_maxsize", 10)
+    except Exception:
+        pass
+
+    active_alerts = len([a for a in _in_memory_alerts if not a.get("resolved")])
+
+    return {
+        "status": "HEALTHY",
+        "service": "voc-backend-api",
+        "version": "1.4.0",
+        "uptime_seconds": uptime_sec,
+        "memory_rss_mb": mem_mb,
+        "http_requests": {
+            "total": _METRICS["total_requests"],
+            "errors": _METRICS["total_errors"],
+            "ingest_telemetry": _METRICS["ingest_requests"],
+            "avg_latency_ms": avg_latency,
+        },
+        "database": db_stats,
+        "active_alerts_count": active_alerts,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/metrics")
+async def prometheus_metrics():
+    """Prometheus exposition format for industrial scrape targets"""
+    uptime_sec = round(time.time() - _APP_START_TIME, 2)
+    total_req = _METRICS["total_requests"]
+    total_err = _METRICS["total_errors"]
+    ingest_req = _METRICS["ingest_requests"]
+    active_alerts = len([a for a in _in_memory_alerts if not a.get("resolved")])
+
+    lines = [
+        "# HELP voc_uptime_seconds Application uptime in seconds",
+        "# TYPE voc_uptime_seconds gauge",
+        f"voc_uptime_seconds {uptime_sec}",
+        "# HELP voc_http_requests_total Total HTTP requests served",
+        "# TYPE voc_http_requests_total counter",
+        f"voc_http_requests_total {total_req}",
+        "# HELP voc_http_errors_total Total 5xx HTTP errors",
+        "# TYPE voc_http_errors_total counter",
+        f"voc_http_errors_total {total_err}",
+        "# HELP voc_ingest_telemetry_total Total sensor readings ingested",
+        "# TYPE voc_ingest_telemetry_total counter",
+        f"voc_ingest_telemetry_total {ingest_req}",
+        "# HELP voc_active_alerts Current active alerts",
+        "# TYPE voc_active_alerts gauge",
+        f"voc_active_alerts {active_alerts}",
+    ]
+    return PlainTextResponse("\n".join(lines) + "\n")
 
 
 # ==================================================================

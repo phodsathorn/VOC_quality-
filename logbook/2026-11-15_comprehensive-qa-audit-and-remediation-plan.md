@@ -227,3 +227,51 @@
 - **Frontend Tests:** 16/16 passed (100% PASS ใน 42ms)
 - **Frontend Build:** ผ่านฉลุย Bundle 271 kB (gzip 84.76 kB)
 - **Git Remotes:** เตรียมพร้อม Push ขึ้น GitLab และ GitHub
+
+---
+
+## อัปเดตเวลา 22:30 ICT — การลงมือแก้ไขและยกระดับ Phase 4 (Operational Readiness & Telemetry Hardening)
+
+### สิ่งที่ได้พัฒนาและปรับปรุงใน Phase 4 (Changes Implemented)
+
+1. **Security Headers Hardening across Full-Stack (Backend, Vercel & Nginx):**
+   - **Backend Middleware (`backend/main.py`):**
+     - บังคับใช้ Security Headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security: max-age=31536000; includeSubDomains`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), geolocation=(), microphone=()`, `Content-Security-Policy: frame-ancestors 'none'; object-src 'none'; base-uri 'none'`
+     - เพิ่ม Header `X-Response-Time` เพื่อการวัดและตรวจสอบ Latency ของแต่ละ HTTP Request แบบ Real-time
+   - **Vercel Edge Configuration (`frontend/vercel.json`):**
+     - กำหนด Security Headers บน Vercel CDN สำหรับการเข้าถึง `https://voc-quality.vercel.app` เพื่อยกระดับคะแนนความปลอดภัย Mozilla Observatory สู่ระดับ A+
+     - กำหนด Immutable Long-term Caching (`Cache-Control: public, max-age=31536000, immutable`) สำหรับ `/assets/(.*)` เพื่อลดภาระ CDN และโหลดเว็บได้เร็วสูงสุด
+   - **Nginx Production Config (`frontend/nginx.conf`):**
+     - เพิ่ม Gzip compression สำหรับ `text/css`, `application/json`, `application/javascript`, `image/svg+xml`
+     - เพิ่ม Security Headers และ Reverse Proxy Headers (`X-Forwarded-For`, `X-Forwarded-Proto`) สำหรับ On-premise Docker deployments
+
+2. **Operational Telemetry & SRE Metrics Endpoints (`backend/main.py`):**
+   - **`/api/metrics` (JSON API):**
+     - รายงานสถานะสุขภาพระบบ (HEALTHY), Uptime วินาที, Memory RSS (MB) จากระบบปฏิบัติการ
+     - สถิติจำนวน HTTP Requests รวม, จำนวน Error (5xx), ปริมาณ Ingestion Telemetry และ Latency เฉลี่ย (ms)
+     - สถานะการเชื่อมต่อ Database Pool (`status`, `active_connections`, `max_size`)
+     - จำนวนการแจ้งเตือนก๊าซอันตรายที่ยังค้างอยู่ในระบบ (Active Alerts Count)
+   - **`/metrics` (Prometheus Exposition Format):**
+     - รองรับ Prometheus, VictoriaMetrics, Datadog ในการ Scrape ข้อมูลมาตรฐาน:
+       - `voc_uptime_seconds` (Gauge)
+       - `voc_http_requests_total` (Counter)
+       - `voc_http_errors_total` (Counter)
+       - `voc_ingest_telemetry_total` (Counter)
+       - `voc_active_alerts` (Gauge)
+
+3. **Frontend Adaptive Polling with Page Visibility API (`frontend/src/pages/Dashboard.jsx`):**
+   - ผสาน Page Visibility API เข้ากับกระบวนการดึงข้อมูลก๊าซของ Dashboard:
+     - เมื่อผู้ใช้งานเปิดแท็บอื่น หรือพับหน้าจอลง (Background Tab) ระบบจะลดความถี่ในการยิง API จาก 3 วินาที เป็น 30 วินาที เพื่อประหยัดแบตเตอรี่ของเครื่องผู้ใช้ และลดภาระ Bandwidth ของเซิร์ฟเวอร์
+     - เมื่อผู้ใช้งานสลับกลับมาที่แท็บ (Foreground) ระบบจะดึงข้อมูลล่าสุดทันที (Immediate Fetch) และกลับมารันด้วยความถี่ปกติ 3 วินาที
+
+4. **Automated Operational Tests (`backend/tests/test_api_operational.py`):**
+   - `test_01_security_headers_enforcement`: ยืนยันการส่งคืน Security Headers ครบถ้วนทุกตัวและ Header วัด Latency
+   - `test_02_json_metrics_endpoint`: ยืนยันความถูกต้องของโครงสร้าง JSON Telemetry Metrics
+   - `test_03_prometheus_metrics_endpoint`: ยืนยันรูปแบบการส่งออกข้อมูล Prometheus
+
+### ผลการทดสอบ Regression Testing หลัง Phase 4
+
+- **Backend Tests:** 31/31 passed (100% PASS ใน 5.04s, 0 Warnings, 0 Failures)
+- **Frontend Tests:** 16/16 passed (100% PASS ใน 39ms)
+- **Frontend Linter:** 0 errors
+- **Frontend Build:** ผ่านสมบูรณ์ Bundle 271 kB (gzip 84.76 kB) ใน 196ms

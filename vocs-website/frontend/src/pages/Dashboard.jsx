@@ -160,8 +160,25 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchAll();
-    const timer = setInterval(fetchAll, REFRESH_INTERVAL_MS);
-    return () => clearInterval(timer);
+    let timer = setInterval(fetchAll, REFRESH_INTERVAL_MS);
+
+    // Phase 4: Page Visibility Adaptive Polling
+    const handleVisibilityChange = () => {
+      clearInterval(timer);
+      if (document.visibilityState === 'visible') {
+        fetchAll();
+        timer = setInterval(fetchAll, REFRESH_INTERVAL_MS);
+      } else {
+        // Throttle background tabs to 30s to reduce client battery drain and backend bandwidth
+        timer = setInterval(fetchAll, 30000);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [fetchAll]);
 
   // Extract core metrics (Safe optional chaining before any early return)
