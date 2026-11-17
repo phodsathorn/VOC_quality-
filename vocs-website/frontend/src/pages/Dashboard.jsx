@@ -124,31 +124,17 @@ export default function Dashboard() {
     } catch (err) {
       console.warn('Dashboard fetch issue:', err);
       if (!dataRef.current) {
-        // Fallback default according to Stitch design
+        // Fallback state indicating server/network issue — NEVER fabricate fake online/safe readings
         const fallback = {
-          box_id: 'BOX-001',
-          device_status: 'ONLINE',
-          is_safe: true,
-          latest_reading: {
-            tvoc: 64.0,
-            pm25: 12.0,
-            eco2: 410.0,
-            temp: 24.5,
-            rh: 55.0,
-            fan_state: 'ON',
-            fan_speed: 100,
-            mq3: 2100,
-            mq2: 1200,
-            mq135: 1400,
-            mq8: 1600,
-            mics_co: 1100,
-            recorded_at: new Date().toISOString()
-          },
-          ai_detection: {
-            prediction: 'AMBIENT',
-            confidence: 96.0,
-            description: 'บรรยากาศปกติ — ปลอดภัย ไม่พบไอสารเคมีอันตราย'
-          }
+          box_id: boxId,
+          status: 'OFFLINE',
+          is_online: false,
+          is_stale: true,
+          data_age_seconds: null,
+          recorded_at: null,
+          environment: null,
+          sensors: null,
+          ai_detection: null,
         };
         setData(fallback);
       }
@@ -203,17 +189,31 @@ export default function Dashboard() {
     recorded_at: data?.latest_reading?.recorded_at || data?.recorded_at || (data?.sensor_health?.checked_at ? new Date(data.sensor_health.checked_at * 1000).toISOString() : new Date().toISOString()),
   }), [data, env, sensors]);
 
-  const rawPm25 = env.pm25 ?? reading.pm25;
-  const pm25Value = rawPm25 != null && rawPm25 >= 0 ? rawPm25 : 14.0;
-  const currentAqi = calculatePm25Aqi(pm25Value) || 38;
-  const aqiCategory = getAqiCategory(currentAqi);
+  const isOnline = data?.is_online ?? ((data?.status || '').toUpperCase() === 'ONLINE');
+  const isStale = data?.is_stale ?? (!isOnline);
+  const dataAgeSec = data?.data_age_seconds;
+  const recordedAtStr = data?.recorded_at || data?.latest_reading?.recorded_at;
 
-  const tvocValue = Math.round(env.tvoc ?? reading.tvoc ?? 64.0);
+  const formattedDataAge = useMemo(() => {
+    if (dataAgeSec == null) return null;
+    if (dataAgeSec < 60) return isThai ? `${Math.round(dataAgeSec)} วินาทีที่แล้ว` : `${Math.round(dataAgeSec)}s ago`;
+    if (dataAgeSec < 3600) return isThai ? `${Math.round(dataAgeSec / 60)} นาทีที่แล้ว` : `${Math.round(dataAgeSec / 60)}m ago`;
+    if (dataAgeSec < 86400) return isThai ? `${Math.round(dataAgeSec / 3600)} ชั่วโมงที่แล้ว` : `${Math.round(dataAgeSec / 3600)}h ago`;
+    return isThai ? `${Math.round(dataAgeSec / 86400)} วันที่แล้ว` : `${Math.round(dataAgeSec / 86400)}d ago`;
+  }, [dataAgeSec, isThai]);
+
+  const rawPm25 = env.pm25 ?? reading.pm25;
+  const isPm25Fault = rawPm25 != null && rawPm25 < 0;
+  const pm25Value = isPm25Fault ? null : (rawPm25 != null ? rawPm25 : null);
+  const currentAqi = pm25Value != null ? calculatePm25Aqi(pm25Value) : null;
+  const aqiCategory = currentAqi != null ? getAqiCategory(currentAqi) : null;
+
+  const tvocValue = (env.tvoc != null || reading.tvoc != null) ? Math.round(env.tvoc ?? reading.tvoc) : null;
   const fanState = reading.fan_state || 'ON';
   const fanSpeed = reading.fan_speed || 100;
 
   // Real AI prediction from backend (AMBIENT / ALCOHOL / THINNER) - No fake Toluene per CORE_SPEC
-  const detectedLabel = (data?.ai_detection?.prediction || 'AMBIENT').toUpperCase();
+  const detectedLabel = (data?.ai_detection?.prediction || (isOnline ? 'AMBIENT' : 'UNKNOWN')).toUpperCase();
   const solventMatch = Math.round(data?.ai_detection?.confidence ?? (detectedLabel === 'AMBIENT' ? 96 : 88));
 
   // Dynamic 6-channel sensor radar calculation based on real sensor telemetry
@@ -467,6 +467,37 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-5 sm:gap-6 2xl:gap-8 w-full">
+      {/* ── Offline / Stale Telemetry Warning Banner (Phase 5A) ── */}
+      {(!isOnline || isStale) && (
+        <div className="w-full bg-amber-50 border-2 border-amber-300 text-amber-900 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <span className="flex h-3.5 w-3.5 relative mt-1 sm:mt-0">
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-amber-500" />
+            </span>
+            <div>
+              <div className="font-bold text-[15px] sm:text-[16px] flex items-center gap-2 flex-wrap">
+                <span>{isThai ? '⚠️ กล่องเซนเซอร์ออฟไลน์ — ข้อมูลที่แสดงไม่ใช่ข้อมูลสด' : '⚠️ Device Offline — Stale Telemetry Displayed'}</span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-200 text-amber-900">
+                  {isOnline ? (isThai ? 'ข้อมูลค้าง' : 'STALE') : (isThai ? 'ออฟไลน์' : 'OFFLINE')}
+                </span>
+              </div>
+              <p className="text-[12px] sm:text-[13px] text-amber-800 mt-0.5">
+                {isThai
+                  ? `กล่อง ${boxId} ขาดการส่งสัญญาณ ${formattedDataAge ? `(ข้อมูลล่าสุดเมื่อ ${formattedDataAge})` : ''} กรุณาตรวจสอบไฟเลี้ยงและสัญญาณ Wi-Fi หน้างาน`
+                  : `Gateway ${boxId} has not transmitted telemetry ${formattedDataAge ? `(last recorded ${formattedDataAge})` : ''}. Please inspect hardware power and network connectivity.`}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchAll()}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[12px] font-bold shrink-0 transition shadow-xs cursor-pointer"
+          >
+            {isThai ? 'ดึงข้อมูลใหม่' : 'Refresh'}
+          </button>
+        </div>
+      )}
+
       {/* ── Block 1: 4-Metric Primary Telemetry Row (Matching Stitch AI 1:1) ── */}
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 sm:gap-6">
         {/* Card 1: Air Quality Index */}
@@ -480,9 +511,19 @@ export default function Dashboard() {
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
                 {t('airQuality', 'Air Quality')}
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold text-[#131b2e] bg-[#eaedff]">
-                <span className="w-2 h-2 rounded-full bg-[#00CC66]" />
-                {isThai ? (aqiCategory?.labelTh || 'ดีมาก') : (aqiCategory?.labelEn || 'Good')}
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-semibold ${
+                isPm25Fault
+                  ? 'bg-rose-100 text-rose-700'
+                  : (!isOnline || isStale)
+                    ? 'bg-amber-100 text-amber-800'
+                    : 'text-[#131b2e] bg-[#eaedff]'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${isPm25Fault ? 'bg-rose-600' : (!isOnline || isStale) ? 'bg-amber-500' : 'bg-[#00CC66]'}`} />
+                {isPm25Fault
+                  ? (isThai ? 'เซนเซอร์มีปัญหา' : 'Sensor Fault')
+                  : (!isOnline || isStale)
+                    ? (isThai ? 'ข้อมูลค้าง' : 'Stale')
+                    : (isThai ? (aqiCategory?.labelTh || 'ดีมาก') : (aqiCategory?.labelEn || 'Good'))}
               </span>
             </div>
             <span className="text-[11px] text-[#505f76]">
@@ -492,8 +533,8 @@ export default function Dashboard() {
 
           {/* Center Metric */}
           <div className="flex items-baseline">
-            <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight">
-              {currentAqi}
+            <span className={`text-[56px] font-bold leading-none tracking-tight ${isPm25Fault ? 'text-rose-600' : 'text-[#131b2e]'}`}>
+              {isPm25Fault ? 'FAULT' : (currentAqi ?? '—')}
             </span>
           </div>
 
@@ -515,10 +556,18 @@ export default function Dashboard() {
               <span>100+</span>
             </div>
             <div className="flex items-center justify-between text-[11px] text-[#505f76] pt-0.5">
-              <span>PM2.5 {Math.round(pm25Value)} µg/m³</span>
-              <span className="inline-flex items-center gap-1 text-[#009944] font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#00CC66]" />
-                {isThai ? 'ปลอดภัย' : 'Safe'}
+              <span>
+                PM2.5 {isPm25Fault ? (isThai ? 'อ่านค่าผิดพลาด' : 'Read Error') : (pm25Value != null ? `${Math.round(pm25Value)} µg/m³` : '—')}
+              </span>
+              <span className={`inline-flex items-center gap-1 font-medium ${
+                isPm25Fault ? 'text-rose-600' : (!isOnline || isStale) ? 'text-amber-700' : 'text-[#009944]'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isPm25Fault ? 'bg-rose-500' : (!isOnline || isStale) ? 'bg-amber-500' : 'bg-[#00CC66]'}`} />
+                {isPm25Fault
+                  ? (isThai ? 'เซนเซอร์เสีย' : 'Fault')
+                  : (!isOnline || isStale)
+                    ? (isThai ? 'ไม่เป็นปัจจุบัน' : 'Unverified')
+                    : (isThai ? 'ปลอดภัย' : 'Safe')}
               </span>
             </div>
           </div>
@@ -548,7 +597,7 @@ export default function Dashboard() {
           {/* Center Metric */}
           <div className="flex items-baseline gap-2">
             <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight">
-              {tvocValue}
+              {tvocValue ?? '—'}
             </span>
             <span className="text-[20px] font-semibold text-[#505f76]">ppb</span>
           </div>

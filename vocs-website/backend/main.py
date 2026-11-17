@@ -30,6 +30,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"
 DEFAULT_DEVICE_TOKEN = os.getenv("DEFAULT_DEVICE_TOKEN", "voc-device-box001-secret-token")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
 IS_PRODUCTION = ENVIRONMENT == "production"
+DEVICE_OFFLINE_THRESHOLD_SEC = 45.0  # Threshold in seconds to classify a hardware box as OFFLINE
 
 # In-memory store fallback for development mode when PostgreSQL is offline
 _in_memory_users = {
@@ -418,6 +419,78 @@ async def sla_escalation_monitor_task():
         await asyncio.sleep(15)
 
 
+async def device_offline_watchdog_task():
+    """
+    Phase 5B: Automatic Device Offline Detection & Watchdog
+    Checks all registered devices every 20 seconds. If a device has not sent
+    telemetry for over DEVICE_OFFLINE_THRESHOLD_SEC (45s), an automatic High alert
+    is triggered and broadcasted to LINE.
+    """
+    while True:
+        try:
+            pool = await get_pool()
+            if pool:
+                offline_rows = await pool.fetch(
+                    f"""
+                    SELECT box_id, last_seen,
+                           EXTRACT(EPOCH FROM (NOW() - last_seen))::int AS seconds_offline
+                    FROM devices
+                    WHERE last_seen IS NOT NULL
+                      AND last_seen < NOW() - INTERVAL '{int(DEVICE_OFFLINE_THRESHOLD_SEC)} seconds'
+                    """
+                )
+                for dev in offline_rows:
+                    b_id = dev["box_id"]
+                    sec_off = dev["seconds_offline"]
+                    existing = await pool.fetchrow(
+                        """
+                        SELECT id FROM alerts
+                        WHERE box_id = $1 AND message LIKE '%ขาดการเชื่อมต่อ (Offline%' AND status = 'Active'
+                        LIMIT 1
+                        """,
+                        b_id
+                    )
+                    if not existing:
+                        now_utc = datetime.now(timezone.utc)
+                        sla_deadline = now_utc + timedelta(minutes=10)
+                        msg = f"⚠️ กล่องตรวจจับ {b_id} ขาดการเชื่อมต่อ (Offline นาน {sec_off}s)"
+                        row = await pool.fetchrow(
+                            """
+                            INSERT INTO alerts (box_id, level, message, status, sla_deadline, is_sla_breached, source_screen)
+                            VALUES ($1, 'High', $2, 'Active', $3, FALSE, 'System Watchdog')
+                            RETURNING id
+                            """,
+                            b_id, msg, sla_deadline
+                        )
+                        alert_id = row["id"]
+                        await record_audit_event(
+                            action="DEVICE_OFFLINE_DETECTED",
+                            resource_type="DEVICE",
+                            resource_id=b_id,
+                            details={"box_id": b_id, "alert_id": alert_id, "seconds_offline": sec_off},
+                            status="TRIGGERED"
+                        )
+                        try:
+                            sub_rows = await pool.fetch(
+                                "SELECT line_user_id FROM line_subscribers WHERE box_id = $1 AND is_active = TRUE",
+                                b_id
+                            )
+                            sub_ids = [r["line_user_id"] for r in sub_rows]
+                            send_escalation_alert({
+                                "id": alert_id,
+                                "box_id": b_id,
+                                "level": "High",
+                                "message": msg,
+                                "created_at": now_utc.isoformat()
+                            }, sub_ids)
+                        except Exception:
+                            pass
+        except Exception as e:
+            print(f"[Watchdog Error] {e}")
+
+        await asyncio.sleep(20)
+
+
 async def _init_db_tables():
     """สร้างตารางและรัน Database Migrations อัตโนมัติเมื่อ Backend สตาร์ต"""
     try:
@@ -787,10 +860,12 @@ async def lifespan(app: FastAPI):
     purge_task = asyncio.create_task(purge_old_data_task())
     sla_task = asyncio.create_task(sla_escalation_monitor_task())
     downsample_task = asyncio.create_task(downsampling_retention_task())
+    watchdog_task = asyncio.create_task(device_offline_watchdog_task())
     
     yield
     
     # ปิดการเชื่อมต่อเมื่อหยุดการทำงาน
+    watchdog_task.cancel()
     downsample_task.cancel()
     sla_task.cancel()
     purge_task.cancel()
@@ -853,7 +928,7 @@ async def security_and_metrics_middleware(request: Request, call_next):
         duration_ms = (time.perf_counter() - start) * 1000.0
         _METRICS["total_requests"] += 1
         _METRICS["total_latency_ms"] += duration_ms
-        if request.url.path == "/api/readings":
+        if request.url.path in ("/api/ingest", "/api/readings"):
             _METRICS["ingest_requests"] += 1
         if response is not None:
             response.headers["X-Content-Type-Options"] = "nosniff"
@@ -2362,8 +2437,8 @@ async def _sensor_health(pool, box_id: str, reading_row=None):
                 state, reason = "WARNING", "สัญญาณแกว่งสูงกว่า 25% ใน 12 ตัวอย่างล่าสุด"
         output[field] = {"state": state, "reason": reason, "value": value, "rule": rule}
         if state != "OK": issues.append({"sensor": field, "state": state, "reason": reason})
-    stale = bool(rows and (time.time() - rows[0]["recorded_at"].timestamp()) > 30)
-    if stale: issues.append({"sensor": "device", "state": "STALE", "reason": "ไม่มีข้อมูลใหม่เกิน 30 วินาที"})
+    stale = bool(rows and (time.time() - rows[0]["recorded_at"].timestamp()) > DEVICE_OFFLINE_THRESHOLD_SEC)
+    if stale: issues.append({"sensor": "device", "state": "STALE", "reason": f"ไม่มีข้อมูลใหม่เกิน {int(DEVICE_OFFLINE_THRESHOLD_SEC)} วินาที"})
     return {"checked_at": time.time(), "stale": stale, "sensors": output, "issues": issues}
 
 @app.get("/api/sensor-health")
@@ -2467,31 +2542,27 @@ async def get_dashboard_latest(
 
     pool = await get_pool()
     if not pool:
-        # Fallback response if DB is offline
+        # If DB is offline, return explicit OFFLINE & degraded state — NEVER fabricate "ONLINE" or "SAFE"
         result = {
             "box_id": box_id,
-            "status": "ONLINE",
-            "firmware": "1.0.3",
+            "status": "OFFLINE",
+            "is_online": False,
+            "is_stale": True,
+            "data_age_seconds": None,
+            "recorded_at": None,
+            "last_seen": None,
+            "last_seen_age_seconds": None,
+            "firmware": "Unknown",
             "model_version": "v2.1",
             "ai_model_loaded": is_loaded(),
-            "environment": {
-                "temp": 24.5, "rh": 55.0, "pm25": 12.0, "tvoc": 64.0, "eco2": 410.0
-            },
-            "sensors": {
-                "mq2": 1200, "mq3": 2100, "mq135": 1400, "mq8": 1600, "mics_co": 1100, "no2": 80, "nh3": 90
-            },
-            "ai_detection": {
-                "prediction": "AMBIENT",
-                "confidence": 96.0,
-                "description": "บรรยากาศปกติ — ปลอดภัย ไม่พบไอสารเคมีอันตราย"
-            },
+            "environment": None,
+            "sensors": None,
+            "ai_detection": None,
             "sensor_health": {
                 "checked_at": int(now),
-                "sensors": {
-                    "mq3": {"status": "OK", "detail": "Conditioned"},
-                    "ccs811": {"status": "OK", "detail": "Active"},
-                    "ads1115": {"status": "OK", "detail": "Active"}
-                }
+                "stale": True,
+                "sensors": {},
+                "issues": [{"sensor": "database", "state": "OFFLINE", "reason": "ฐานข้อมูลออฟไลน์ ไม่สามารถดึงข้อมูลเซนเซอร์ล่าสุดได้"}]
             }
         }
         if include_alerts:
@@ -2550,33 +2621,51 @@ async def get_dashboard_latest(
             history_list = []
 
     last_seen_dt = device_row.get("last_seen")
-    is_device_online = bool(
-        last_seen_dt and (datetime.now(timezone.utc) - (last_seen_dt.replace(tzinfo=timezone.utc) if last_seen_dt.tzinfo is None else last_seen_dt)).total_seconds() <= 300
-    )
+    last_seen_iso = last_seen_dt.isoformat() if last_seen_dt else None
+    last_seen_age_sec = round(
+        (datetime.now(timezone.utc) - (last_seen_dt.replace(tzinfo=timezone.utc) if last_seen_dt.tzinfo is None else last_seen_dt)).total_seconds(),
+        1
+    ) if last_seen_dt else None
+
+    is_device_online = bool(last_seen_age_sec is not None and last_seen_age_sec <= DEVICE_OFFLINE_THRESHOLD_SEC)
     live_status = "ONLINE" if is_device_online else "OFFLINE"
+
+    recorded_at_dt = reading_row.get("recorded_at") if reading_row else None
+    recorded_at_iso = recorded_at_dt.isoformat() if recorded_at_dt else None
+    data_age_seconds = round(
+        (datetime.now(timezone.utc) - (recorded_at_dt.replace(tzinfo=timezone.utc) if recorded_at_dt.tzinfo is None else recorded_at_dt)).total_seconds(),
+        1
+    ) if recorded_at_dt else None
+
+    is_stale = (data_age_seconds is None) or (data_age_seconds > DEVICE_OFFLINE_THRESHOLD_SEC)
 
     result = {
         "box_id": device_row["box_id"],
         "status": live_status,
         "is_online": is_device_online,
+        "is_stale": is_stale,
+        "data_age_seconds": data_age_seconds,
+        "recorded_at": recorded_at_iso,
+        "last_seen": last_seen_iso,
+        "last_seen_age_seconds": last_seen_age_sec,
         "firmware": device_row["firmware"],
         "model_version": device_row["model_ver"],
         "ai_model_loaded": is_loaded(),
         "environment": {
-            "temp": float(reading_row["temp"]) if reading_row else None,
-            "rh":   float(reading_row["rh"])   if reading_row else None,
-            "pm25": float(reading_row["pm25"]) if reading_row else None,
-            "tvoc": float(reading_row["tvoc"]) if reading_row else None,
-            "eco2": float(reading_row["eco2"]) if reading_row else None,
+            "temp": float(reading_row["temp"]) if (reading_row and reading_row.get("temp") is not None) else None,
+            "rh":   float(reading_row["rh"])   if (reading_row and reading_row.get("rh") is not None) else None,
+            "pm25": float(reading_row["pm25"]) if (reading_row and reading_row.get("pm25") is not None) else None,
+            "tvoc": float(reading_row["tvoc"]) if (reading_row and reading_row.get("tvoc") is not None) else None,
+            "eco2": float(reading_row["eco2"]) if (reading_row and reading_row.get("eco2") is not None) else None,
         } if reading_row else None,
         "sensors": {
-            "mq2":     reading_row["mq2"] if "mq2" in reading_row else None,
-            "mq3":     reading_row["mq3"],
-            "mq135":   reading_row["mq135"],
-            "mq8":     reading_row["mq8"],
-            "mics_co": reading_row["mics_co"],
-            "no2":     reading_row["no2"],
-            "nh3":     reading_row["nh3"],
+            "mq2":     reading_row["mq2"]     if (reading_row and "mq2" in reading_row) else None,
+            "mq3":     reading_row["mq3"]     if reading_row else None,
+            "mq135":   reading_row["mq135"]   if reading_row else None,
+            "mq8":     reading_row["mq8"]     if reading_row else None,
+            "mics_co": reading_row["mics_co"] if reading_row else None,
+            "no2":     reading_row["no2"]     if reading_row else None,
+            "nh3":     reading_row["nh3"]     if reading_row else None,
         } if reading_row else None,
         "ai_detection": {
             "prediction": prediction_row["prediction"],
@@ -3071,6 +3160,82 @@ async def trigger_manual_alert(
     return {"status": "ok", "id": new_id, "sla_minutes": sla_min, "message": "Manual emergency alert broadcasted"}
 
 
+class KioskEmergencyAlertBody(BaseModel):
+    box_id: str = "BOX-001"
+    level: str = "Critical"
+    message: str
+    source_screen: Optional[str] = "Kiosk"
+    pin: Optional[str] = None
+
+
+@app.post("/api/alerts")
+async def create_kiosk_emergency_alert(body: KioskEmergencyAlertBody, request: Request):
+    """
+    Onsite Emergency Chemical Alarm (triggered from factory touch Kiosk).
+    Creates an immediate Critical Alert, notifies LINE, and logs an immutable audit event.
+    """
+    level = body.level if body.level in ("Warning", "High", "Critical") else "Critical"
+    sla_min = 5
+    now_utc = datetime.now(timezone.utc)
+    sla_deadline = now_utc + timedelta(minutes=sla_min)
+    ip = request.client.host if request.client else "unknown"
+
+    pool = await get_pool()
+    new_id = None
+    if pool:
+        row = await pool.fetchrow(
+            """
+            INSERT INTO alerts (box_id, level, message, status, sla_deadline, is_sla_breached, source_screen)
+            VALUES ($1, $2, $3, 'Active', $4, FALSE, $5)
+            RETURNING id
+            """,
+            body.box_id, level, body.message, sla_deadline, body.source_screen or "Kiosk"
+        )
+        new_id = row["id"]
+        # Push immediate LINE notification
+        try:
+            sub_rows = await pool.fetch(
+                "SELECT line_user_id FROM line_subscribers WHERE box_id = $1 AND is_active = TRUE",
+                body.box_id
+            )
+            sub_ids = [r["line_user_id"] for r in sub_rows]
+            send_escalation_alert({
+                "id": new_id,
+                "box_id": body.box_id,
+                "level": level,
+                "message": body.message,
+                "created_at": now_utc.isoformat()
+            }, sub_ids)
+        except Exception as e:
+            print(f"[Kiosk Alert Line Error] {e}")
+    else:
+        new_id = len(_in_memory_alerts) + 1
+        _in_memory_alerts.insert(0, {
+            "id": new_id,
+            "box_id": body.box_id,
+            "level": level,
+            "message": body.message,
+            "status": "Active",
+            "sla_deadline": sla_deadline.isoformat(),
+            "is_sla_breached": False,
+            "escalated": False,
+            "source_screen": body.source_screen or "Kiosk",
+            "created_at": now_utc.isoformat(),
+            "time": now_utc.strftime("%H:%M:%S")
+        })
+
+    await record_audit_event(
+        action="KIOSK_EMERGENCY_ALARM",
+        resource_type="ALERT",
+        resource_id=str(new_id),
+        details={"box_id": body.box_id, "level": level, "message": body.message, "source_screen": body.source_screen},
+        user={"username": "onsite_kiosk_operator", "role": "operator"},
+        status="SUCCESS",
+        ip=ip
+    )
+    return {"status": "ok", "id": new_id, "level": level, "message": "Emergency alert broadcasted successfully"}
+
+
 # ==================================================================
 # Phase W2: MAINTENANCE WORK ORDERS & REAL HARDWARE DIAGNOSTICS
 # ==================================================================
@@ -3199,7 +3364,7 @@ async def get_devices():
             """
             SELECT d.box_id AS id,
                    CASE
-                       WHEN d.last_seen IS NOT NULL AND d.last_seen > NOW() - INTERVAL '5 minutes' THEN 'ONLINE'
+                       WHEN d.last_seen IS NOT NULL AND d.last_seen > NOW() - INTERVAL '45 seconds' THEN 'ONLINE'
                        ELSE 'OFFLINE'
                    END AS status,
                    d.firmware, d.model_ver AS model,
@@ -3207,7 +3372,7 @@ async def get_devices():
                    r.wifi_rssi, r.free_heap_kb,
                    CASE
                        WHEN d.last_seen IS NULL THEN 'Never'
-                       WHEN d.last_seen > NOW() - INTERVAL '5 minutes' THEN 'Just now'
+                       WHEN d.last_seen > NOW() - INTERVAL '45 seconds' THEN 'Just now'
                        ELSE to_char(d.last_seen AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI')
                    END AS last_seen
             FROM devices d

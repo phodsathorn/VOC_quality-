@@ -168,7 +168,7 @@ export default function Devices() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : { 'X-Admin-Key': 'change-me-in-production-2026' }),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ version: targetVer }),
       });
@@ -213,8 +213,6 @@ export default function Devices() {
     xhr.open('POST', `${API}/api/ota/upload`);
     if (token) {
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    } else {
-      xhr.setRequestHeader('X-Admin-Key', 'change-me-in-production-2026');
     }
 
     xhr.upload.onprogress = (event) => {

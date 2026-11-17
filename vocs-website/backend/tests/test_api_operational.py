@@ -84,6 +84,39 @@ class TestApiOperational(unittest.IsolatedAsyncioTestCase):
         self.assertIn("voc_http_requests_total", body)
         self.assertIn("voc_active_alerts", body)
 
+    async def test_04_kiosk_emergency_alert(self):
+        """
+        Verify that POST /api/alerts triggers an onsite emergency alert from Kiosk
+        without needing user JWT login, returning HTTP 200 and broadcasting Critical alarm.
+        """
+        res = await self.client.post(
+            "/api/alerts",
+            json_body={
+                "box_id": "BOX-001",
+                "level": "Critical",
+                "message": "🚨 Onsite Kiosk Emergency Alarm Triggered",
+                "source_screen": "Kiosk",
+            }
+        )
+        self.assertEqual(res.status, 200)
+        data = res.json
+        self.assertEqual(data.get("status"), "ok")
+        self.assertEqual(data.get("level"), "Critical")
+        self.assertIn("id", data)
+
+    async def test_05_dashboard_latest_offline_and_staleness(self):
+        """
+        Verify that /api/dashboard/latest returns accurate offline and staleness metadata,
+        including is_online, is_stale, data_age_seconds, and recorded_at fields.
+        """
+        res = await self.client.get("/api/dashboard/latest?box_id=BOX-001")
+        self.assertEqual(res.status, 200)
+        data = res.json
+        self.assertIn("status", data)
+        self.assertIn("is_online", data)
+        self.assertIn("is_stale", data)
+        self.assertIn("box_id", data)
+
 
 if __name__ == "__main__":
     unittest.main()

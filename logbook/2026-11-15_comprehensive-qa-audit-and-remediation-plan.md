@@ -315,3 +315,78 @@
 3. **💻 Live Production Frontend Verification (`https://voc-quality.vercel.app`):**
    - Vercel Edge ตอบกลับพร้อม Security Headers ครบถ้วน (`X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`, `X-XSS-Protection`, `Referrer-Policy`, `Permissions-Policy`)
    - Caching Strategy ทำงานสมบูรณ์: `/assets/(.*)` ได้รับ `cache-control: public, max-age=31536000, immutable`
+
+---
+
+## อัปเดตเวลา 21:40 ICT (17/11) — QA ตรวจซ้ำแบบเข้มงวด: ความถูกต้อง + พฤติกรรมเมื่ออุปกรณ์ออฟไลน์
+
+### สิ่งที่ทำ
+- อ่านโค้ด backend / frontend (Dashboard, Kiosk, Layout, Auth) / firmware ESP32 เทียบกับ CORE_SPEC 6.2–6.3 และยิง API บนระบบจริง (ไม่มีการแก้โค้ดในรอบนี้)
+- ลอง UI จริงผ่าน browser agent แต่ล็อกอิน `operator` ด้วยรหัสทดสอบไม่ผ่าน (รหัส production ต่างจากรหัสทดสอบ) จึงสรุป UI จากโค้ด
+
+### ข้อค้นพบหลัก
+- ระบบจริงตอนนี้: BOX-001 **OFFLINE** ตั้งแต่ 03/11/2026 18:12, `stale=true`, `pm25=-1` (FAULT)
+- Backend คำนวณ OFFLINE ได้ แต่ Dashboard/Kiosk **ไม่อ่านสถานะนี้** ยังแสดงค่าเก่าเหมือนสด และ Kiosk ยังขึ้น "ปลอดภัย"
+- ไม่มีการแจ้งเตือน Device Offline อัตโนมัติ, ไม่มี `recorded_at` ใน response, เวลา "Updated" เป็นนาฬิกาเบราว์เซอร์
+- ค่า pm25 ติดลบถูกแทนเป็น 14.0 (AQI ดี) → ซ่อนเซนเซอร์เสีย; มีข้อมูลปลอม "ONLINE/ปลอดภัย" เมื่อเชื่อมต่อไม่ได้ (ทั้ง frontend และ backend)
+- ปุ่มแจ้งเหตุฉุกเฉิน Kiosk เรียก `POST /api/alerts` ซึ่งไม่มีอยู่ (live ตอบ 405)
+- มีรหัสผ่าน fallback ฝังใน JS bundle สาธารณะ
+- Firmware ไม่มี buffer ออฟไลน์ / L1 คุมพัดลม-บัซเซอร์ / watchdog ตาม CORE_SPEC [ล็อก]
+- ข้อผิดพลาดจากงาน Phase 4 ของเราเอง: ตัวนับ ingest ผิด path (`/api/readings` แทน `/api/ingest`), `active_connections` เป็นขนาด pool ไม่ใช่ที่ใช้จริง
+- แก้ไขคำกล่าวอ้างก่อนหน้าที่ไม่ถูกต้อง: migrator **ไม่มี** MD5 checksum, คะแนน "Mozilla A+" ไม่เคยวัดจริง
+
+### สถานะ / งานค้าง
+- เสนอแผน Phase 5A–5D (หยุดข้อมูลหลอกบน UI → แจ้งเตือนออฟไลน์อัตโนมัติ → security → firmware) รอผู้ใช้อนุมัติ
+
+---
+
+## อัปเดตเวลา 21:42 ICT (17/11) — ตรวจการรั่วไหลของรหัสผ่าน/โทเค็น (ไม่บันทึกค่าจริง)
+
+- ผู้ใช้ส่งรายการบัญชี/รหัสผ่าน/โทเค็นทั้งหมดของระบบมาในแชต — ตรวจสอบเฉพาะตำแหน่งที่พบ ไม่คัดลอกค่าลง log
+- **GitHub repo `phodsathorn/VOC_quality-` เป็น Public** (API ตอบ 200) → ทุกค่าที่อยู่ใน git ถือว่ารั่วสู่สาธารณะแล้ว; GitLab ตอบ 404 (private หรือไม่พบ)
+- พบใน HEAD: รหัสผ่านเว็บทั้ง 4 บัญชี (README ×2, `.env.example`, `AuthContext.jsx`, `LoginPage.jsx`), รหัส OTA ของ ESP32 (`voc_esp32.ino`, logbook 2026-11-07), รหัส Wi-Fi แล็บ (logbook 2026-11-03), รหัส DB local (`.env.example`, docs/reviews), X-Admin-Key (`Devices.jsx` → อยู่ใน JS bundle สาธารณะ), device token default (`main.py`, test)
+- ไม่พบใน git: รหัส NU Captive Portal ส่วนตัว และ device token ของกล่องจริง (อยู่ใน `secrets.h` ที่ถูก gitignore) — แต่ถูกส่งในแชตแล้ว
+- Kiosk PIN: ยืนยันว่ากดเลขใดก็ได้ 4 หลัก = ไม่มีการตรวจ PIN จริง
+- ข้อเสนอ: rotate ทุกค่าที่รั่ว (เริ่มจากรหัสเว็บ production, ADMIN_API_KEY, OTA, device token, รหัส NU ส่วนตัว), ลบออกจากโค้ด/README/logbook, พิจารณาตั้ง repo เป็น private และล้างประวัติ git (git filter-repo) — ยังไม่ได้ดำเนินการ รอผู้ใช้อนุมัติ
+
+---
+
+## อัปเดตเวลา 22:50 ICT — การลงมือแก้ไขและยกระดับ Phase 5A (UI Correctness, Stale/Offline Reality & Security Hardening)
+
+### สิ่งที่ได้พัฒนาและแก้ไขแล้ว (Changes Implemented)
+
+1. **การปรับปรุงการส่งข้อมูลสถานะการเชื่อมต่อและเวลาจริงจาก Backend (`backend/main.py`):**
+   - รวมเกณฑ์การตัดสินสถานะอุปกรณ์ออฟไลน์เป็นเกณฑ์เดียวที่ `DEVICE_OFFLINE_THRESHOLD_SEC = 45.0` วินาที (สอดคล้องกับความถี่ในการส่งข้อมูลของ ESP32 ทุก 3 วินาที)
+   - `/api/dashboard/latest`:
+     - เพิ่มฟิลด์ `is_online` (Boolean), `is_stale` (Boolean), `data_age_seconds` (วินาทีที่ข้อมูลหยุดนิ่ง), `recorded_at` (เวลาจริงที่บันทึกข้อมูล), `last_seen` และ `last_seen_age_seconds`
+     - ยกเลิกการสร้างข้อมูลปลอม "ONLINE" และ "ปลอดภัย" หากฐานข้อมูลไม่สามารถเชื่อมต่อได้ โดยจะส่งคืนสถานะ `OFFLINE` และ `DEGRADED` พร้อมแจ้งเตือนปัญหาอย่างตรงไปตรงมา
+   - `/api/devices`: ปรับเกณฑ์ SQL ให้ใช้ `INTERVAL '45 seconds'` สอดคล้องกันทั้งระบบ
+
+2. **ระบบเฝ้าระวังและแจ้งเตือนอุปกรณ์ออฟไลน์อัตโนมัติ (`device_offline_watchdog_task`):**
+   - เพิ่ม Background Watchdog Task ตรวจสอบอุปกรณ์ทุกกล่อง ทุกๆ 20 วินาที
+   - หากกล่องใดไม่ส่งข้อมูลเกิน 45 วินาที ระบบจะสร้าง Alert ระดับ High: `⚠️ กล่องตรวจจับ {box_id} ขาดการเชื่อมต่อ` และยิงแจ้งเตือนผ่าน LINE อัตโนมัติ พร้อมบันทึก Audit Event `DEVICE_OFFLINE_DETECTED`
+
+3. **แก้ไขปุ่มแจ้งเหตุฉุกเฉินหน้าจอ Kiosk (`POST /api/alerts`):**
+   - เพิ่ม Route `@app.post("/api/alerts")` รองรับการกดปุ่มฉุกเฉินจากหน้าจอสัมผัส Kiosk หน้างานโดยตรง
+   - สร้าง Alert ระดับ Critical ทันที, บรอดแคสต์แจ้งเตือนเข้า LINE กลุ่มวิศวกร/ผู้ควบคุม, และบันทึก Audit Event `KIOSK_EMERGENCY_ALARM` แก้ปัญหาเดิมที่ Kiosk กดแล้วได้ HTTP 405
+
+4. **การแสดงผลสภาวะออฟไลน์และข้อมูลค้างบน Dashboard (`frontend/src/pages/Dashboard.jsx`):**
+   - เพิ่มแบนเนอร์แจ้งเตือนอย่างชัดเจนเมื่ออุปกรณ์ออฟไลน์หรือข้อมูลค้าง: `⚠️ กล่องเซนเซอร์ออฟไลน์ — ข้อมูลที่แสดงไม่ใช่ข้อมูลสด (ข้อมูลล่าสุดเมื่อ X วัน/นาทีที่แล้ว)` พร้อมปุ่ม Refresh
+   - แก้ไขการซ่อนเซนเซอร์เสีย: หากค่า `pm25 < 0` (เช่น ค่า PMS5003 ขัดข้องเป็น -1) ระบบจะแสดงสถานะ `FAULT` / "เซนเซอร์มีปัญหา" สีแดงอย่างชัดเจน แทนที่การแทนที่ด้วย 14.0 (อากาศดี) แบบเดิม
+   - ยกเลิก fallback หลอกที่สร้างข้อมูลสดเมื่อ fetch ล้มเหลว
+
+5. **การแสดงผลสภาวะออฟไลน์และข้อมูลค้างบนหน้าจอ Kiosk (`frontend/src/pages/Kiosk.jsx`):**
+   - หากอุปกรณ์ออฟไลน์ แบนเนอร์บนสุดจะเปลี่ยนเป็นสีส้มแจ้งเตือน `⚠️ ขาดการเชื่อมต่อเซนเซอร์ (OFFLINE)` แทนการระบุว่า "สภาวะปลอดภัย" จากข้อมูลเก่า
+   - หน้าปัดวัดค่า PM2.5 จะแสดง `FAULT` สีแดงหากเซนเซอร์อ่านค่าผิดพลาด
+
+6. **การทำความสะอาดความปลอดภัยฝั่ง Frontend (Credential Cleanup):**
+   - ลบรหัสผ่าน Fallback (`fallbackPasswords`) และการสร้าง Mock Token ออกจาก `frontend/src/context/AuthContext.jsx` อย่างสิ้นเชิง
+   - ลบคีย์ `change-me-in-production-2026` ออกจาก `frontend/src/pages/Devices.jsx` โดยบังคับใช้ Bearer Token จากการล็อกอินจริงเท่านั้น
+
+7. **แก้ไขบั๊กตัวนับ Telemetry จาก Phase 4 (`backend/main.py`):**
+   - แก้ไข Middleware ตัวนับ Ingest ให้ตรวจจับ path `/api/ingest` (จากเดิมตรวจจับผิดที่ `/api/readings`)
+
+8. **การทดสอบอัตโนมัติ (Automated Tests Expansion):**
+   - เพิ่ม `test_04_kiosk_emergency_alert` และ `test_05_dashboard_latest_offline_and_staleness` ใน `backend/tests/test_api_operational.py`
+   - Backend Tests ผ่าน 33/33 tests (100% OK)
+   - Frontend Tests ผ่าน 16/16 tests (100% OK)

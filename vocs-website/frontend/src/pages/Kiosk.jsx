@@ -170,19 +170,27 @@ export default function Kiosk() {
   }
 
   // Values from live readings or standard nominal baseline
-  const tvocVal = Math.round(data?.environment?.tvoc ?? data?.latest_reading?.tvoc ?? 64);
-  const pm25Val = Math.round(data?.environment?.pm25 ?? data?.latest_reading?.pm25 ?? 14);
-  const tempVal = Math.round(data?.environment?.temp ?? data?.latest_reading?.temp ?? 28);
-  const rhVal = Math.round(data?.environment?.rh ?? data?.latest_reading?.rh ?? 52);
-  const eco2Val = Math.round(data?.environment?.eco2 ?? data?.latest_reading?.eco2 ?? 420);
+  const isOnline = data?.is_online ?? ((data?.status || '').toUpperCase() === 'ONLINE');
+  const isStale = data?.is_stale ?? (!isOnline);
+  const dataAgeSec = data?.data_age_seconds;
+
+  const rawPm25 = data?.environment?.pm25 ?? data?.latest_reading?.pm25;
+  const isPm25Fault = rawPm25 != null && rawPm25 < 0;
+
+  const tvocVal = Math.round(data?.environment?.tvoc ?? data?.latest_reading?.tvoc ?? 0);
+  const pm25Val = isPm25Fault ? null : Math.round(rawPm25 ?? 0);
+  const tempVal = Math.round(data?.environment?.temp ?? data?.latest_reading?.temp ?? 0);
+  const rhVal = Math.round(data?.environment?.rh ?? data?.latest_reading?.rh ?? 0);
+  const eco2Val = Math.round(data?.environment?.eco2 ?? data?.latest_reading?.eco2 ?? 0);
 
   // Circumference for r=78 is ~490.08
   const tvocOffset = Math.max(0, 490.08 - (Math.min(tvocVal, 220) / 220) * 490.08);
-  const pm25Offset = Math.max(0, 490.08 - (Math.min(pm25Val, 50) / 50) * 490.08);
+  const pm25Offset = pm25Val != null ? Math.max(0, 490.08 - (Math.min(pm25Val, 50) / 50) * 490.08) : 490.08;
   const eco2Offset = Math.max(0, 490.08 - (Math.min(eco2Val, 2000) / 2000) * 490.08);
 
-  const isSafe = tvocVal < 120 && pm25Val < 37.5 && eco2Val < 1000;
-  const isEco2Normal = eco2Val < 1000;
+  const isSensorAvailable = isOnline && !isStale && data?.environment != null;
+  const isSafe = isSensorAvailable && tvocVal < 120 && pm25Val != null && pm25Val < 37.5 && eco2Val < 1000;
+  const isEco2Normal = isSensorAvailable && eco2Val < 1000;
 
   // Format seconds to mm:ss
   const formatTime = (seconds) => {
@@ -288,19 +296,44 @@ export default function Kiosk() {
         </div>
 
         {/* ── Top Section: Status Banner Card ── */}
-        <div className="w-full bg-white rounded-3xl shadow-sm p-6 flex items-center justify-center gap-5 transition-all border border-[#eaedff]">
+        <div className={`w-full rounded-3xl shadow-sm p-6 flex items-center justify-center gap-5 transition-all border ${
+          !isSensorAvailable
+            ? 'bg-amber-50 border-amber-200 text-amber-900'
+            : isSafe
+              ? 'bg-white border-[#eaedff]'
+              : 'bg-rose-50 border-rose-200 text-rose-900'
+        }`}>
           <div
             className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${
-              isSafe ? 'bg-[#d0e1fb]/40 text-[#004ac6]' : 'bg-[#ffdad6] text-[#ba1a1a]'
+              !isSensorAvailable
+                ? 'bg-amber-100 text-amber-700'
+                : isSafe
+                  ? 'bg-[#d0e1fb]/40 text-[#004ac6]'
+                  : 'bg-[#ffdad6] text-[#ba1a1a]'
             }`}
           >
-            {isSafe ? <CheckCircle2 size={44} className="text-[#004ac6]" /> : <AlertOctagon size={44} />}
+            {!isSensorAvailable ? (
+              <AlertOctagon size={44} className="text-amber-600" />
+            ) : isSafe ? (
+              <CheckCircle2 size={44} className="text-[#004ac6]" />
+            ) : (
+              <AlertOctagon size={44} />
+            )}
           </div>
-          <span className="text-[28px] md:text-[32px] font-bold text-[#131b2e] tracking-tight">
-            {isSafe
-              ? (isThai ? 'บรรยากาศปกติ — ปลอดภัย' : 'Atmosphere Normal — Safe')
-              : (isThai ? 'ตรวจพบไอระเหยสะสม — โปรดระมัดระวัง' : 'Vapor Accumulation Detected — Caution')}
-          </span>
+          <div className="flex flex-col items-center md:items-start text-center md:text-left">
+            <span className="text-[26px] md:text-[32px] font-bold text-[#131b2e] tracking-tight">
+              {!isSensorAvailable
+                ? (isThai ? '⚠️ ขาดการเชื่อมต่อเซนเซอร์ (OFFLINE)' : '⚠️ Sensor Gateway Offline')
+                : isSafe
+                  ? (isThai ? 'บรรยากาศปกติ — ปลอดภัย' : 'Atmosphere Normal — Safe')
+                  : (isThai ? 'ตรวจพบไอระเหยสะสม — โปรดระมัดระวัง' : 'Vapor Accumulation Detected — Caution')}
+            </span>
+            {!isSensorAvailable && (
+              <span className="text-[14px] text-amber-800 font-medium">
+                {isThai ? 'ข้อมูลเซนเซอร์ไม่เป็นปัจจุบัน ไม่สามารถยืนยันความปลอดภัยได้' : 'Telemetry stale — safety status unverified'}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* ── Middle Section: 3 Heavy Touch Action Targets (Glove Ergonomics) ── */}
@@ -404,8 +437,18 @@ export default function Kiosk() {
               <span className="text-[16px] font-bold text-[#505f76] tracking-wide">
                 {isThai ? 'ฝุ่นละอองละเอียด (PM2.5)' : 'Fine Particulate (PM2.5)'}
               </span>
-              <span className="px-3 py-1 rounded-full bg-[#dcfce7] text-[#16a34a] text-[13px] font-bold">
-                {isThai ? 'ปกติ' : 'Normal'}
+              <span className={`px-3 py-1 rounded-full text-[13px] font-bold ${
+                isPm25Fault
+                  ? 'bg-rose-100 text-rose-700'
+                  : !isSensorAvailable
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-[#dcfce7] text-[#16a34a]'
+              }`}>
+                {isPm25Fault
+                  ? (isThai ? 'เซนเซอร์มีปัญหา' : 'Sensor Fault')
+                  : !isSensorAvailable
+                    ? (isThai ? 'ข้อมูลค้าง' : 'Stale')
+                    : (isThai ? 'ปกติ' : 'Normal')}
               </span>
             </div>
             <div className="relative w-44 h-44 flex items-center justify-center my-1">
@@ -420,7 +463,7 @@ export default function Kiosk() {
                   strokeWidth="14"
                 />
                 <circle
-                  className="text-[#2563eb]"
+                  className={isPm25Fault ? 'text-rose-500' : 'text-[#2563eb]'}
                   cx="100"
                   cy="100"
                   fill="none"
@@ -433,10 +476,12 @@ export default function Kiosk() {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                <span className="text-[48px] leading-[50px] font-bold text-[#131b2e] tracking-tight">
-                  {pm25Val}
+                <span className={`text-[48px] leading-[50px] font-bold tracking-tight ${isPm25Fault ? 'text-rose-600' : 'text-[#131b2e]'}`}>
+                  {isPm25Fault ? 'FAULT' : (pm25Val ?? '—')}
                 </span>
-                <span className="text-[16px] font-semibold text-[#505f76] mt-0.5">µg/m³</span>
+                <span className="text-[16px] font-semibold text-[#505f76] mt-0.5">
+                  {isPm25Fault ? (isThai ? 'อ่านค่าผิดพลาด' : 'Read Error') : 'µg/m³'}
+                </span>
               </div>
             </div>
             <div className="text-center mt-1 w-full">
