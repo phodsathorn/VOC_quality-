@@ -108,6 +108,8 @@ export default function Kiosk() {
     }, 2400);
   }
 
+  const isSubmittingRef = useRef(false);
+
   function handlePinInput(val) {
     if (val === 'C') {
       setPin((prev) => prev.slice(0, -1));
@@ -131,6 +133,8 @@ export default function Kiosk() {
   }
 
   async function submitEmergency() {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setCurrentMode('sending');
     try {
       const res = await fetch(`${API}/api/alerts`, {
@@ -151,6 +155,10 @@ export default function Kiosk() {
       }
     } catch {
       setTimeout(() => setCurrentMode('failed'), 1200);
+    } finally {
+      setTimeout(() => {
+        isSubmittingRef.current = false;
+      }, 2000);
     }
   }
 
