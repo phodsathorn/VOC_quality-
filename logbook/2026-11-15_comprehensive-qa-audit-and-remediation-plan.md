@@ -275,3 +275,43 @@
 - **Frontend Tests:** 16/16 passed (100% PASS ใน 39ms)
 - **Frontend Linter:** 0 errors
 - **Frontend Build:** ผ่านสมบูรณ์ Bundle 271 kB (gzip 84.76 kB) ใน 196ms
+
+---
+
+## อัปเดตเวลา 22:33 ICT — การทดสอบซ้ำครบวงจร (Full Live & Automated Regression Test)
+
+### ผลการตรวจสอบและยืนยันการทำงาน (Verification Results)
+
+1. **🧪 Automated Test Suites:**
+   - **Backend Tests (Unit, Integration, Security, Migrator, Operational):**
+     - ผ่านการทดสอบทั้งหมด **31/31 passed (100% OK ใน 4.84 วินาที)**
+     - 0 Warnings, 0 Errors, 0 Failures
+   - **Frontend Tests (AQI Breakpoints, Locales Parity TH/EN, PPM Curves):**
+     - ผ่านการทดสอบทั้งหมด **16/16 passed (100% OK ใน 39.3ms)**
+   - **Frontend Linter (`oxlint`):**
+     - 0 errors
+   - **Frontend Production Build (`vite build`):**
+     - ผ่านฉลุย Bundle 271 kB (gzip 84.76 kB) ใน 172ms
+
+2. **🌐 Live Production Backend Verification (`https://voc-backend-api.onrender.com`):**
+   - **Root Endpoint (`/`):** ตอบกลับ `HTTP 200 OK` พร้อม `{"status":"ok","service":"voc-backend-api","database":"connected"}`
+   - **Security Headers:**
+     - `x-content-type-options: nosniff`
+     - `x-frame-options: DENY`
+     - `strict-transport-security: max-age=31536000; includeSubDomains`
+     - `referrer-policy: strict-origin-when-cross-origin`
+     - `permissions-policy: camera=(), geolocation=(), microphone=()`
+     - `content-security-policy: frame-ancestors 'none'; object-src 'none'; base-uri 'none'`
+     - `x-response-time: 0.49ms`
+   - **Operational SRE Metrics (`/api/metrics`):**
+     - ส่งคืนสถานะ `HEALTHY`, Uptime จริง, Memory RSS (196.62 MB), และสถานะ Database Pool (`active_connections: 10, max_size: 10`)
+   - **Prometheus Scrape Target (`/metrics`):**
+     - ส่งคืนฟอร์แมต Prometheus ถูกต้องสมบูรณ์ (`voc_uptime_seconds`, `voc_http_requests_total`, `voc_active_alerts`)
+   - **Security Gates:**
+     - `PATCH /api/thresholds` (Unauthenticated) $\rightarrow$ `HTTP 401 Unauthorized`
+     - `GET /api/logs` (Unauthenticated) $\rightarrow$ `HTTP 401 Unauthorized`
+     - `POST /api/maintenance/calibrate/mq3` (Unauthenticated) $\rightarrow$ `HTTP 401 Unauthorized`
+
+3. **💻 Live Production Frontend Verification (`https://voc-quality.vercel.app`):**
+   - Vercel Edge ตอบกลับพร้อม Security Headers ครบถ้วน (`X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`, `X-XSS-Protection`, `Referrer-Policy`, `Permissions-Policy`)
+   - Caching Strategy ทำงานสมบูรณ์: `/assets/(.*)` ได้รับ `cache-control: public, max-age=31536000, immutable`
