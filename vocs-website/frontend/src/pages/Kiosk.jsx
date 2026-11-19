@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   CheckCircle2, AlertOctagon, Fan, Wrench, ShieldAlert, Check,
-  X, Save, StopCircle, Sliders, AlertTriangle, Lock, RefreshCw,
+  X, Save, StopCircle, Sliders, Lock, RefreshCw,
   Clock, RotateCcw
 } from 'lucide-react';
 import { API } from '../config';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function Kiosk() {
-  const { t, isThai } = useLanguage();
+  const { isThai } = useLanguage();
+  const { token } = useAuth();
   const [data, setData] = useState(() => {
     try {
       const cached = localStorage.getItem('voc_cached_dashboard_v2');
@@ -117,7 +119,7 @@ export default function Kiosk() {
     }
     if (val === 'OK') {
       if (pin.length >= 4) {
-        submitEmergency();
+        submitEmergency(pin);
       } else {
         triggerFeedback(isThai ? 'กรุณากรอกรหัส PIN 4 หลักให้ครบถ้วน' : 'Please enter all 4 digits of the PIN');
       }
@@ -127,12 +129,12 @@ export default function Kiosk() {
       const nextPin = pin + val;
       setPin(nextPin);
       if (nextPin.length === 4) {
-        setTimeout(() => submitEmergency(), 300);
+        setTimeout(() => submitEmergency(nextPin), 300);
       }
     }
   }
 
-  async function submitEmergency() {
+  async function submitEmergency(enteredPin) {
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
     setCurrentMode('sending');
@@ -143,13 +145,23 @@ export default function Kiosk() {
         body: JSON.stringify({
           box_id: 'BOX-001',
           level: 'Critical',
+          pin: enteredPin ?? pin,
           message: isThai
             ? '🚨 แจ้งเหตุฉุกเฉินสารเคมีรั่วไหลจากหน้าจอ Kiosk หน้างาน (ยืนยันรหัส PIN แล้ว)'
             : '🚨 Emergency chemical spill alarm triggered from onsite Kiosk (PIN Verified)',
         }),
       });
       if (res.ok) {
+        setPin('');
         setTimeout(() => setCurrentMode('sent'), 1200);
+      } else if (res.status === 403) {
+        setPin('');
+        setCurrentMode('pin');
+        triggerFeedback(isThai ? 'รหัส PIN ไม่ถูกต้อง กรุณาลองใหม่' : 'Invalid Emergency PIN. Please try again.');
+      } else if (res.status === 429) {
+        setPin('');
+        setCurrentMode('pin');
+        triggerFeedback(isThai ? 'กรอก PIN ผิดหลายครั้ง กรุณารอ 60 วินาที' : 'Too many failed PIN attempts. Wait 60s.');
       } else {
         setTimeout(() => setCurrentMode('failed'), 1200);
       }
@@ -160,6 +172,47 @@ export default function Kiosk() {
         isSubmittingRef.current = false;
       }, 2000);
     }
+  }
+
+  async function sendFanCommand(action, durationSeconds = 300) {
+    if (!token) {
+      triggerFeedback(isThai ? 'คำสั่งพัดลมจำลองบนหน้าจอ (ไม่ได้ล็อกอิน)' : 'Fan boost local mode (no auth token)');
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/api/devices/BOX-001/fan-boost`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action, duration_seconds: durationSeconds }),
+      });
+      if (res.ok) {
+        triggerFeedback(
+          action === 'FAN_BOOST'
+            ? (isThai ? '✓ ส่งคำสั่งเร่งพัดลม 100% ไปยังกล่อง BOX-001 แล้ว' : '✓ Dispatched 100% Fan Boost command to BOX-001')
+            : (isThai ? '✓ ส่งคำสั่งกลับสู่โหมดพัดลมปกติแล้ว' : '✓ Dispatched normal fan mode command to BOX-001')
+        );
+      } else {
+        triggerFeedback(isThai ? 'ไม่สามารถส่งคำสั่งไปยังกล่องได้ (HTTP ' + res.status + ')' : `Fan command failed (HTTP ${res.status})`);
+      }
+    } catch {
+      triggerFeedback(isThai ? 'เครือข่ายขัดข้อง ไม่สามารถส่งคำสั่งพัดลมได้' : 'Network error sending fan command');
+    }
+  }
+
+  function startFanBooster() {
+    setCurrentMode('booster');
+    setFanCountdown(300);
+    setIsFanRunning(true);
+    sendFanCommand('FAN_BOOST', 300);
+  }
+
+  function stopFanBooster() {
+    setIsFanRunning(false);
+    setCurrentMode('normal');
+    sendFanCommand('FAN_NORMAL', 60);
   }
 
   function toggleChecklistItem(id) {
@@ -180,7 +233,6 @@ export default function Kiosk() {
   // Values from live readings or standard nominal baseline
   const isOnline = data?.is_online ?? ((data?.status || '').toUpperCase() === 'ONLINE');
   const isStale = data?.is_stale ?? (!isOnline);
-  const dataAgeSec = data?.data_age_seconds;
 
   const rawPm25 = data?.environment?.pm25 ?? data?.latest_reading?.pm25;
   const isPm25Fault = rawPm25 != null && rawPm25 < 0;
@@ -278,7 +330,7 @@ export default function Kiosk() {
             </button>
             <button
               type="button"
-              onClick={() => { setCurrentMode('booster'); setFanCountdown(272); setIsFanRunning(true); }}
+              onClick={startFanBooster}
               className={`px-3 py-1.5 rounded-xl font-bold text-[13px] transition-all flex items-center gap-1 cursor-pointer ${
                 currentMode === 'booster'
                   ? 'bg-[#004ac6] text-white shadow-sm'
@@ -363,7 +415,7 @@ export default function Kiosk() {
           {/* Action 2: Max Exhaust Booster */}
           <button
             type="button"
-            onClick={() => { setCurrentMode('booster'); setFanCountdown(272); setIsFanRunning(true); }}
+            onClick={startFanBooster}
             className="group relative min-h-[190px] h-48 rounded-3xl bg-[#004ac6] text-white p-6 flex flex-col items-center justify-center gap-4 shadow-sm active:scale-[0.98] transition-all duration-150 cursor-pointer text-center hover:bg-[#003ea8]"
           >
             <div className="w-16 h-16 rounded-full bg-white/15 flex items-center justify-center">
@@ -831,7 +883,7 @@ export default function Kiosk() {
 
             <button
               type="button"
-              onClick={() => { setIsFanRunning(false); setCurrentMode('normal'); }}
+              onClick={stopFanBooster}
               className="min-h-[72px] w-full rounded-2xl bg-[#004ac6] text-white text-[26px] font-bold flex items-center justify-center gap-3 shadow-lg hover:bg-[#003ea8] transition-all active:scale-98 cursor-pointer"
             >
               <StopCircle size={32} />

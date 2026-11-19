@@ -3,12 +3,7 @@ import DeviceTokenModal from "./devices/DeviceTokenModal";
 import DiagnosticsModal from "./devices/DiagnosticsModal";
 import OtaModal from "./devices/OtaModal";
 import { useState, useEffect } from 'react';
-import {
-  Wifi, RotateCcw, ShieldCheck,
-  Router, Download, X,
-  Info, Activity, Check, Copy, Stethoscope, Key,
-  Upload, FileCode, AlertCircle, CheckCircle2
-} from 'lucide-react';
+import { Wifi, RotateCcw } from 'lucide-react';
 import { API } from '../config';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -57,7 +52,6 @@ export default function Devices() {
 
   const [selectedDevice, setSelectedDevice] = useState(devices[0]);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'sensors'
   const [rebootingNode, setRebootingNode] = useState(null);
 
   // Modals
@@ -66,7 +60,7 @@ export default function Devices() {
   const [otaVersionInput, setOtaVersionInput] = useState('1.0.3');
   const [isUploadingOta, setIsUploadingOta] = useState(false);
   const [otaUploadSuccess, setOtaUploadSuccess] = useState(false);
-  const [otaUploadResult, setOtaUploadResult] = useState(null);
+  const [, setOtaUploadResult] = useState(null);
   const [otaError, setOtaError] = useState(null);
   const [otaProgress, setOtaProgress] = useState(0);
   const [otaHistory, setOtaHistory] = useState([]);

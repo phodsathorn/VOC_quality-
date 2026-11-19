@@ -2,14 +2,13 @@ import CarbonScrubberDrawer from "./airflow/CarbonScrubberDrawer";
 import SensorBoxTelemetryDrawer from "./airflow/SensorBoxTelemetryDrawer";
 import { useState, useEffect } from 'react';
 import {
-  Wind, Activity, ArrowRight, X,
-  Radio, Thermometer, Filter, Cloud, ShieldCheck
+  Wind, ArrowRight, Radio, Thermometer
 } from 'lucide-react';
 import { API } from '../config';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function AirflowDiagram() {
-  const { t, isThai } = useLanguage();
+  const { isThai } = useLanguage();
   const [viewMode, setViewMode] = useState('factory'); // 'factory' (Factory ventilation) | 'sensorbox' (Sensor box pneumatic circuit)
   const [isScrubberDrawerOpen, setIsScrubberDrawerOpen] = useState(false);
   const [showExhaustPopover, setShowExhaustPopover] = useState(true);

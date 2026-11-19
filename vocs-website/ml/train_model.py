@@ -20,11 +20,11 @@ import pickle
 import urllib.request
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GroupShuffleSplit
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, f1_score
 
 # ================================================================
 # 1. LOAD DATA
@@ -106,17 +106,28 @@ X = df[FEATURE_COLS]
 y = df["label"]
 
 # ================================================================
-# 3. SPLIT DATA
+# 3. SPLIT DATA (Session-aware Group Split when available)
 # ================================================================
-# Stratified split to ensure both classes exist in train & test
 min_class_size = counts.min()
 test_size = 0.2 if min_class_size >= 5 else 0.1
+split_strategy = "stratified_random"
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=test_size, random_state=42, stratify=y
-)
+if "session_id" in df.columns and df["session_id"].notna().all() and df["session_id"].nunique() >= 4:
+    gss = GroupShuffleSplit(n_splits=1, test_size=0.25, random_state=42)
+    train_idx, test_idx = next(gss.split(X, y, groups=df["session_id"]))
+    if y.iloc[test_idx].nunique() >= 2 and y.iloc[train_idx].nunique() >= 2:
+        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+        split_strategy = "group_by_session_id"
 
-print(f"\nDataset Split: Train = {len(X_train)} samples, Test = {len(X_test)} samples")
+if split_strategy == "stratified_random":
+    print("[WARNING] Using random stratified split (insufficient distinct sessions for GroupSplit). "
+          "Collect >= 2 sessions per solvent to prevent temporal data leakage.")
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=42, stratify=y
+    )
+
+print(f"\nDataset Split ({split_strategy}): Train = {len(X_train)} samples, Test = {len(X_test)} samples")
 
 # ================================================================
 # 4. TRAIN MODEL PIPELINE
@@ -142,8 +153,10 @@ print("Training completed successfully!")
 # ================================================================
 y_pred = pipeline.predict(X_test)
 acc = accuracy_score(y_test, y_pred)
+macro_f1 = f1_score(y_test, y_pred, average="macro", zero_division=0)
 print(f"\n==========================================")
-print(f"  Test Accuracy: {acc * 100:.2f}%")
+print(f"  Test Accuracy : {acc * 100:.2f}%")
+print(f"  Macro F1-Score: {macro_f1 * 100:.2f}%")
 print(f"==========================================")
 print("\nClassification Report:")
 print(classification_report(y_test, y_pred))
@@ -157,12 +170,16 @@ for i, l in enumerate(labels):
     row_str = "  ".join([f"{val:>7d}" for val in cm[i]])
     print(f"Actual {l[:7]:>7}: {row_str}")
 
-# Feature Importance
+# Feature Importance & Environmental Overfitting Check
 importances = pipeline.named_steps["clf"].feature_importances_
 fi = pd.Series(importances, index=FEATURE_COLS).sort_values(ascending=False)
+env_share = float(fi.get("temp", 0.0) + fi.get("rh", 0.0))
 print("\nTop 5 Most Important Sensors:")
 for feat, imp in fi.head(5).items():
     print(f"  • {feat:10s}: {imp * 100:.1f}%")
+if env_share > 0.25:
+    print(f"\n[WARNING] temp + rh account for {env_share * 100:.1f}% of feature importance! "
+          "Model may be overfitting to ambient weather instead of VOC gas signatures.")
 
 # Save plots if matplotlib is available
 try:
@@ -196,10 +213,14 @@ meta = {
     "model_type": "RandomForestClassifier",
     "features": FEATURE_COLS,
     "classes": labels,
+    "split_strategy": split_strategy,
     "accuracy": round(float(acc), 4),
+    "macro_f1": round(float(macro_f1), 4),
+    "env_feature_share": round(env_share, 4),
     "n_train": len(X_train),
     "n_test": len(X_test),
     "feature_importance": {k: round(float(v), 4) for k, v in fi.items()},
+    "confusion_matrix": cm.tolist(),
 }
 
 # Save in current directory

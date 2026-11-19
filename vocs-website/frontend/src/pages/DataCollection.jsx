@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function DataCollection() {
-  const { user, token } = useAuth();
+  const { token } = useAuth();
   const { t, lang } = useLanguage();
 
   const [compound, setCompound] = useState('Ambient');

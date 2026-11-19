@@ -340,7 +340,7 @@ export function convertAllToPpm(sensors, r0Override) {
  * @param {number|null} ppm
  * @param {string} [unit='ppm']
  */
-export function formatPpm(ppm, unit = 'ppm') {
+export function formatPpm(ppm) {
   if (ppm == null || isNaN(ppm)) return '—';
   if (ppm === 0) return '0.00';
   if (ppm < 0.01) return '< 0.01';

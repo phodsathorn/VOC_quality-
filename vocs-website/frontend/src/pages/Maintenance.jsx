@@ -15,7 +15,7 @@ import CalibrationModal from './maintenance/CalibrationModal';
 
 export default function Maintenance() {
   const { user } = useAuth();
-  const { t, isThai, lang } = useLanguage();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('sensors'); // 'sensors' | 'workorders'
   const [expandedRow, setExpandedRow] = useState(null);
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Clock, Zap, RefreshCw } from 'lucide-react';
+import { Zap, RefreshCw } from 'lucide-react';
 
 export default function DashboardSkeleton({ isColdStarting = false, onRetry }) {
   return (

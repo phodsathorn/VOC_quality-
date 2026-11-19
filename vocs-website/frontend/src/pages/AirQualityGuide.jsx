@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Info, Calculator, X, Users, ShieldAlert,
-  HardHat, ArrowRight, Activity, CheckCircle2, ChevronRight
+  HardHat, Activity
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 

@@ -33,6 +33,7 @@
 #include <Update.h>
 #include <HTTPUpdate.h>
 #include <esp_ota_ops.h>
+#include <esp_task_wdt.h>
 
 #if __has_include("secrets.h")
   #include "secrets.h"  // Local-only Wi-Fi credentials; see secrets.example.h
@@ -44,7 +45,7 @@
   #define OTA_USERNAME "admin"
 #endif
 #ifndef OTA_PASSWORD
-  #define OTA_PASSWORD "voc_admin_2026"
+  #error "OTA_PASSWORD must be defined in secrets.h (see secrets.example.h)"
 #endif
 
 // ─── Data Structure ──────────────────────────────────────────
@@ -54,9 +55,54 @@ struct SensorData {
 };
 
 WebServer server(80);
-const char* FIRMWARE_VER = "1.0.3";
+const char* FIRMWARE_VER = "1.1.0";
 const char* BOX_ID       = "BOX-001";
 unsigned long packetSeqNo = 0;
+
+// ─── Phase 7: Hardware Watchdog, Local L1 Fail-safe & Offline Ring Buffer ──
+const uint32_t WDT_TIMEOUT_SEC       = 30;
+const float    L1_CRITICAL_TVOC_PPB  = 220.0f;
+bool           fanExhaustPinSafe     = false;
+bool           fanBoostActive        = false;
+unsigned long  fanBoostUntilMs       = 0;
+
+const int OFFLINE_BUF_CAPACITY = 20;
+SensorData offlineBuf[OFFLINE_BUF_CAPACITY];
+int offlineBufHead  = 0;
+int offlineBufCount = 0;
+
+void pushOfflineReading(const SensorData& d) {
+  int idx = (offlineBufHead + offlineBufCount) % OFFLINE_BUF_CAPACITY;
+  if (offlineBufCount == OFFLINE_BUF_CAPACITY) {
+    // Overwrite oldest reading when buffer is full
+    offlineBufHead = (offlineBufHead + 1) % OFFLINE_BUF_CAPACITY;
+  } else {
+    offlineBufCount++;
+  }
+  offlineBuf[idx] = d;
+}
+
+void setFansState(bool boostOrFailSafe) {
+  digitalWrite(FAN_INTAKE, HIGH);
+  if (fanExhaustPinSafe) {
+    digitalWrite(FAN_EXHAUST, boostOrFailSafe ? HIGH : HIGH); // Always-on safety airflow; boost flag tracks actuator state
+  }
+}
+
+void evaluateLocalFailSafe(const SensorData& d) {
+  bool l1Triggered = (d.tvoc >= L1_CRITICAL_TVOC_PPB);
+  if (l1Triggered) {
+    Serial.printf("[L1 FAIL-SAFE] Critical TVOC %.1f ppb >= %.1f ppb -> Forcing Exhaust Fan HIGH!\n",
+                  d.tvoc, L1_CRITICAL_TVOC_PPB);
+    setFansState(true);
+    return;
+  }
+  if (fanBoostActive && (long)(millis() - fanBoostUntilMs) >= 0) {
+    fanBoostActive = false;
+    Serial.println("[Fan] Boost timer expired; returning to nominal fan mode.");
+  }
+  setFansState(fanBoostActive);
+}
 
 // Helper: ดึงสาเหตุการรีเซ็ตของ ESP32 เพื่อตรวจจับไฟตก/Brownout หรือ WDT
 const char* getResetReasonStr() {
@@ -76,7 +122,9 @@ const char* getResetReasonStr() {
 }
 
 SensorData readSensors();
-void sendData(const SensorData& d);
+bool sendData(const SensorData& d, bool allowBuffer = true);
+void flushOfflineBuffer();
+void ackDeviceCommand(int commandId, const char* status, const char* detail);
 void reportOtaStatus(const char* status, int errCode, const char* errDetail);
 void performCloudOTA(const char* ota_url);
 void pollDeviceCommand();
@@ -463,6 +511,25 @@ void reportCalibration(int calibrationId) {
   http.end();
 }
 
+void ackDeviceCommand(int commandId, const char* status, const char* detail) {
+  if (wifiMulti.run() != WL_CONNECTED || commandId <= 0) return;
+  JsonDocument doc;
+  doc["box_id"] = BOX_ID;
+  doc["status"] = status;
+  doc["detail"] = detail;
+  String payload;
+  serializeJson(doc, payload);
+
+  WiFiClientSecure client; client.setInsecure();
+  HTTPClient http;
+  http.begin(client, apiEndpoint("/api/device-command/") + String(commandId) + "/ack");
+  http.addHeader("Content-Type", "application/json");
+  http.setTimeout(4000);
+  int code = http.POST(payload);
+  Serial.printf("[CMD ACK] #%d %s -> HTTP %d\n", commandId, status, code);
+  http.end();
+}
+
 void pollDeviceCommand() {
   if (wifiMulti.run() != WL_CONNECTED) return;
   WiFiClientSecure client; client.setInsecure();
@@ -474,10 +541,25 @@ void pollDeviceCommand() {
     JsonDocument doc;
     if (deserializeJson(doc, http.getString()) == DeserializationError::Ok) {
       JsonObject cmd = doc["command"].as<JsonObject>();
+      int cmdId = cmd["id"] | 0;
       const char* action = cmd["action"] | "";
       if (strcmp(action, "CALIBRATE_BASELINE") == 0) {
         int calibrationId = cmd["calibration_id"] | 0;
         if (calibrationId > 0) reportCalibration(calibrationId);
+      } else if (strcmp(action, "FAN_BOOST") == 0) {
+        unsigned long durSec = cmd["duration_seconds"] | 300UL;
+        if (durSec < 30) durSec = 30;
+        if (durSec > 3600) durSec = 3600;
+        fanBoostActive = true;
+        fanBoostUntilMs = millis() + (durSec * 1000UL);
+        setFansState(true);
+        Serial.printf("[Fan] Remote FAN_BOOST activated for %lu s\n", durSec);
+        ackDeviceCommand(cmdId, "COMPLETE", "Fan boost relay activated");
+      } else if (strcmp(action, "FAN_NORMAL") == 0) {
+        fanBoostActive = false;
+        setFansState(false);
+        Serial.println("[Fan] Remote FAN_NORMAL command received.");
+        ackDeviceCommand(cmdId, "COMPLETE", "Fan returned to normal mode");
       }
     }
   }
@@ -665,6 +747,7 @@ void setup() {
   pinMode(FAN_INTAKE, OUTPUT);
   digitalWrite(FAN_INTAKE, HIGH);
   if (adsFoundSda != 26 && adsFoundScl != 26 && ccsFoundSda != 26 && ccsFoundScl != 26) {
+    fanExhaustPinSafe = true;
     pinMode(FAN_EXHAUST, OUTPUT);
     digitalWrite(FAN_EXHAUST, HIGH);
   } else {
@@ -792,10 +875,15 @@ void setup() {
   ArduinoOTA.begin();
   Serial.println("[OTA] Web OTA ready at http://airmon.local/update and Arduino IDE Network Port (Password Protected)");
   
-  if (strcmp(OTA_PASSWORD, "voc_admin_2026") == 0) {
-    Serial.println("[SECURITY WARNING] ⚠️ OTA_PASSWORD is using the default factory password! Please set a unique strong password in secrets.h!");
+  if (strcmp(OTA_PASSWORD, "CHANGE_TO_STRONG_PASSWORD") == 0) {
+    Serial.println("[SECURITY WARNING] ⚠️ OTA_PASSWORD is using the template placeholder! Set a unique strong password in secrets.h!");
   }
-  
+
+  // Initialize Hardware Task Watchdog Timer (30s) to recover from network/TLS hangs
+  esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
+  esp_task_wdt_add(NULL);
+  Serial.printf("[WDT] Hardware Task Watchdog enabled (%lu s timeout)\n", (unsigned long)WDT_TIMEOUT_SEC);
+
   Serial.println("[System] Warming up MQ sensors (30s)...");
 }
 
@@ -906,8 +994,14 @@ void reportOtaStatus(const char* status, int errCode, const char* errDetail) {
 }
 
 // ─── Send to API ─────────────────────────────────────────────
-void sendData(const SensorData& d) {
-  if (wifiMulti.run() != WL_CONNECTED) return;
+bool sendData(const SensorData& d, bool allowBuffer) {
+  if (wifiMulti.run() != WL_CONNECTED) {
+    if (allowBuffer) {
+      pushOfflineReading(d);
+      Serial.printf("[Buffer] Wi-Fi offline; buffered reading (%d/%d)\n", offlineBufCount, OFFLINE_BUF_CAPACITY);
+    }
+    return false;
+  }
 
   JsonDocument doc;
   doc["box_id"]            = BOX_ID;
@@ -997,12 +1091,18 @@ void sendData(const SensorData& d) {
       if (shouldUpdate) {
         http.end();
         performCloudOTA(otaUrl);
-        return;
+        return true;
       }
     }
+    http.end();
+    return true;
   } else {
     consecutiveFailures++;
     Serial.printf("[ERR] HTTP %d (Failures: %d)\n", code, consecutiveFailures);
+    if (allowBuffer) {
+      pushOfflineReading(d);
+      Serial.printf("[Buffer] HTTP failed; buffered reading (%d/%d)\n", offlineBufCount, OFFLINE_BUF_CAPACITY);
+    }
 
     // หากพบ Redirect (301, 302) หรือล้มเหลว 2 ครั้งติด แปลว่า session ของ Captive Portal (10 ชม.) หลุด
     if (code == 301 || code == 302 || consecutiveFailures == 2) {
@@ -1022,6 +1122,22 @@ void sendData(const SensorData& d) {
     }
   }
   http.end();
+  return false;
+}
+
+void flushOfflineBuffer() {
+  int flushed = 0;
+  while (offlineBufCount > 0 && flushed < 3) {
+    esp_task_wdt_reset();
+    SensorData oldest = offlineBuf[offlineBufHead];
+    if (!sendData(oldest, false)) break;
+    offlineBufHead = (offlineBufHead + 1) % OFFLINE_BUF_CAPACITY;
+    offlineBufCount--;
+    flushed++;
+  }
+  if (flushed > 0) {
+    Serial.printf("[Buffer] Flushed %d buffered readings (remaining: %d)\n", flushed, offlineBufCount);
+  }
 }
 
 // ─── Cloud Pull OTA Execution ────────────────────────────────
@@ -1076,6 +1192,9 @@ void performCloudOTA(const char* ota_url) {
 
 // ─── Loop ────────────────────────────────────────────────────
 void loop() {
+  // Feed Hardware Task Watchdog every iteration
+  esp_task_wdt_reset();
+
   // OTA Server handlers
   server.handleClient();
   ArduinoOTA.handle();
@@ -1103,14 +1222,17 @@ void loop() {
     }
   }
 
-  // 3. Sensor Reading & Sending
+  // 3. Sensor Reading, Local L1 Fail-safe & Cloud Sending
   if (now - lastSend >= SEND_INTERVAL_MS) {
     lastSend = now;
     SensorData d = readSensors();
+    evaluateLocalFailSafe(d);
     if (SESSION_ID > 0) {
       Serial.printf("[Rec] Session #%d — %s\n", SESSION_ID, SESSION_LABEL.c_str());
     }
-    sendData(d);
+    if (sendData(d, true) && offlineBufCount > 0) {
+      flushOfflineBuffer();
+    }
   }
 
 #if defined(NU_USERNAME) && defined(NU_PASSWORD)

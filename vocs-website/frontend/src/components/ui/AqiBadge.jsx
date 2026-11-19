@@ -4,7 +4,7 @@ import { getAqiCategory } from '../../utils/aqiHelper';
 /**
  * Operational Air Quality Status Badge (OSHA / ISO 16000)
  */
-export default function AqiBadge({ aqi, pm25 = null, showRange = false, style = {} }) {
+export default function AqiBadge({ aqi, showRange = false, style = {} }) {
   const { isThai } = useLanguage();
   const category = getAqiCategory(aqi);
 

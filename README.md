@@ -16,16 +16,16 @@
 
 ---
 
-## 🔐 บัญชีผู้ใช้งานและสิทธิ์การเข้าถึง (RBAC & Quick Login)
+## 🔐 บัญชีผู้ใช้งานและสิทธิ์การเข้าถึง (RBAC)
 
-ระบบมีระบบรักษาความปลอดภัย **Role-Based Access Control (RBAC)** พร้อม Quick Demo Buttons บนหน้า Login:
+ระบบมีระบบรักษาความปลอดภัย **Role-Based Access Control (RBAC)** แบ่งสิทธิ์ตามบทบาทการทำงาน (ขอรับรหัสผ่านเริ่มต้นจากผู้ดูแลระบบหรือกำหนดผ่าน Environment Variables):
 
-| บทบาท (Role) | Username | Password | หน้าเริ่มต้น (Landing) | สิทธิ์การเข้าถึง (Permissions) |
-|---|---|---|---|---|
-| 👑 **Administrator** | `admin` | `Admin@Voc2026!` | `/` (Dashboard) | สิทธิ์เต็มระบบ: ปรับเกณฑ์ Warning/Critical, จัดการฮาร์ดแวร์, ตั้งค่าระบบ |
-| 🛠️ **Engineer** | `engineer` | `Engineer@Voc2026!` | `/` (Dashboard) | จัดการอุปกรณ์, บันทึกประวัติ Maintenance, สอบเทียบเซนเซอร์, Data Collection |
-| 👷 **Operator** | `operator` | `Operator@Voc2026!` | `/kiosk` (Kiosk Mode) | ตรวจสอบค่าหน้าห้องพ่นสี, รับทราบ Alert (Acknowledge), ควบคุมพัดลมระบายอากาศ |
-| 👁️ **Viewer / Auditor** | `viewer` | `Viewer@Voc2026!` | `/emissions` (Emissions) | ดูแดชบอร์ด, ตรวจสอบประวัติย้อนหลัง, เรียกดูรายงานมลพิษและการปล่อยสาร |
+| บทบาท (Role) | Username | หน้าเริ่มต้น (Landing) | สิทธิ์การเข้าถึง (Permissions) |
+|---|---|---|---|
+| 👑 **Administrator** | `admin` | `/` (Dashboard) | สิทธิ์เต็มระบบ: ปรับเกณฑ์ Warning/Critical, จัดการฮาร์ดแวร์, ตั้งค่าระบบ |
+| 🛠️ **Engineer** | `engineer` | `/` (Dashboard) | จัดการอุปกรณ์, บันทึกประวัติ Maintenance, สอบเทียบเซนเซอร์, Data Collection |
+| 👷 **Operator** | `operator` | `/kiosk` (Kiosk Mode) | ตรวจสอบค่าหน้าห้องพ่นสี, รับทราบ Alert (Acknowledge), ควบคุมพัดลมระบายอากาศ |
+| 👁️ **Viewer / Auditor** | `viewer` | `/emissions` (Emissions) | ดูแดชบอร์ด, ตรวจสอบประวัติย้อนหลัง, เรียกดูรายงานมลพิษและการปล่อยสาร |
 
 ---
 
@@ -145,7 +145,7 @@
 
 ## 📡 การส่งข้อมูลจากฮาร์ดแวร์ (Hardware Ingest API)
 
-กล่องตรวจวัด ESP32-S3 จะส่งข้อมูลเข้าสู่ระบบผ่าน REST API:
+กล่องตรวจวัด ESP32-WROOM-32 จะส่งข้อมูลเข้าสู่ระบบผ่าน REST API:
 
 - **Endpoint**: `POST https://voc-backend-api.onrender.com/api/ingest`
 - **Content-Type**: `application/json`

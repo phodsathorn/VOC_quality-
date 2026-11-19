@@ -1,15 +1,8 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Area, AreaChart, ResponsiveContainer, Tooltip
-} from 'recharts';
-import {
-  Radio, CheckCircle2, AlertTriangle, Info, X,
-  ChevronRight, RefreshCw, Zap, Sliders, ExternalLink, Activity, ArrowRight
-} from 'lucide-react';
-import { getThresholds } from '../utils/settings';
+import { ChevronRight } from 'lucide-react';
 import DashboardSkeleton from '../components/DashboardSkeleton';
-import { Drawer, Modal, calculatePm25Aqi, getAqiCategory } from '../components/ui';
+import { calculatePm25Aqi, getAqiCategory } from '../components/ui';
 import { useLanguage } from '../context/LanguageContext';
 import { API } from '../config';
 
@@ -44,7 +37,7 @@ export default function Dashboard() {
       return [];
     }
   });
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [isColdStarting, setIsColdStarting] = useState(false);
   const coldStartTimerRef = useRef(null);
 
@@ -69,7 +62,6 @@ export default function Dashboard() {
   };
 
   const boxId = 'BOX-001';
-  const thresholds = getThresholds();
   const dataRef = useRef(data);
   const historyRef = useRef(history);
   useEffect(() => {
@@ -168,31 +160,32 @@ export default function Dashboard() {
   }, [fetchAll]);
 
   // Extract core metrics (Safe optional chaining before any early return)
-  const env = data?.environment || {};
-  const sensors = data?.sensors || {};
-  const reading = useMemo(() => ({
-    ...(data?.latest_reading || {}),
-    ...env,
-    ...sensors,
-    tvoc: env.tvoc ?? data?.latest_reading?.tvoc,
-    eco2: env.eco2 ?? data?.latest_reading?.eco2,
-    pm25: env.pm25 ?? data?.latest_reading?.pm25,
-    temp: env.temp ?? data?.latest_reading?.temp,
-    rh: env.rh ?? data?.latest_reading?.rh,
-    mq3: sensors.mq3 ?? data?.latest_reading?.mq3,
-    mq2: sensors.mq2 ?? data?.latest_reading?.mq2,
-    mq135: sensors.mq135 ?? data?.latest_reading?.mq135,
-    mq8: sensors.mq8 ?? data?.latest_reading?.mq8,
-    mics_co: sensors.mics_co ?? data?.latest_reading?.mics_co,
-    no2: sensors.no2 ?? data?.latest_reading?.no2,
-    nh3: sensors.nh3 ?? data?.latest_reading?.nh3,
-    recorded_at: data?.latest_reading?.recorded_at || data?.recorded_at || (data?.sensor_health?.checked_at ? new Date(data.sensor_health.checked_at * 1000).toISOString() : new Date().toISOString()),
-  }), [data, env, sensors]);
+  const reading = useMemo(() => {
+    const env = data?.environment || {};
+    const sensors = data?.sensors || {};
+    return {
+      ...(data?.latest_reading || {}),
+      ...env,
+      ...sensors,
+      tvoc: env.tvoc ?? data?.latest_reading?.tvoc,
+      eco2: env.eco2 ?? data?.latest_reading?.eco2,
+      pm25: env.pm25 ?? data?.latest_reading?.pm25,
+      temp: env.temp ?? data?.latest_reading?.temp,
+      rh: env.rh ?? data?.latest_reading?.rh,
+      mq3: sensors.mq3 ?? data?.latest_reading?.mq3,
+      mq2: sensors.mq2 ?? data?.latest_reading?.mq2,
+      mq135: sensors.mq135 ?? data?.latest_reading?.mq135,
+      mq8: sensors.mq8 ?? data?.latest_reading?.mq8,
+      mics_co: sensors.mics_co ?? data?.latest_reading?.mics_co,
+      no2: sensors.no2 ?? data?.latest_reading?.no2,
+      nh3: sensors.nh3 ?? data?.latest_reading?.nh3,
+      recorded_at: data?.latest_reading?.recorded_at || data?.recorded_at || (data?.sensor_health?.checked_at ? new Date(data.sensor_health.checked_at * 1000).toISOString() : new Date().toISOString()),
+    };
+  }, [data]);
 
   const isOnline = data?.is_online ?? ((data?.status || '').toUpperCase() === 'ONLINE');
   const isStale = data?.is_stale ?? (!isOnline);
   const dataAgeSec = data?.data_age_seconds;
-  const recordedAtStr = data?.recorded_at || data?.latest_reading?.recorded_at;
 
   const formattedDataAge = useMemo(() => {
     if (dataAgeSec == null) return null;
@@ -202,15 +195,13 @@ export default function Dashboard() {
     return isThai ? `${Math.round(dataAgeSec / 86400)} วันที่แล้ว` : `${Math.round(dataAgeSec / 86400)}d ago`;
   }, [dataAgeSec, isThai]);
 
-  const rawPm25 = env.pm25 ?? reading.pm25;
+  const rawPm25 = reading.pm25;
   const isPm25Fault = rawPm25 != null && rawPm25 < 0;
   const pm25Value = isPm25Fault ? null : (rawPm25 != null ? rawPm25 : null);
   const currentAqi = pm25Value != null ? calculatePm25Aqi(pm25Value) : null;
   const aqiCategory = currentAqi != null ? getAqiCategory(currentAqi) : null;
 
-  const tvocValue = (env.tvoc != null || reading.tvoc != null) ? Math.round(env.tvoc ?? reading.tvoc) : null;
-  const fanState = reading.fan_state || 'ON';
-  const fanSpeed = reading.fan_speed || 100;
+  const tvocValue = reading.tvoc != null ? Math.round(reading.tvoc) : null;
 
   // Real AI prediction from backend (AMBIENT / ALCOHOL / THINNER) - No fake Toluene per CORE_SPEC
   const detectedLabel = (data?.ai_detection?.prediction || (isOnline ? 'AMBIENT' : 'UNKNOWN')).toUpperCase();
@@ -275,28 +266,6 @@ export default function Dashboard() {
       { nameEn: 'Other VOCs', nameTh: 'สารระเหยอื่นๆ', pct: 100 - solventMatch - p2, color: 'bg-[#c3c6d7]' },
     ];
   }, [detectedLabel, solventMatch]);
-
-  // 24H History data formatted for smooth curve (Hook called unconditionally)
-  const chartPoints = useMemo(() => {
-    if (history && history.length >= 5) {
-      return history.map((pt, i) => ({
-        time: pt.time || pt.recorded_at ? new Date(pt.recorded_at || pt.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : `${i * 4}:00`,
-        tvoc: Math.round(pt.tvoc ?? pt.avg_tvoc ?? 60),
-      }));
-    }
-    // Realistic fallback trend matching the Stitch design
-    return [
-      { time: '00:00', tvoc: 35 },
-      { time: '03:00', tvoc: 42 },
-      { time: '06:00', tvoc: 48 },
-      { time: '09:00', tvoc: 40 },
-      { time: '12:00', tvoc: 45 },
-      { time: '15:00', tvoc: 95 },
-      { time: '18:00', tvoc: 82 },
-      { time: '21:00', tvoc: 70 },
-      { time: 'Now', tvoc: tvocValue },
-    ];
-  }, [history, tvocValue]);
 
   // Pip position for the Air Quality slider (0 to 100+ scale)
   const aqiPipPercent = Math.min(100, Math.max(0, (currentAqi / 100) * 100));

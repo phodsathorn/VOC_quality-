@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import {
-  Download, FileText, ArrowRight, ArrowLeft, Calendar, Filter, X,
-  Clock, ChevronDown, Check, ChevronLeft, ChevronRight, Info
+  Download, FileText, ArrowRight, ArrowLeft, Calendar, X,
+  Clock, Check, ChevronLeft, ChevronRight, Info
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function History() {
-  const { t, isThai } = useLanguage();
+  const { isThai } = useLanguage();
   const [activeRange, setActiveRange] = useState('7d');
   const [isFullTable, setIsFullTable] = useState(false);
   const [isCustomPopoverOpen, setIsCustomPopoverOpen] = useState(false);
   const [isExportPopoverOpen, setIsExportPopoverOpen] = useState(false);
   const [showThreshold, setShowThreshold] = useState(true);
   const [intervalOption, setIntervalOption] = useState('1 hour');
-  const [customRangeText, setCustomRangeText] = useState('Oct 18 – Oct 24, 2025');
+  const [customRangeText] = useState('Oct 18 – Oct 24, 2025');
   const [selectedMetrics, setSelectedMetrics] = useState({
     tvoc: true,
     pm25: true,

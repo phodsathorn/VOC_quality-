@@ -9,6 +9,7 @@ import os
 import pandas as pd
 
 MODEL_PATH = os.getenv("MODEL_PATH", "voc_model.pkl")
+CONFIDENCE_THRESHOLD = float(os.getenv("ML_CONFIDENCE_THRESHOLD", "65.0"))
 
 # Feature columns ต้องตรงกับที่ใช้ตอนเทรน
 FEATURE_COLS = [
@@ -62,9 +63,21 @@ def predict(reading: dict) -> dict:
     proba = _pipeline.predict_proba(X)[0]
     conf = round(float(max(proba)) * 100, 2)
 
+    raw_label = str(pred)
+    if conf < CONFIDENCE_THRESHOLD:
+        return {
+            "prediction": "UNKNOWN",
+            "raw_prediction": raw_label,
+            "confidence": conf,
+            "is_dangerous": False,
+            "low_confidence": True,
+            "mock": False,
+        }
+
     return {
-        "prediction": str(pred),
+        "prediction": raw_label,
         "confidence": conf,
-        "is_dangerous": str(pred).upper() in DANGEROUS_LABELS,
+        "is_dangerous": raw_label.upper() in DANGEROUS_LABELS,
+        "low_confidence": False,
         "mock": False,
     }

@@ -31,6 +31,10 @@ DEFAULT_DEVICE_TOKEN = os.getenv("DEFAULT_DEVICE_TOKEN", "voc-device-box001-secr
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
 IS_PRODUCTION = ENVIRONMENT == "production"
 DEVICE_OFFLINE_THRESHOLD_SEC = 45.0  # Threshold in seconds to classify a hardware box as OFFLINE
+KIOSK_EMERGENCY_PIN = os.getenv("KIOSK_EMERGENCY_PIN", "1234")
+_KIOSK_PIN_FAILURES: dict[str, list[float]] = defaultdict(list)
+_KIOSK_PIN_MAX_ATTEMPTS = 5
+_KIOSK_PIN_WINDOW_SEC = 60.0
 
 # In-memory store fallback for development mode when PostgreSQL is offline
 _in_memory_users = {
@@ -1158,106 +1162,18 @@ async def verify_admin_key(
     return True
 
 
-@app.get("/")
-@app.head("/")
-@app.get("/health")
-@app.get("/api/health")
-async def root_health():
-    db_connected = False
-    try:
-        pool = await get_pool()
-        if pool:
-            db_connected = not pool._closed
-    except Exception:
-        db_connected = False
+from routers.operational import create_operational_router
+from routers.line import create_line_router
 
-    return {
-        "status": "ok",
-        "service": "voc-backend-api",
-        "database": "connected" if db_connected else "disconnected",
-    }
-
-
-@app.get("/api/metrics")
-async def get_system_metrics():
-    """
-    Phase 4: Operational Metrics & Telemetry Observability
-    Provides real-time SRE metrics: uptime, memory, request volume, average latency,
-    active alerts count, and database pool status.
-    """
-    uptime_sec = round(time.time() - _APP_START_TIME, 2)
-    avg_latency = round(
-        _METRICS["total_latency_ms"] / max(1, _METRICS["total_requests"]), 2
+# Register Operational Health & SRE Metrics Router (Phase 6.1 Modularization)
+app.include_router(
+    create_operational_router(
+        get_pool=get_pool,
+        app_start_time=_APP_START_TIME,
+        metrics=_METRICS,
+        in_memory_alerts=_in_memory_alerts,
     )
-
-    mem_mb = 0.0
-    try:
-        import resource
-        rusage = resource.getrusage(resource.RUSAGE_SELF)
-        if sys.platform == "darwin":
-            mem_mb = round(rusage.ru_maxrss / (1024 * 1024), 2)
-        else:
-            mem_mb = round(rusage.ru_maxrss / 1024, 2)
-    except Exception:
-        mem_mb = 0.0
-
-    db_stats = {"status": "disconnected", "active_connections": 0, "max_size": 0}
-    try:
-        pool = await get_pool()
-        if pool and not pool._closed:
-            db_stats["status"] = "connected"
-            db_stats["active_connections"] = len(pool._holders) if hasattr(pool, "_holders") else 0
-            db_stats["max_size"] = getattr(pool, "_maxsize", 10)
-    except Exception:
-        pass
-
-    active_alerts = len([a for a in _in_memory_alerts if not a.get("resolved")])
-
-    return {
-        "status": "HEALTHY",
-        "service": "voc-backend-api",
-        "version": "1.4.0",
-        "uptime_seconds": uptime_sec,
-        "memory_rss_mb": mem_mb,
-        "http_requests": {
-            "total": _METRICS["total_requests"],
-            "errors": _METRICS["total_errors"],
-            "ingest_telemetry": _METRICS["ingest_requests"],
-            "avg_latency_ms": avg_latency,
-        },
-        "database": db_stats,
-        "active_alerts_count": active_alerts,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-@app.get("/metrics")
-async def prometheus_metrics():
-    """Prometheus exposition format for industrial scrape targets"""
-    uptime_sec = round(time.time() - _APP_START_TIME, 2)
-    total_req = _METRICS["total_requests"]
-    total_err = _METRICS["total_errors"]
-    ingest_req = _METRICS["ingest_requests"]
-    active_alerts = len([a for a in _in_memory_alerts if not a.get("resolved")])
-
-    lines = [
-        "# HELP voc_uptime_seconds Application uptime in seconds",
-        "# TYPE voc_uptime_seconds gauge",
-        f"voc_uptime_seconds {uptime_sec}",
-        "# HELP voc_http_requests_total Total HTTP requests served",
-        "# TYPE voc_http_requests_total counter",
-        f"voc_http_requests_total {total_req}",
-        "# HELP voc_http_errors_total Total 5xx HTTP errors",
-        "# TYPE voc_http_errors_total counter",
-        f"voc_http_errors_total {total_err}",
-        "# HELP voc_ingest_telemetry_total Total sensor readings ingested",
-        "# TYPE voc_ingest_telemetry_total counter",
-        f"voc_ingest_telemetry_total {ingest_req}",
-        "# HELP voc_active_alerts Current active alerts",
-        "# TYPE voc_active_alerts gauge",
-        f"voc_active_alerts {active_alerts}",
-    ]
-    return PlainTextResponse("\n".join(lines) + "\n")
+)
 
 
 # ==================================================================
@@ -2492,15 +2408,120 @@ async def request_calibration(
     )
     return {"status": "queued", "calibration_id": calibration_id, "message": "รอ ESP32 รับคำสั่ง (ต้องวางเครื่องในอากาศสะอาด)"}
 
+_in_memory_device_commands: list[dict] = []
+
+
+class FanBoostBody(BaseModel):
+    duration_seconds: int = 300
+    action: str = "FAN_BOOST"
+
+
+@app.post("/api/devices/{box_id}/fan-boost")
+async def trigger_device_fan_boost(
+    box_id: str,
+    body: FanBoostBody,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin", "engineer", "operator")),
+):
+    """
+    Queue an exhaust fan boost (or normal return) actuator command for a hardware box.
+    ESP32 polls /api/device-command and executes GPIO relay actuation.
+    """
+    require_box_access(current_user, box_id)
+    action = body.action if body.action in ("FAN_BOOST", "FAN_NORMAL") else "FAN_BOOST"
+    duration_sec = max(30, min(int(body.duration_seconds), 3600))
+    payload = {
+        "duration_seconds": duration_sec,
+        "requested_by": current_user.get("username", "unknown"),
+    }
+    ip = request.client.host if request.client else "unknown"
+
+    pool = await get_pool()
+    cmd_id = None
+    if pool:
+        row = await pool.fetchrow(
+            "INSERT INTO device_commands (box_id, action, payload) VALUES ($1, $2, $3::jsonb) RETURNING id",
+            box_id, action, json.dumps(payload),
+        )
+        cmd_id = row["id"]
+    else:
+        cmd_id = len(_in_memory_device_commands) + 1
+        _in_memory_device_commands.append({
+            "id": cmd_id,
+            "box_id": box_id,
+            "action": action,
+            "payload": payload,
+            "status": "PENDING",
+        })
+
+    await record_audit_event(
+        action=f"DEVICE_{action}_QUEUED",
+        resource_type="DEVICE",
+        resource_id=box_id,
+        details={"command_id": cmd_id, "action": action, "duration_seconds": duration_sec},
+        user=current_user,
+        status="SUCCESS",
+        ip=ip,
+    )
+    return {
+        "status": "queued",
+        "command_id": cmd_id,
+        "box_id": box_id,
+        "action": action,
+        "duration_seconds": duration_sec,
+    }
+
+
 @app.get("/api/device-command")
 async def get_device_command(box_id: str):
     pool = await get_pool()
-    # DELIVERED remains eligible until the device posts its report; this makes
-    # calibration reliable across a transient Wi-Fi failure.
-    row = await pool.fetchrow("SELECT id, action, payload FROM device_commands WHERE box_id=$1 AND status IN ('PENDING','DELIVERED') ORDER BY id LIMIT 1", box_id)
-    if not row: return {"command": None}
-    await pool.execute("UPDATE device_commands SET status='DELIVERED' WHERE id=$1", row["id"])
-    return {"command": {"id": row["id"], "action": row["action"], **dict(row["payload"])}}
+    if pool:
+        # DELIVERED remains eligible until the device posts its report; this makes
+        # calibration and fan actuation reliable across transient Wi-Fi failures.
+        row = await pool.fetchrow(
+            "SELECT id, action, payload FROM device_commands WHERE box_id=$1 AND status IN ('PENDING','DELIVERED') ORDER BY id LIMIT 1",
+            box_id,
+        )
+        if not row:
+            return {"command": None}
+        await pool.execute("UPDATE device_commands SET status='DELIVERED' WHERE id=$1", row["id"])
+        raw_payload = row["payload"]
+        parsed_payload = json.loads(raw_payload) if isinstance(raw_payload, str) else dict(raw_payload or {})
+        return {"command": {"id": row["id"], "action": row["action"], **parsed_payload}}
+
+    for cmd in _in_memory_device_commands:
+        if cmd["box_id"] == box_id and cmd["status"] in ("PENDING", "DELIVERED"):
+            cmd["status"] = "DELIVERED"
+            return {"command": {"id": cmd["id"], "action": cmd["action"], **cmd["payload"]}}
+    return {"command": None}
+
+
+class DeviceCommandAckBody(BaseModel):
+    box_id: str
+    status: str = "COMPLETE"
+    detail: str = ""
+
+
+@app.post("/api/device-command/{command_id}/ack")
+async def ack_device_command(command_id: int, body: DeviceCommandAckBody):
+    """Allow ESP32 firmware to acknowledge execution of a queued command (e.g., FAN_BOOST)."""
+    final_status = body.status if body.status in ("COMPLETE", "FAILED", "REJECTED") else "COMPLETE"
+    pool = await get_pool()
+    if pool:
+        await pool.execute(
+            "UPDATE device_commands SET status=$1, completed_at=NOW(), result=$2::jsonb WHERE id=$3 AND box_id=$4",
+            final_status,
+            json.dumps({"detail": body.detail}),
+            command_id,
+            body.box_id,
+        )
+    else:
+        for cmd in _in_memory_device_commands:
+            if cmd["id"] == command_id and cmd["box_id"] == body.box_id:
+                cmd["status"] = final_status
+                cmd["detail"] = body.detail
+                break
+    return {"status": final_status.lower(), "command_id": command_id}
 
 class CalibrationReport(BaseModel):
     box_id: str
@@ -3172,13 +3193,52 @@ class KioskEmergencyAlertBody(BaseModel):
 async def create_kiosk_emergency_alert(body: KioskEmergencyAlertBody, request: Request):
     """
     Onsite Emergency Chemical Alarm (triggered from factory touch Kiosk).
-    Creates an immediate Critical Alert, notifies LINE, and logs an immutable audit event.
+    Verifies Kiosk Emergency PIN with brute-force rate limiting, then creates an
+    immediate Critical Alert, notifies LINE, and logs an immutable audit event.
     """
+    ip = request.client.host if request.client else "unknown"
+    now_ts = time.time()
+
+    # Rate limit failed Kiosk PIN attempts per client IP
+    recent_failures = [t for t in _KIOSK_PIN_FAILURES[ip] if now_ts - t < _KIOSK_PIN_WINDOW_SEC]
+    _KIOSK_PIN_FAILURES[ip] = recent_failures
+    if len(recent_failures) >= _KIOSK_PIN_MAX_ATTEMPTS:
+        await record_audit_event(
+            action="KIOSK_EMERGENCY_PIN_RATE_LIMITED",
+            resource_type="ALERT",
+            resource_id=body.box_id,
+            details={"box_id": body.box_id, "attempts_in_window": len(recent_failures)},
+            user={"username": "onsite_kiosk_operator", "role": "operator"},
+            status="FAILURE",
+            ip=ip
+        )
+        raise HTTPException(
+            status_code=429,
+            detail="Too many invalid Kiosk PIN attempts. Please wait 60 seconds and try again."
+        )
+
+    expected_pin = os.getenv("KIOSK_EMERGENCY_PIN", KIOSK_EMERGENCY_PIN)
+    submitted_pin = (body.pin or "").strip()
+    if not submitted_pin or not hmac.compare_digest(submitted_pin, expected_pin):
+        _KIOSK_PIN_FAILURES[ip].append(now_ts)
+        await record_audit_event(
+            action="KIOSK_EMERGENCY_PIN_FAILED",
+            resource_type="ALERT",
+            resource_id=body.box_id,
+            details={"box_id": body.box_id, "source_screen": body.source_screen},
+            user={"username": "onsite_kiosk_operator", "role": "operator"},
+            status="FAILURE",
+            ip=ip
+        )
+        raise HTTPException(status_code=403, detail="Invalid Kiosk Emergency PIN")
+
+    # Valid PIN resets failure counter for this IP
+    _KIOSK_PIN_FAILURES.pop(ip, None)
+
     level = body.level if body.level in ("Warning", "High", "Critical") else "Critical"
     sla_min = 5
     now_utc = datetime.now(timezone.utc)
     sla_deadline = now_utc + timedelta(minutes=sla_min)
-    ip = request.client.host if request.client else "unknown"
 
     pool = await get_pool()
     new_id = None
@@ -5002,237 +5062,15 @@ async def run_diagnostics(
 
 
 # ==================================================================
-# LINE BOT WEBHOOK — ผู้ใช้ผูกบัญชี LINE กับกล่องเซนเซอร์
+# LINE BOT WEBHOOK — Registered via routers/line.py (Phase 6.1)
 # ==================================================================
-
-@app.post("/api/line/webhook")
-async def line_webhook(request: Request):
-    """
-    LINE Bot Webhook: รับ Events จาก LINE Platform
-    - ตรวจสอบ Signature ก่อนประมวลผลทุกครั้ง (HMAC-SHA256)
-    - รองรับคำสั่ง: BIND <BOX_ID>, UNBIND <BOX_ID>, STATUS
-    """
-    body_bytes = await request.body()
-    signature = request.headers.get("X-Line-Signature", "")
-
-    if not verify_line_signature(body_bytes, signature):
-        raise HTTPException(status_code=403, detail="Invalid LINE signature")
-
-    try:
-        payload = json.loads(body_bytes)
-    except Exception:
-        return {"status": "ok"}
-
-    pool = await get_pool()
-
-    for event in payload.get("events", []):
-        if event.get("type") != "message":
-            continue
-        msg = event.get("message", {})
-        if msg.get("type") != "text":
-            continue
-
-        text = msg.get("text", "").strip().upper()
-        reply_token = event.get("replyToken", "")
-        source = event.get("source", {})
-        line_user_id = source.get("userId", "")
-
-        if not line_user_id:
-            continue
-
-        # ดึงชื่อผู้ใช้จาก LINE Profile API
-        display_name = "LINE User"
-        try:
-            token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "")
-            if token:
-                profile_url = f"https://api.line.me/v2/bot/profile/{line_user_id}"
-                headers = {"Authorization": f"Bearer {token}"}
-                req = urllib.request.Request(profile_url, headers=headers)
-                with urllib.request.urlopen(req, timeout=5) as resp:
-                    profile = json.loads(resp.read())
-                    display_name = profile.get("displayName", "LINE User")
-        except Exception:
-            pass
-
-        if text.startswith("BIND "):
-            box_id = text[5:].strip()
-            if not box_id:
-                reply_line_message(reply_token, "❌ กรุณาระบุหมายเลขกล่อง เช่น: BIND BOX-001")
-                continue
-
-            # ตรวจสอบว่ากล่องนั้นมีในระบบ
-            valid_box = False
-            if pool:
-                row = await pool.fetchrow("SELECT box_id FROM devices WHERE box_id = $1", box_id)
-                valid_box = row is not None
-            else:
-                valid_box = box_id in ["BOX-001", "BOX-002"]
-
-            if not valid_box:
-                reply_line_message(reply_token,
-                    f"❌ ไม่พบกล่อง {box_id} ในระบบ\n"
-                    f"กรุณาตรวจสอบหมายเลขอีกครั้ง หรือพิมพ์ STATUS เพื่อดูกล่องที่ผูกไว้")
-                continue
-
-            if pool:
-                await pool.execute(
-                    """
-                    INSERT INTO line_subscribers (line_user_id, box_id, display_name, is_active)
-                    VALUES ($1, $2, $3, TRUE)
-                    ON CONFLICT (line_user_id, box_id)
-                    DO UPDATE SET is_active = TRUE, display_name = $3, updated_at = NOW()
-                    """,
-                    line_user_id, box_id, display_name
-                )
-            else:
-                # In-memory fallback
-                found = False
-                for sub in _in_memory_line_subscribers:
-                    if sub["line_user_id"] == line_user_id and sub["box_id"] == box_id:
-                        sub["is_active"] = True
-                        sub["display_name"] = display_name
-                        found = True
-                        break
-                if not found:
-                    _in_memory_line_subscribers.append({
-                        "id": len(_in_memory_line_subscribers) + 1,
-                        "line_user_id": line_user_id,
-                        "box_id": box_id,
-                        "display_name": display_name,
-                        "is_active": True,
-                        "created_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
-                    })
-
-            reply_line_message(reply_token,
-                f"✅ ผูกบัญชีสำเร็จ!\n"
-                f"📦 กล่อง: {box_id}\n"
-                f"👤 ชื่อ: {display_name}\n"
-                f"🔔 คุณจะได้รับแจ้งเตือนอัตโนมัติเมื่อเกิด SLA Breach\n"
-                f"   (ไม่มีผู้รับทราบ Alert ภายใน 5-10 นาที)\n"
-                f"💡 พิมพ์ UNBIND {box_id} เพื่อยกเลิก"
-            )
-
-        elif text.startswith("UNBIND "):
-            box_id = text[7:].strip()
-            if pool:
-                await pool.execute(
-                    "UPDATE line_subscribers SET is_active = FALSE, updated_at = NOW() WHERE line_user_id = $1 AND box_id = $2",
-                    line_user_id, box_id
-                )
-            else:
-                for sub in _in_memory_line_subscribers:
-                    if sub["line_user_id"] == line_user_id and sub["box_id"] == box_id:
-                        sub["is_active"] = False
-            reply_line_message(reply_token,
-                f"✅ ยกเลิกการแจ้งเตือนจากกล่อง {box_id} เรียบร้อยแล้ว\n"
-                f"พิมพ์ STATUS เพื่อดูกล่องที่ยังผูกอยู่")
-
-        elif text == "STATUS":
-            if pool:
-                rows = await pool.fetch(
-                    "SELECT box_id FROM line_subscribers WHERE line_user_id = $1 AND is_active = TRUE",
-                    line_user_id
-                )
-                subs = [r["box_id"] for r in rows]
-            else:
-                subs = [
-                    s["box_id"] for s in _in_memory_line_subscribers
-                    if s["line_user_id"] == line_user_id and s["is_active"]
-                ]
-
-            if subs:
-                reply_line_message(reply_token,
-                    f"📊 สถานะการแจ้งเตือนของคุณ:\n" +
-                    "\n".join(f"  ✅ {b}" for b in subs) +
-                    f"\n\nรวม {len(subs)} กล่อง\n"
-                    f"พิมพ์ UNBIND <BOX_ID> เพื่อยกเลิก"
-                )
-            else:
-                reply_line_message(reply_token,
-                    "📭 คุณยังไม่ได้ผูกกล่องใดๆ\n"
-                    "💡 พิมพ์ BIND BOX-001 เพื่อเริ่มรับแจ้งเตือน"
-                )
-
-        else:
-            reply_line_message(reply_token,
-                "🤖 VOC Safety Bot — คำสั่งที่ใช้ได้:\n"
-                "─────────────────────\n"
-                "📌 BIND <BOX_ID>  — ผูกบัญชีรับแจ้งเตือนจากกล่อง\n"
-                "   ตัวอย่าง: BIND BOX-001\n\n"
-                "📌 UNBIND <BOX_ID> — ยกเลิกการแจ้งเตือน\n"
-                "   ตัวอย่าง: UNBIND BOX-001\n\n"
-                "📌 STATUS — ดูกล่องที่ผูกไว้ทั้งหมด\n"
-                "─────────────────────\n"
-                "🔔 ระบบจะแจ้งเตือนอัตโนมัติเมื่อมีก๊าซอันตราย\n"
-                "   และไม่มีผู้ดูแลรับทราบภายในเวลาที่กำหนด"
-            )
-
-    return {"status": "ok"}
-
-
-@app.get("/api/line/subscribers")
-async def get_line_subscribers(
-    box_id: Optional[str] = None,
-    current_user: dict = Depends(require_roles("admin", "engineer"))
-):
-    """เรียกดูรายชื่อผู้ใช้ LINE ที่ผูกกับกล่องเซนเซอร์ (admin/engineer เท่านั้น)"""
-    pool = await get_pool()
-    if pool:
-        try:
-            if box_id:
-                rows = await pool.fetch(
-                    """
-                    SELECT id, line_user_id, box_id, display_name, is_active,
-                           to_char(created_at AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI') AS created_at
-                    FROM line_subscribers
-                    WHERE box_id = $1
-                    ORDER BY id DESC
-                    """,
-                    box_id
-                )
-            else:
-                rows = await pool.fetch(
-                    """
-                    SELECT id, line_user_id, box_id, display_name, is_active,
-                           to_char(created_at AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI') AS created_at
-                    FROM line_subscribers
-                    ORDER BY id DESC
-                    """
-                )
-            return [dict(r) for r in rows]
-        except Exception as e:
-            print(f"[LINE Subscribers Error] {e}")
-    # In-memory fallback
-    result = _in_memory_line_subscribers
-    if box_id:
-        result = [s for s in result if s["box_id"] == box_id]
-    return result
-
-
-@app.delete("/api/line/subscribers/{sub_id}")
-async def delete_line_subscriber(
-    sub_id: int,
-    current_user: dict = Depends(require_roles("admin"))
-):
-    """ยกเลิก (Deactivate) การผูกบัญชี LINE — admin เท่านั้น"""
-    pool = await get_pool()
-    if pool:
-        result = await pool.execute(
-            "UPDATE line_subscribers SET is_active = FALSE, updated_at = NOW() WHERE id = $1",
-            sub_id
-        )
-        if result == "UPDATE 0":
-            raise HTTPException(status_code=404, detail=f"Subscriber {sub_id} not found")
-    else:
-        found = False
-        for sub in _in_memory_line_subscribers:
-            if sub["id"] == sub_id:
-                sub["is_active"] = False
-                found = True
-                break
-        if not found:
-            raise HTTPException(status_code=404, detail=f"Subscriber {sub_id} not found")
-    return {"status": "ok", "message": f"Subscriber {sub_id} deactivated"}
+app.include_router(
+    create_line_router(
+        get_pool=get_pool,
+        require_roles=require_roles,
+        in_memory_line_subscribers=_in_memory_line_subscribers,
+    )
+)
 
 
 if __name__ == "__main__":

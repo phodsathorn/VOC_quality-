@@ -21,6 +21,32 @@ test_backend:
     - pip install --no-cache-dir -r requirements.txt
     - python -m unittest discover -s tests -v
   rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - backend/**/*
+        - .gitlab-ci.yml
+
+test_backend_postgres:
+  stage: test
+  image: python:3.11-slim
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+  variables:
+    POSTGRES_DB: voc_ci_test
+    POSTGRES_USER: voc_ci
+    POSTGRES_PASSWORD: ci_ephemeral_password
+    DATABASE_URL: postgresql://voc_ci:ci_ephemeral_password@postgres:5432/voc_ci_test
+    ENVIRONMENT: development
+  script:
+    - echo "Running Real PostgreSQL Migration & Integration Tests..."
+    - cd backend
+    - pip install --no-cache-dir -r requirements.txt
+    - python migrator.py
+    - python -m unittest tests/test_api_integration.py -v
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - backend/**/*
@@ -37,6 +63,7 @@ test_frontend:
     - npm run test
     - npm run build
   rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
       changes:
         - frontend/**/*

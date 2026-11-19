@@ -3,7 +3,7 @@ import { AQI_LEVELS, getAqiCategory } from '../../utils/aqiHelper';
 /**
  * Operational VOC & Air Quality Spectrum Bar (OSHA / ISO 16000 Calibration)
  */
-export default function AqiScaleBar({ currentAqi = null, showLabels = true, compact = false, style = {} }) {
+export default function AqiScaleBar({ currentAqi = null, showLabels = true, style = {} }) {
   const currentCat = currentAqi !== null ? getAqiCategory(currentAqi) : null;
 
   return (

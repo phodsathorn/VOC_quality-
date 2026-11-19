@@ -47,16 +47,19 @@ export default function LoginPage() {
     }
   };
 
+  const enableDemoLogin = import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true';
+
   const handleQuickRole = (role) => {
+    if (!enableDemoLogin) return;
     if (role === 'admin') {
       setUsername('admin');
-      setPassword('Admin@Voc2026!');
+      setPassword(import.meta.env.VITE_DEMO_ADMIN_PASSWORD || '');
     } else if (role === 'engineer') {
       setUsername('engineer');
-      setPassword('Engineer@Voc2026!');
+      setPassword(import.meta.env.VITE_DEMO_ENGINEER_PASSWORD || '');
     } else {
       setUsername('operator');
-      setPassword('Operator@Voc2026!');
+      setPassword(import.meta.env.VITE_DEMO_OPERATOR_PASSWORD || '');
     }
   };
 
@@ -189,30 +192,32 @@ export default function LoginPage() {
               {loading ? <Loader2 size={18} className="animate-spin" /> : t('signInBtn')}
             </button>
 
-            {/* Role Selection Quick Pills */}
-            <div className="flex items-center justify-center gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => handleQuickRole('admin')}
-                className="px-3 py-1 bg-[#f2f3ff] hover:bg-[#eaedff] text-[#505f76] hover:text-[#131b2e] text-[12px] font-semibold rounded-full transition-all duration-150 cursor-pointer"
-              >
-                {t('roleAdminName').split(' ')[0]}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickRole('engineer')}
-                className="px-3 py-1 bg-[#f2f3ff] hover:bg-[#eaedff] text-[#505f76] hover:text-[#131b2e] text-[12px] font-semibold rounded-full transition-all duration-150 cursor-pointer"
-              >
-                {t('roleEngineerName').split(' ')[0]}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickRole('operator')}
-                className="px-3 py-1 bg-[#f2f3ff] hover:bg-[#eaedff] text-[#505f76] hover:text-[#131b2e] text-[12px] font-semibold rounded-full transition-all duration-150 cursor-pointer"
-              >
-                {t('roleOperatorName').split(' ')[0]}
-              </button>
-            </div>
+            {/* Role Selection Quick Pills (Demo mode only) */}
+            {enableDemoLogin && (
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickRole('admin')}
+                  className="px-3 py-1 bg-[#f2f3ff] hover:bg-[#eaedff] text-[#505f76] hover:text-[#131b2e] text-[12px] font-semibold rounded-full transition-all duration-150 cursor-pointer"
+                >
+                  {t('roleAdminName').split(' ')[0]}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickRole('engineer')}
+                  className="px-3 py-1 bg-[#f2f3ff] hover:bg-[#eaedff] text-[#505f76] hover:text-[#131b2e] text-[12px] font-semibold rounded-full transition-all duration-150 cursor-pointer"
+                >
+                  {t('roleEngineerName').split(' ')[0]}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickRole('operator')}
+                  className="px-3 py-1 bg-[#f2f3ff] hover:bg-[#eaedff] text-[#505f76] hover:text-[#131b2e] text-[12px] font-semibold rounded-full transition-all duration-150 cursor-pointer"
+                >
+                  {t('roleOperatorName').split(' ')[0]}
+                </button>
+              </div>
+            )}
           </form>
         </div>
 

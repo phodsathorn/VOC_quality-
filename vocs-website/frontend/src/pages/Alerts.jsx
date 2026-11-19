@@ -1,15 +1,15 @@
 import IncidentDrawer from "./alerts/IncidentDrawer";
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Bell, Check, ChevronDown, X, ShieldAlert, Search, Calendar, SlidersHorizontal, CheckCircle2, AlertTriangle
+  Bell, Check, ChevronDown, Search, Calendar, SlidersHorizontal
 } from 'lucide-react';
 import { API } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function Alerts() {
-  const { user, token } = useAuth();
-  const { t, isThai } = useLanguage();
+  const { token } = useAuth();
+  const { isThai } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [severityFilter, setSeverityFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('Today');

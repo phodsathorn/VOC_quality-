@@ -3,7 +3,6 @@ import {
   Sliders, Bell, Users, Clock, Settings as SettingsIcon, Check
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { useAuth } from '../context/AuthContext';
 import { Tabs } from '../components/ui';
 import apiClient from '../services/apiClient';
 
@@ -15,8 +14,7 @@ import GeneralTab from './settings/GeneralTab';
 import UserModals from './settings/UserModals';
 
 export default function Settings() {
-  const { t, lang, setLang } = useLanguage();
-  const { token, user: currentUser } = useAuth();
+  const { t, lang } = useLanguage();
 
   const [activeTab, setActiveTab] = useState('thresholds');
   const [hasChanges, setHasChanges] = useState(false);
