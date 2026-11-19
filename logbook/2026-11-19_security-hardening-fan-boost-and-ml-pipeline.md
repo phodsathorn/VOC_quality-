@@ -98,3 +98,18 @@
 
 ### การตรวจสอบ
 - **Backend Tests (`./venv/bin/python -m unittest discover -s tests -v`):** ผ่าน **35/35** tests (5.20s, 0 failures, 0 errors)
+
+---
+
+## อัปเดตเวลา 13:26 ICT — แยก Backend Routers รอบที่ 3 (Auth, Alerts, OTA, Exports) และ Push ขึ้น GitLab/GitHub
+
+### สิ่งที่เปลี่ยน
+- แยกโมดูล Router เพิ่มเติมอีก 4 โมดูลออกจาก `vocs-website/backend/main.py`:
+  - `routers/auth.py` (531 บรรทัด): Login/Logout/Me, Users CRUD, Audit Events & CSV Export
+  - `routers/alerts.py` (577 บรรทัด): 5-Stage Alert Lifecycle (Active → Acknowledged → In progress → Resolved → Verified), Manual Alerts และ Kiosk PIN-verified Emergency Alarms
+  - `routers/ota.py` (437 บรรทัด): Cloud OTA Upload/Rollback/History/Report/Status/Download/Signature Verify และ Model Governance Registry
+  - `routers/exports.py` (489 บรรทัด): Cryptographic CSV/XLSX/PDF Compliance Exports, Export History, Downsampled Trends และ Daily Air Quality Aggregation
+- ลดขนาด `vocs-website/backend/main.py` ลงจากเดิม 5,388 บรรทัด เหลือ **2,675 บรรทัด** (ลดลงมากกว่า 50% โดยแยกออกเป็น 9 routers รวม 3,054 บรรทัด)
+
+### การตรวจสอบ
+- **Backend Tests (`./venv/bin/python -m unittest discover -s tests -v`):** ผ่าน **35/35** tests (5.17s, 0 failures, 0 warnings)
