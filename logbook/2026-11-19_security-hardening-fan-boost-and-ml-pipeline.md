@@ -83,3 +83,18 @@
 - **Frontend Unit Tests:** ผ่าน **16/16** tests (39.2ms)
 - **Frontend Linter (`oxlint`):** **0 errors, 8 warnings** (ลดจากเดิม 85 → 8)
 - **Frontend Production Build (`vite build`):** ผ่านสมบูรณ์ใน 188ms (1,890 modules)
+
+---
+
+## อัปเดตเวลา 13:16 ICT — แยก Backend Routers เพิ่มเติม (Emissions, Maintenance, Training) และ Push ขึ้น GitLab/GitHub
+
+### สิ่งที่เปลี่ยน
+1. **Git Push รอบแรก (`c2b8a70`):** Push การปรับปรุง Phase 5B, 6.2, 7, 8, 9 และ router ชุดแรกขึ้นทั้ง `origin` (GitLab) และ `github` (GitHub) เรียบร้อย
+2. **Backend Modularization รอบที่ 2 (`vocs-website/backend/routers/`):**
+   - สร้าง `routers/emissions.py` (264 บรรทัด): แยก `/api/emissions/stacks`, `/api/emissions/permits`, `/api/emissions/stack-measurement`, และ `/api/reports/yearly-emissions`
+   - สร้าง `routers/maintenance.py` (237 บรรทัด): แยก `/api/maintenance/work-orders` (GET/POST), `/api/maintenance/real-health`, `/api/maintenance/status`, `/api/maintenance/calibrate/{sensor_id}`, `/api/maintenance/replace-filter`, และ `/api/maintenance/diagnostic`
+   - สร้าง `routers/training.py` (145 บรรทัด): แยก `/api/training/sessions` CRUD ทั้งหมด พร้อมลบ duplicate field ใน `SessionUpdate`
+   - ลดขนาด `vocs-website/backend/main.py` ลงเหลือ **4,553 บรรทัด** (แยกออกมาแล้วรวม 5 routers / 1,020 บรรทัด: `operational`, `line`, `emissions`, `maintenance`, `training`)
+
+### การตรวจสอบ
+- **Backend Tests (`./venv/bin/python -m unittest discover -s tests -v`):** ผ่าน **35/35** tests (5.20s, 0 failures, 0 errors)

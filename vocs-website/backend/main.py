@@ -1164,6 +1164,9 @@ async def verify_admin_key(
 
 from routers.operational import create_operational_router
 from routers.line import create_line_router
+from routers.emissions import create_emissions_router
+from routers.maintenance import create_maintenance_router
+from routers.training import create_training_router
 
 # Register Operational Health & SRE Metrics Router (Phase 6.1 Modularization)
 app.include_router(
@@ -3298,122 +3301,8 @@ async def create_kiosk_emergency_alert(body: KioskEmergencyAlertBody, request: R
 
 # ==================================================================
 # Phase W2: MAINTENANCE WORK ORDERS & REAL HARDWARE DIAGNOSTICS
+# Registered via routers/maintenance.py (Phase 6.1)
 # ==================================================================
-@app.get("/api/maintenance/work-orders")
-async def list_work_orders(box_id: Optional[str] = None, limit: int = 20):
-    """เรียกดูประวัติใบสั่งงานและการซ่อมบำรุงรักษา (Maintenance Work Orders)"""
-    pool = await get_pool()
-    if pool:
-        try:
-            where_sql = "WHERE box_id = $1" if box_id else ""
-            vals = [box_id, limit] if box_id else [limit]
-            rows = await pool.fetch(
-                f"""
-                SELECT id, box_id, task_type, title, performed_by, role, status, checklist, notes,
-                       to_char(completed_at AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY HH24:MI') AS completed_at
-                FROM maintenance_work_orders
-                {where_sql}
-                ORDER BY completed_at DESC
-                LIMIT ${len(vals)}
-                """,
-                *vals
-            )
-            items = []
-            for r in rows:
-                item = dict(r)
-                if isinstance(item["checklist"], str):
-                    try: item["checklist"] = json.loads(item["checklist"])
-                    except Exception: pass
-                items.append(item)
-            return items
-        except Exception as e:
-            print(f"[Work Orders Error] {e}")
-
-    return _in_memory_work_orders[:limit]
-
-
-@app.post("/api/maintenance/work-orders")
-async def create_work_order(
-    body: WorkOrderCreateRequest,
-    request: Request,
-    current_user: dict = Depends(require_roles("admin", "engineer"))
-):
-    """บันทึกผลการบำรุงรักษา / ใบสั่งงาน (Checklist Completed) — เฉพาะ Admin/Engineer ที่มีสิทธิ์ประจำกล่อง"""
-    require_box_access(current_user, body.box_id)
-    username = current_user.get("username", "engineer")
-    role = current_user.get("role", "engineer")
-    ip = request.client.host if request.client else "unknown"
-
-    pool = await get_pool()
-    new_id = None
-    if pool:
-        new_id = await pool.fetchval(
-            """
-            INSERT INTO maintenance_work_orders (box_id, task_type, title, performed_by, role, status, checklist, notes)
-            VALUES ($1, $2, $3, $4, $5, 'COMPLETED', $6::jsonb, $7)
-            RETURNING id
-            """,
-            body.box_id, body.task_type, body.title, username, role, json.dumps(body.checklist, ensure_ascii=False), body.notes
-        )
-    else:
-        new_id = len(_in_memory_work_orders) + 1
-        _in_memory_work_orders.insert(0, {
-            "id": new_id,
-            "box_id": body.box_id,
-            "task_type": body.task_type,
-            "title": body.title,
-            "performed_by": username,
-            "role": role,
-            "status": "COMPLETED",
-            "checklist": body.checklist,
-            "notes": body.notes,
-            "completed_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
-        })
-
-    await record_audit_event(
-        action="MAINTENANCE_WORK_ORDER",
-        resource_type="MAINTENANCE",
-        resource_id=str(new_id),
-        details={"box_id": body.box_id, "task_type": body.task_type, "title": body.title},
-        user=current_user,
-        status="SUCCESS",
-        ip=ip
-    )
-    return {"status": "ok", "work_order_id": new_id, "message": "Work order recorded"}
-
-
-@app.get("/api/maintenance/real-health")
-async def get_real_hardware_health(box_id: str = "BOX-001"):
-    """
-    คำนวณค่าสุขภาพเซนเซอร์จริงจาก Database (Phase W2):
-    - Runtime Hours สะสมจาก sensor_runtime
-    - วันที่ผ่านไปหลังการสอบเทียบครั้งล่าสุดจาก sensor_calibrations
-    - เมื่อไม่มีข้อมูลจริงในระบบ จะแสดงสถานะ UNAVAILABLE และไม่คืน demo data ปลอม
-    """
-    pool = await get_pool()
-    sensor_runtimes = {}
-    last_cal_days = None
-    if pool:
-        try:
-            r_rows = await pool.fetch("SELECT sensor_id, online_seconds FROM sensor_runtime WHERE box_id = $1", box_id)
-            for r in r_rows:
-                sensor_runtimes[r["sensor_id"]] = round(r["online_seconds"] / 3600, 1)
-
-            cal_ts = await pool.fetchval("SELECT completed_at FROM sensor_calibrations WHERE box_id = $1 AND status = 'COMPLETE' ORDER BY completed_at DESC LIMIT 1", box_id)
-            if cal_ts:
-                last_cal_days = max(1, (datetime.now(timezone.utc) - cal_ts.replace(tzinfo=timezone.utc)).days)
-        except Exception as e:
-            print(f"[Real Health Error] {e}")
-
-    has_real_data = bool(sensor_runtimes or last_cal_days is not None)
-    return {
-        "box_id": box_id,
-        "runtime_hours": sensor_runtimes,
-        "days_since_last_calibration": last_cal_days,
-        "calibration_status": ("VALID" if (last_cal_days is not None and last_cal_days < 90) else ("EXPIRED" if last_cal_days is not None else "UNAVAILABLE")),
-        "verified_hardware_clock": has_real_data,
-        "data_source": "REAL_DATABASE" if has_real_data else "UNAVAILABLE_NO_DATA"
-    }
 
 
 @app.get("/api/devices")
@@ -3923,130 +3812,8 @@ async def ingest_reading(payload: IngestPayload, request: Request):
 # TRAINING SESSIONS & EXPORT
 # ==================================================================
 
-class SessionCreate(BaseModel):
-    box_id: str
-    label: str
-    note: Optional[str] = None
-    target_ppm: Optional[float] = None
-    liquid_volume: Optional[float] = None
-    volume_unit: Optional[str] = None
-    chamber_volume_l: Optional[float] = None
-
-
-@app.post("/api/training/sessions")
-async def create_session(body: SessionCreate):
-    pool = await get_pool()
-    row = await pool.fetchrow(
-        """
-        INSERT INTO training_sessions 
-        (box_id, label, note, target_ppm, liquid_volume, volume_unit, chamber_volume_l) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7) 
-        RETURNING id, label, started_at, target_ppm, liquid_volume, volume_unit, chamber_volume_l
-        """,
-        body.box_id, body.label.upper(), body.note, body.target_ppm, body.liquid_volume, body.volume_unit, body.chamber_volume_l,
-    )
-    return {
-        "session_id": row["id"],
-        "label": row["label"],
-        "started_at": str(row["started_at"]),
-        "target_ppm": float(row["target_ppm"]) if row["target_ppm"] is not None else None,
-        "liquid_volume": float(row["liquid_volume"]) if row["liquid_volume"] is not None else None,
-        "volume_unit": row["volume_unit"],
-        "chamber_volume_l": float(row["chamber_volume_l"]) if row["chamber_volume_l"] is not None else None,
-    }
-
-
-@app.patch("/api/training/sessions/{session_id}/end")
-async def end_session(session_id: int):
-    pool = await get_pool()
-    row = await pool.fetchrow(
-        "UPDATE training_sessions SET ended_at = NOW() WHERE id = $1 RETURNING id, label, started_at, ended_at",
-        session_id,
-    )
-    if not row:
-        raise HTTPException(status_code=404, detail="Session not found")
-    count = await pool.fetchval(
-        "SELECT COUNT(*) FROM sensor_readings WHERE session_id = $1", session_id
-    )
-    return {
-        "session_id": row["id"],
-        "label": row["label"],
-        "started_at": str(row["started_at"]),
-        "ended_at": str(row["ended_at"]),
-        "total_readings": count,
-    }
-
-
-@app.get("/api/training/sessions")
-async def list_sessions():
-    pool = await get_pool()
-    rows = await pool.fetch(
-        """
-        SELECT ts.id, ts.box_id, ts.label, ts.note, ts.started_at, ts.ended_at,
-               ts.target_ppm, ts.liquid_volume, ts.volume_unit, ts.chamber_volume_l,
-               COUNT(sr.id) AS reading_count
-        FROM training_sessions ts
-        LEFT JOIN sensor_readings sr ON sr.session_id = ts.id
-        GROUP BY ts.id ORDER BY ts.started_at DESC
-        """
-    )
-    return [
-        {
-            **dict(r),
-            "target_ppm": float(r["target_ppm"]) if r["target_ppm"] is not None else None,
-            "liquid_volume": float(r["liquid_volume"]) if r["liquid_volume"] is not None else None,
-            "chamber_volume_l": float(r["chamber_volume_l"]) if r["chamber_volume_l"] is not None else None,
-        }
-        for r in rows
-    ]
-
-
-class SessionUpdate(BaseModel):
-    label: Optional[str] = None
-    note: Optional[str] = None
-    target_ppm: Optional[float] = None
-    liquid_volume: Optional[float] = None
-    volume_unit: Optional[str] = None
-    chamber_volume_l: Optional[float] = None
-    label: Optional[str] = None
-    note: Optional[str] = None
-
-
-@app.patch("/api/training/sessions/{session_id}")
-async def update_session(session_id: int, body: SessionUpdate):
-    """แก้ไข label หรือ note ของ training session"""
-    pool = await get_pool()
-    updates = {}
-    if body.label is not None: updates["label"] = body.label.upper()
-    if body.note  is not None: updates["note"]  = body.note
-    if not updates:
-        raise HTTPException(status_code=400, detail="No fields to update")
-
-    set_clause = ", ".join(f"{k} = ${i+2}" for i, k in enumerate(updates.keys()))
-    values = [session_id] + list(updates.values())
-    row = await pool.fetchrow(
-        f"UPDATE training_sessions SET {set_clause} WHERE id = $1 RETURNING id, label, note",
-        *values,
-    )
-    if not row:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return dict(row)
-
-
-@app.delete("/api/training/sessions/{session_id}")
-async def delete_session(session_id: int):
-    """ลบ session และ readings ที่อยู่ใน session นั้น"""
-    pool = await get_pool()
-    # ลบ readings ก่อน (foreign key)
-    await pool.execute(
-        "UPDATE sensor_readings SET session_id = NULL WHERE session_id = $1", session_id
-    )
-    row = await pool.fetchrow(
-        "DELETE FROM training_sessions WHERE id = $1 RETURNING id", session_id
-    )
-    if not row:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return {"detail": "deleted", "session_id": session_id}
+# Training Sessions CRUD — Registered via routers/training.py (Phase 6.1)
+app.include_router(create_training_router(get_pool=get_pool))
 
 
 # ==================================================================
@@ -4653,242 +4420,15 @@ async def get_air_quality_daily(
 # ==================================================================
 # Phase W5: EXHAUST STACKS, EMISSION PERMITS & ANNUAL MASS REPORTS
 # ==================================================================
-@app.get("/api/emissions/stacks")
-async def list_exhaust_stacks():
-    """เรียกดูรายชื่อปล่องระบายไอเสียโรงงาน (Exhaust Stacks) และสถานะการตรวจสอบ CEMS"""
-    pool = await get_pool()
-    if pool:
-        try:
-            rows = await pool.fetch(
-                """
-                SELECT stack_id, name, process_type, flow_rate_m3_h, diameter_m, temp_c, is_verified_cems,
-                       to_char(cems_calibrated_at AT TIME ZONE 'Asia/Bangkok', 'DD/MM/YYYY') AS cems_calibrated_at, active
-                FROM exhaust_stacks
-                ORDER BY stack_id ASC
-                """
-            )
-            if rows:
-                return [dict(r) for r in rows]
-        except Exception:
-            pass
-
-    return [
-        {
-            "stack_id": "STACK-01",
-            "name": "Exhaust Stack 01 (Painting Booth A)",
-            "process_type": "Automotive Primer Spraying",
-            "flow_rate_m3_h": 12500.0,
-            "diameter_m": 0.85,
-            "temp_c": 38.0,
-            "is_verified_cems": True,
-            "cems_calibrated_at": "01/10/2026",
-            "active": True
-        },
-        {
-            "stack_id": "STACK-02",
-            "name": "Exhaust Stack 02 (Drying Oven Line B)",
-            "process_type": "Thermal Cure Oven",
-            "flow_rate_m3_h": 8200.0,
-            "diameter_m": 0.65,
-            "temp_c": 85.0,
-            "is_verified_cems": False,
-            "cems_calibrated_at": None,
-            "active": True
-        }
-    ]
-
-
-@app.get("/api/emissions/permits")
-async def list_emission_permits():
-    """เรียกดูข้อกำหนดใบอนุญาตการปล่อยมลพิษ (Statutory Emission Permits)"""
-    pool = await get_pool()
-    if pool:
-        try:
-            rows = await pool.fetch("SELECT permit_no, pollutant, max_annual_kg, concentration_limit_mg_m3, to_char(valid_until, 'YYYY-MM-DD') AS valid_until, authority FROM emission_permits ORDER BY permit_no ASC")
-            if rows:
-                return [dict(r) for r in rows]
-        except Exception:
-            pass
-
-    if IS_PRODUCTION:
-        return []
-
-    return [
-        {
-            "permit_no": "PERMIT-IEAT-2026-VOC",
-            "pollutant": "Total VOCs (as Carbon)",
-            "max_annual_kg": 5000.0,
-            "concentration_limit_mg_m3": 150.0,
-            "valid_until": "2026-12-31",
-            "authority": "Industrial Estate Authority of Thailand (IEAT)"
-        },
-        {
-            "permit_no": "PERMIT-DIW-2026-BENZENE",
-            "pollutant": "Benzene",
-            "max_annual_kg": 250.0,
-            "concentration_limit_mg_m3": 5.0,
-            "valid_until": "2026-12-31",
-            "authority": "Department of Industrial Works (DIW)"
-        }
-    ]
-
-
-class StackMeasurementCreate(BaseModel):
-    stack_id: str
-    pollutant: str
-    concentration_mg_m3: float
-    verified_flow_m3_h: float
-    operating_hours_annual: float
-    lab_cert_id: str
-    is_accredited_lab: bool
-
-
-@app.post("/api/emissions/stack-measurement")
-async def record_stack_measurement(
-    body: StackMeasurementCreate,
-    request: Request,
-    current_user: dict = Depends(require_roles("admin", "engineer"))
-):
-    """บันทึกผลการตรวจวัดปล่องระบายมลพิษจากห้องปฏิบัติการที่ได้รับการรับรอง (ISO 17025 Lab Test)"""
-    pool = await get_pool()
-    new_id = 1
-    if pool:
-        try:
-            new_id = await pool.fetchval(
-                """
-                INSERT INTO stack_measurements
-                (stack_id, sampled_at, pollutant, concentration_mg_m3, verified_flow_m3_h, operating_hours_annual, lab_cert_id, is_accredited_lab)
-                VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7)
-                RETURNING id
-                """,
-                body.stack_id, body.pollutant, body.concentration_mg_m3, body.verified_flow_m3_h,
-                body.operating_hours_annual, body.lab_cert_id, body.is_accredited_lab
-            )
-        except Exception as e:
-            print(f"[Stack Measurement DB Error] {e}")
-
-    await record_audit_event(
-        action="RECORD_STACK_MEASUREMENT",
-        resource_type="EMISSION_REPORT",
-        resource_id=body.stack_id,
-        details={"pollutant": body.pollutant, "concentration": body.concentration_mg_m3, "lab_cert": body.lab_cert_id},
-        user=current_user,
-        status="SUCCESS",
-        ip=request.client.host if request.client else "unknown"
+# Emissions & Statutory Stack Reporting — Registered via routers/emissions.py (Phase 6.1)
+app.include_router(
+    create_emissions_router(
+        get_pool=get_pool,
+        require_roles=require_roles,
+        record_audit_event=record_audit_event,
+        is_production=IS_PRODUCTION,
     )
-    return {"status": "ok", "measurement_id": new_id, "message": "Certified stack measurement recorded"}
-
-
-@app.get("/api/reports/yearly-emissions")
-async def get_yearly_emissions_report(
-    year: int = 2026,
-    stack_id: Optional[str] = "STACK-01",
-    pollutant: str = "Total VOCs (as Carbon)"
-):
-    """
-    Phase W5: คำนวณมวลการปล่อยมลพิษรายปีตามสูตรกฎหมายโรงงาน:
-    Annual Mass (kg/yr) = Concentration (mg/m³) × Verified Exhaust Flow (m³/h) × Operating Duration (h) / 10^6
-    
-    ข้อกำหนดความปลอดภัย W5:
-    หากไม่มีผล CEMS หรือห้องแล็บที่รับรอง ห้ามสรุปว่าผ่าน และต้องติดสถานะ INSUFFICIENT EVIDENCE
-    ห้ามนำค่าความเข้มข้นในร่มจากเซนเซอร์ E-Nose ไปใช้แทนผลตรวจปล่องระบายมลพิษตามกฎหมาย
-    """
-    pool = await get_pool()
-    stack_data = None
-    permit_data = None
-    measurement = None
-
-    if pool:
-        try:
-            stack_row = await pool.fetchrow("SELECT * FROM exhaust_stacks WHERE stack_id = $1", stack_id)
-            if stack_row:
-                stack_data = dict(stack_row)
-            permit_row = await pool.fetchrow("SELECT * FROM emission_permits WHERE pollutant = $1", pollutant)
-            if permit_row:
-                permit_data = dict(permit_row)
-            meas_row = await pool.fetchrow("SELECT * FROM stack_measurements WHERE stack_id = $1 AND pollutant = $2 ORDER BY id DESC LIMIT 1", stack_id, pollutant)
-            if meas_row:
-                measurement = dict(meas_row)
-        except Exception as e:
-            print(f"[Yearly Report Fetch Error] {e}")
-
-    # Fallback to realistic baseline models if database has no custom entries yet
-    if not stack_data:
-        stack_data = {
-            "stack_id": stack_id or "STACK-01",
-            "name": f"Exhaust Stack ({stack_id or 'STACK-01'})",
-            "flow_rate_m3_h": 12500.0,
-            "diameter_m": 0.85,
-            "temp_c": 38.0,
-            "is_verified_cems": True,
-            "cems_calibrated_at": "01/10/2026",
-            "active": True
-        }
-    if not permit_data:
-        permit_data = {
-            "permit_no": "PERMIT-IEAT-2026-VOC",
-            "pollutant": pollutant,
-            "max_annual_kg": 5000.0,
-            "concentration_limit_mg_m3": 150.0,
-            "valid_until": "2026-12-31",
-            "authority": "Industrial Estate Authority of Thailand (IEAT)"
-        }
-    if not measurement:
-        measurement = {
-            "id": 1,
-            "stack_id": stack_id or "STACK-01",
-            "pollutant": pollutant,
-            "concentration_mg_m3": 42.50,
-            "verified_flow_m3_h": float(stack_data.get("flow_rate_m3_h", 12500.0)),
-            "operating_hours_annual": 2400.0,
-            "lab_cert_id": "LAB-ISO17025-2026-0982",
-            "is_accredited_lab": True,
-            "sampled_at": "2026-10-15T09:00:00+07:00"
-        }
-
-    # Rule Verification Check (Phase W5 Compliance)
-    has_verified_evidence = stack_data.get("is_verified_cems", False) or measurement.get("is_accredited_lab", False)
-    conc = float(measurement["concentration_mg_m3"])
-    flow = float(measurement["verified_flow_m3_h"])
-    hours = float(measurement["operating_hours_annual"])
-
-    # Statutory formula: Mass (kg) = Conc (mg/m³) * Flow (m³/h) * Hours / 1,000,000 mg/kg
-    annual_mass_kg = round((conc * flow * hours) / 1_000_000.0, 2)
-    max_allowed_kg = float(permit_data["max_annual_kg"])
-    limit_conc = float(permit_data["concentration_limit_mg_m3"])
-
-    if not has_verified_evidence:
-        compliance_status = "INSUFFICIENT EVIDENCE"
-        status_color = "#d97706"
-        reason = "ปล่องไอเสียขาดการรับรอง CEMS หรือขาดใบรายงานผลจากห้องปฏิบัติการ ISO/IEC 17025 ที่ขึ้นทะเบียนตามกฎหมายกรมโรงงานอุตสาหกรรม (ค่าเซนเซอร์ E-Nose ภายในอาคารไม่สามารถใช้เป็นหลักฐานทางกฎหมายแทนการวัดปล่องได้)"
-    elif annual_mass_kg > max_allowed_kg or conc > limit_conc:
-        compliance_status = "EXCEEDANCE"
-        status_color = "#dc2626"
-        reason = f"การปล่อยมลพิษเกินเกณฑ์มาตรฐานที่ได้รับอนุญาต ({annual_mass_kg} kg/ปี เกินขีดจำกัด {max_allowed_kg} kg/ปี หรือความเข้มข้น {conc} mg/m³ เกิน {limit_conc} mg/m³)"
-    else:
-        compliance_status = "COMPLIANT"
-        status_color = "#16a34a"
-        reason = f"อยู่ในเกณฑ์มาตรฐานที่กฎหมายกำหนด (มวลสะสม {annual_mass_kg} kg/ปี ต่ำกว่าเพดาน {max_allowed_kg} kg/ปี)"
-
-    return {
-        "year": year,
-        "stack": stack_data,
-        "permit": permit_data,
-        "measurement": measurement,
-        "calculation": {
-            "formula": "Annual Mass (kg) = Concentration (mg/m³) × Flow Rate (m³/h) × Operating Hours / 1,000,000",
-            "concentration_mg_m3": conc,
-            "flow_rate_m3_h": flow,
-            "operating_hours": hours,
-            "calculated_annual_mass_kg": annual_mass_kg,
-            "statutory_limit_kg": max_allowed_kg,
-            "quota_utilization_pct": round((annual_mass_kg / max_allowed_kg) * 100, 1)
-        },
-        "compliance_status": compliance_status,
-        "status_color": status_color,
-        "evaluation_summary": reason,
-        "statutory_caveat": "ประกาศกรมโรงงานอุตสาหกรรม และการนิคมอุตสาหกรรมแห่งประเทศไทย: ระบบเซนเซอร์ตรวจวัดไอระเหยสารอินทรีย์ภายในโรงงาน (Indoor E-Nose) มีวัตถุประสงค์เพื่อการเฝ้าระวังความปลอดภัยและการควบคุมกระบวนการผลิตเท่านั้น ห้ามนำมาใช้อ้างอิงแทนการตรวจวัดมวลมลพิษที่ปากปล่องระบายไอเสียจริง (Certified Stack CEMS / US-EPA Reference Methods)"
-    }
+)
 
 
 
@@ -4979,85 +4519,20 @@ def _calculate_maintenance_view():
         "systemUptime": 847,
     }
 
-@app.get("/api/maintenance/status")
-async def get_maintenance_status():
-    """ดึงสถานะสุขภาพของทุก sensor, RUL, Drift และ Filter"""
-    return _calculate_maintenance_view()
-
-@app.post("/api/maintenance/calibrate/{sensor_id}")
-async def calibrate_sensor(
-    sensor_id: str,
-    current_user: dict = Depends(require_roles("admin", "engineer"))
-):
-    """ทำการสอบเทียบ Zero-Air Baseline ให้กับ sensor (สิทธิ์ Admin, Engineer พร้อมบันทึกถาวรลง DB)"""
-    if sensor_id not in SENSOR_SPECS:
-        raise HTTPException(status_code=404, detail="Unknown sensor id")
-    _MAINTENANCE_STATE["sensors"][sensor_id]["drift"] = 0.015
-    _MAINTENANCE_STATE["sensors"][sensor_id]["noise"] = 0.02
-    _MAINTENANCE_STATE["sensors"][sensor_id]["lastCalDaysAgo"] = 0
-
-    # บันทึกสถานะลงฐานข้อมูลถาวร ไม่สูญหายเมื่อเซิร์ฟเวอร์รีสตาร์ท
-    pool = await get_pool()
-    if pool:
-        try:
-            await pool.execute(
-                "UPDATE maintenance_state SET state = $1::jsonb, updated_at = NOW() WHERE key = 'sensors'",
-                json.dumps(_MAINTENANCE_STATE["sensors"])
-            )
-        except Exception as e:
-            print(f"[Maintenance DB Sync Error] {e}")
-
-    return {
-        "success": True,
-        "sensor_id": sensor_id,
-        "message": f"Successfully calibrated {SENSOR_SPECS[sensor_id]['label']} baseline to zero-air reference",
-        "data": _calculate_maintenance_view(),
-    }
-
-@app.post("/api/maintenance/replace-filter")
-async def replace_filter(
-    current_user: dict = Depends(require_roles("admin", "engineer"))
-):
-    """รีเซ็ตอายุไส้กรองเมื่อมีการเปลี่ยนตัวใหม่ (สิทธิ์ Admin, Engineer พร้อมบันทึกถาวรลง DB)"""
-    _MAINTENANCE_STATE["filter"]["age"] = 0
-    _MAINTENANCE_STATE["filter"]["replacedDate"] = time.strftime("%Y-%m-%d")
-
-    # บันทึกสถานะลงฐานข้อมูลถาวร
-    pool = await get_pool()
-    if pool:
-        try:
-            await pool.execute(
-                "UPDATE maintenance_state SET state = $1::jsonb, updated_at = NOW() WHERE key = 'filter'",
-                json.dumps(_MAINTENANCE_STATE["filter"])
-            )
-        except Exception as e:
-            print(f"[Maintenance DB Sync Error] {e}")
-
-    return {
-        "success": True,
-        "message": "Filter replaced successfully. Health Index reset to 100%.",
-        "data": _calculate_maintenance_view(),
-    }
-
-@app.post("/api/maintenance/diagnostic")
-async def run_diagnostics(
-    current_user: dict = Depends(require_roles("admin", "engineer"))
-):
-    """รันการตรวจสอบวินิจฉัยทั้งระบบ 4 ขั้นตอน (สิทธิ์ Admin, Engineer)"""
-    await asyncio.sleep(0.5)
-    view = _calculate_maintenance_view()
-    issues = [s for s in view["sensors"] if s["hi"] <= s["warnHI"]]
-    return {
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "passed": len(issues) == 0,
-        "steps": [
-            {"phase": "I2C/UART Connectivity", "status": "PASS", "detail": "All 8 sensor bus lines responding normally"},
-            {"phase": "MOS Heater Coils", "status": "PASS", "detail": "Coil voltages within nominal 5.0V ± 0.1V"},
-            {"phase": "Baseline Drift Evaluation", "status": "WARNING" if issues else "PASS", "detail": f"{len(issues)} sensor(s) have drift exceeding warn threshold"},
-            {"phase": "Filter Differential Pressure", "status": "PASS", "detail": "Airflow delta-P normal (22 Pa)"},
-        ],
-        "issues": issues,
-    }
+# Maintenance, Work Orders & Diagnostics — Registered via routers/maintenance.py (Phase 6.1)
+app.include_router(
+    create_maintenance_router(
+        get_pool=get_pool,
+        require_roles=require_roles,
+        require_box_access=require_box_access,
+        record_audit_event=record_audit_event,
+        work_order_model=WorkOrderCreateRequest,
+        in_memory_work_orders=_in_memory_work_orders,
+        maintenance_state=_MAINTENANCE_STATE,
+        sensor_specs=SENSOR_SPECS,
+        calculate_maintenance_view=_calculate_maintenance_view,
+    )
+)
 
 
 
