@@ -8,6 +8,7 @@ import { API } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { saveBaseline } from '../utils/ppmConverter';
+import ExperimentPaperTables from './ExperimentPaperTables';
 
 const RL_OHMS = 10000; // 10 kΩ Load Resistor
 const VC_VOLTS = 5.0;
@@ -1360,6 +1361,18 @@ export default function DataCollection() {
           </div>
         </div>
       </div>
+
+      {/* ── Standardized Paper & ML Workbook Tables (ตารางที่ 1–4.1 และชุดข้อมูลเทรน AI พร้อมปุ่ม Export Excel / CSV) ── */}
+      <ExperimentPaperTables
+        isThai={isThai}
+        baselineData={baselineData}
+        mqRows={mqRows}
+        liveEnv={liveEnv}
+        liveSen={liveSen}
+        peakData={peakData}
+        fans={fans}
+        onToast={showToast}
+      />
 
       {/* Toast Alert */}
       {toastMsg && (

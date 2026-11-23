@@ -2579,6 +2579,43 @@ async def ingest_reading(payload: IngestPayload, request: Request):
 # Training Sessions CRUD — Registered via routers/training.py (Phase 6.1)
 app.include_router(create_training_router(get_pool=get_pool))
 
+from experiment_excel import build_xlsx_bytes, build_ml_csv_string, get_default_experiment_sheets
+
+
+@app.get("/api/experiment/tables")
+async def get_experiment_research_tables():
+    """ดึงข้อมูลตารางบันทึกผลการทดลองทั้ง 5 ชีต (ตารางที่ 1, 2, 3, 4/4.1 และ ML Dataset) สำหรับแสดงผลบนหน้าเว็บ"""
+    sheets = get_default_experiment_sheets()
+    return {name: rows for name, rows in sheets}
+
+
+@app.get("/api/experiment/export/xlsx")
+async def download_experiment_research_xlsx():
+    """ดาวน์โหลดไฟล์ Excel (.xlsx ครบ 5 ชีต) รูปแบบเดียวกับแบบบันทึกผลการทดลอง พร้อมนำไปใส่ Paper วิจัยและเทรน AI"""
+    xlsx_bytes = build_xlsx_bytes()
+    filename = "VOC_Experiment_And_ML_Dataset.xlsx"
+    return StreamingResponse(
+        iter([xlsx_bytes]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+@app.get("/api/experiment/export/ml-csv")
+async def download_experiment_ml_csv():
+    """ดาวน์โหลดไฟล์ CSV ชุดข้อมูล Time-Series (พร้อมฟีเจอร์ Vout, Rs/R0, Rs/R_clean) สำหรับเทรนโมเดล AI ทันที"""
+    csv_str = build_ml_csv_string()
+    filename = "VOC_ML_Training_Ready_Dataset.csv"
+    return StreamingResponse(
+        iter([csv_str.encode("utf-8")]),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
 
 # ==================================================================
 # Phase W3: PROVENANCE, DOWNSAMPLED TRENDS & CRYPTOGRAPHIC EXPORTS

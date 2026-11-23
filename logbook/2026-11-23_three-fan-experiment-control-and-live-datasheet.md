@@ -49,3 +49,20 @@
   - แปลงเวลา `Offline นาน 1222594s` ให้เป็นหน่วย `14 วัน 3 ชม.` ที่อ่านเข้าใจง่าย
   - แก้ป้ายระดับ `High` ให้แสดงเป็น `ความเสี่ยงสูง` (สีส้ม Amber) และแสดงกฎการตรวจวัด (`Rule`) ตามแหล่งที่มาจริง (`Heartbeat Timeout > 5 min`, `Manual Kiosk Emergency PIN`)
 
+---
+
+## อัปเดตเวลา 18:32 ICT — สร้างสมุดตารางบันทึกผลการทดลอง Excel (.xlsx ครบ 5 ชีต) และตารางแสดงผลบนเว็บพร้อมระบบ Export CSV สำหรับ Paper วิจัยและการเทรน AI
+- **สิ่งที่เปลี่ยน:**
+  1. สร้างโมดูล [`vocs-website/backend/experiment_excel.py`](file:///Users/urworld/paper_sensor_VOC/vocs-website/backend/experiment_excel.py) สำหรับสร้างไฟล์ Excel มาตรฐาน OpenXML (`.xlsx`) จำนวน 5 ชีต พร้อมจัดสีหัวตาราง เส้นขอบ และฟอนต์ระดับงานวิจัย และสร้างไฟล์เก็บไว้ในโปรเจกต์ที่:
+     - [`docs/testing/VOC_Experiment_And_ML_Dataset.xlsx`](file:///Users/urworld/paper_sensor_VOC/docs/testing/VOC_Experiment_And_ML_Dataset.xlsx) (ไฟล์ Excel `.xlsx` 5 ชีต: `1_R0_Baseline`, `2_Single_Substance`, `3_Mixture_Scenarios`, `4_Baseline_Gate_4_1`, `5_ML_Training_Dataset`)
+     - [`docs/testing/VOC_ML_Training_Ready_Dataset.csv`](file:///Users/urworld/paper_sensor_VOC/docs/testing/VOC_ML_Training_Ready_Dataset.csv) (ไฟล์ CSV 34 คอลัมน์ พร้อมนำไปเทรนโมเดล AI `voc_model.pkl` ทันที)
+  2. เพิ่ม API Endpoints ใน [`vocs-website/backend/main.py`](file:///Users/urworld/paper_sensor_VOC/vocs-website/backend/main.py):
+     - `GET /api/experiment/tables`
+     - `GET /api/experiment/export/xlsx`
+     - `GET /api/experiment/export/ml-csv`
+  3. สร้างคอมโพเนนต์ [`vocs-website/frontend/src/pages/ExperimentPaperTables.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/ExperimentPaperTables.jsx) และติดตั้งในหน้า [`DataCollection.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/DataCollection.jsx):
+     - แสดงตารางบันทึกผลการทดลองครบทั้ง 5 ตารางบนหน้าเว็บโดยตรง (ตารางที่ 1 ค่าเริ่มต้น $R_0$, ตารางที่ 2 สารเดี่ยว 4 ชนิดครบ 8 เซนเซอร์, ตารางที่ 3 สารผสม, ตารางที่ 4 & 4.1 เมทริกซ์ตรวจสอบการคืนตัว $\pm 5\%$, และตารางที่ 5 ชุดข้อมูลเทรน AI)
+     - มีปุ่ม **"บันทึกค่าสดลง Run 1–4"** และ **"+ เฟรมเทรน AI"**
+     - มีปุ่มดาวน์โหลด **Excel (`.xlsx` ครบ 5 ชีต)**, **Export CSV (ตารางใส่ Paper 1–4.1)**, และ **Export CSV (ชุดข้อมูลเทรน AI 34 คอลัมน์)** พร้อม UTF-8 BOM เปิดใน Excel ภาษาไทยไม่เพี้ยน 100%
+
+
