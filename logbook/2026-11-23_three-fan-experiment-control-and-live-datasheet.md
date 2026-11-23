@@ -90,5 +90,13 @@
      - เปลี่ยนรายการเซนเซอร์ในแท็บ Thresholds ให้ตรงกับเซนเซอร์จริงทั้ง 8 ช่องของ `BOX-001` (`MQ-3`, `MQ-135`, `MQ-2`, `MQ-8`, `CCS811 TVOC`, `CCS811 eCO2`, `PMS5003 PM2.5`, `MiCS-6814`)
      - ผูกปุ่ม **Save (บันทึก)** และ **Discard (ยกเลิก)** เข้ากับ `localStorage` (`voc_system_settings_v2`) และ `PUT /api/settings/config` บนฐานข้อมูล PostgreSQL จริงครบทั้ง 5 แท็บ
 
+---
+
+## อัปเดตเวลา 19:28 ICT — แก้ไข `esp_task_wdt_init` ใน `voc_esp32.ino` ให้รองรับ ESP32 Arduino Core 3.x (3.3.12 / ESP-IDF v5.x)
+- **สาเหตุ:** ใน Arduino ESP32 Core 3.x (`3.3.12`) ฟังก์ชัน `esp_task_wdt_init` เปลี่ยนรูปแบบพารามิเตอร์จาก `esp_task_wdt_init(uint32_t timeout, bool panic)` (ของ Core 2.x) เป็นการรับพอยน์เตอร์โครงสร้าง `const esp_task_wdt_config_t *config`
+- **สิ่งที่แก้ไขใน [`hardware/firmware/voc_esp32/voc_esp32.ino`](file:///Users/urworld/paper_sensor_VOC/hardware/firmware/voc_esp32/voc_esp32.ino#L940-L956):**
+  - เพิ่มเงื่อนไข `#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)` เพื่อสร้าง `esp_task_wdt_config_t` (`timeout_ms = WDT_TIMEOUT_SEC * 1000`, `idle_core_mask`, `trigger_panic = true`) และเรียก `esp_task_wdt_reconfigure(&twdt_config)` / `esp_task_wdt_init(&twdt_config)` โดยยังคงรองรับ Core 2.x ในบล็อก `#else`
+
+
 
 

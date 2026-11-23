@@ -938,7 +938,19 @@ void setup() {
   }
 
   // Initialize Hardware Task Watchdog Timer (30s) to recover from network/TLS hangs
+  // รองรับทั้ง ESP32 Arduino Core 3.x (ESP-IDF v5.x struct config) และ Core 2.x
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
+  esp_task_wdt_config_t twdt_config = {
+    .timeout_ms = WDT_TIMEOUT_SEC * 1000,
+    .idle_core_mask = (1 << portNUM_PROCESSORS) - 1,
+    .trigger_panic = true,
+  };
+  if (esp_task_wdt_reconfigure(&twdt_config) != ESP_OK) {
+    esp_task_wdt_init(&twdt_config);
+  }
+#else
   esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
+#endif
   esp_task_wdt_add(NULL);
   Serial.printf("[WDT] Hardware Task Watchdog enabled (%lu s timeout)\n", (unsigned long)WDT_TIMEOUT_SEC);
 
