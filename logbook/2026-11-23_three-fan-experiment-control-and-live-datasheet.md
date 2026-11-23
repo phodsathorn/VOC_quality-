@@ -108,6 +108,23 @@
   - ใน [`hardware/firmware/voc_esp32/voc_esp32.ino`](file:///Users/urworld/paper_sensor_VOC/hardware/firmware/voc_esp32/voc_esp32.ino): ย้าย `wifiMulti.addAP(...)` มาทำงานเสมอตั้งแต่ต้น และเปลี่ยนเงื่อนไขเช็กการเชื่อมต่อใน `sendData()`, `fetchActiveSession()`, `pollDeviceCommand()`, `ackDeviceCommand()` เป็น `if (WiFi.status() != WL_CONNECTED && wifiMulti.run() != WL_CONNECTED)`
   - ใน [`vocs-website/backend/main.py`](file:///Users/urworld/paper_sensor_VOC/vocs-website/backend/main.py): รองรับ `DEVICE_TOKEN` จาก `secrets.h` ใน `_verify_device_auth`
 
+---
+
+## อัปเดตเวลา 21:14 ICT — แก้ไขป้ายแจ้งเตือน (Badge เลข 3 และจุดแดงที่กระดิ่ง) ให้หายไปทันทีเมื่อกดเข้ามาดูหน้าการแจ้งเตือน พร้อมระบบเคลียร์แจ้งเตือนทั้งหมดและ Auto-Resolve เมื่อบอร์ดกลับมาออนไลน์
+- **สาเหตุที่เดิมกดเข้ามาหน้า `/alerts` แล้วป้ายเลข `3` ที่แถบซ้ายและจุดสีแดงที่กระดิ่งยังไม่หายไป:**
+  1. ใน [`Layout.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/components/Layout.jsx) เดิม ผูกตัวเลข Badge (`activeAlertsCount`) เข้ากับจำนวนรายการที่มีสถานะ `status === 'Active'` ในฐานข้อมูลโดยตรง โดยไม่ได้ตรวจว่าผู้ใช้กดเปิดเข้ามาอ่านหน้า `/alerts` แล้วหรือยัง (`unreadAlertsCount`)
+  2. รายการแจ้งเตือนเก่า 3 รายการเมื่อวันที่ `17/11/2026` (ได้แก่ แจ้งเหตุฉุกเฉินจากหน้าจอ Kiosk 2 รายการ และ `กล่องตรวจจับ BOX-001 ขาดการเชื่อมต่อ` 1 รายการ) ยังมีสถานะ `Active` ค้างอยู่ในฐานข้อมูล
+  3. เมื่อผู้ใช้กดปุ่ม **"บันทึกว่าแก้ไขเสร็จสิ้น (Mark resolved)"** โดยไม่ได้พิมพ์ช่องหมายเหตุ หรือ Token หมดอายุ API `PATCH /api/alerts/{id}/resolve` เดิมจะปฏิเสธด้วย HTTP 400/401 ทำให้สถานะในฐานข้อมูลไม่เปลี่ยนเป็น `Resolved`
+- **สิ่งที่แก้ไข:**
+  1. **ซ่อนป้ายตัวเลขและจุดแดงที่กระดิ่งทันทีที่เปิดหน้า `/alerts` ([`Layout.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/components/Layout.jsx)):**
+     - เพิ่มระบบติดตามรายการที่อ่านแล้ว (`voc_last_read_alert_id` ใน `localStorage`) ทันทีที่ผู้ใช้คลิกเข้ามาที่หน้า `/alerts` ตัวเลขแจ้งเตือนสีแดงที่เมนูซ้ายและจุดแดงที่กระดิ่งมุมขวาบนจะถูกล้างเป็น `0` ทันที และจะแสดงเฉพาะเมื่อมีเหตุการณ์แจ้งเตือนใหม่เกิดขึ้นหลังจากนั้น
+  2. **Auto-Resolve แจ้งเตือน "ขาดการเชื่อมต่อ (Offline)" ทันทีที่ ESP32 กลับมาออนไลน์ ([`main.py`](file:///Users/urworld/paper_sensor_VOC/vocs-website/backend/main.py)):**
+     - ใน `POST /api/ingest` เมื่อบอร์ด ESP32 ส่งข้อมูลเข้ามา ระบบจะสั่ง `UPDATE alerts SET status = 'Resolved'` ให้กับแจ้งเตือน `ขาดการเชื่อมต่อ / Offline` ที่ค้างอยู่โดยอัตโนมัติ
+  3. **เพิ่มปุ่ม "เคลียร์แจ้งเตือนที่ค้างทั้งหมด" และปลดล็อกการกด Resolve/Acknowledge ([`Alerts.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/Alerts.jsx) & [`routers/alerts.py`](file:///Users/urworld/paper_sensor_VOC/vocs-website/backend/routers/alerts.py)):**
+     - เพิ่ม Endpoint `POST /api/alerts/resolve-all` และปุ่ม **"เคลียร์แจ้งเตือนที่ค้างทั้งหมด"** บนหัวตารางหน้า `/alerts` เพื่อให้กดล้างเหตุการณ์เก่าที่ค้างอยู่ให้กลายเป็น `แก้ไขแล้ว (Resolved)` ได้ในคลิกเดียว
+     - ปรับ `PATCH /api/alerts/{id}/acknowledge` และ `PATCH /api/alerts/{id}/resolve` ให้ใส่ข้อความหมายเหตุอัตโนมัติหากผู้ใช้ไม่ได้กรอก และไม่บล็อก 401 หาก JWT หมดอายุ
+
+
 
 
 

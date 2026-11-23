@@ -240,9 +240,9 @@ export default function Alerts() {
         if (summaryRes && summaryRes.ok && isMounted) {
           const s = await summaryRes.json();
           setSummaryCounts({
-            critical: s.Critical || s.High || 0,
-            warning: s.Warning || 1,
-            resolved: s.Resolved || 5,
+            critical: (Number(s.Critical) || 0) + (Number(s.High) || 0),
+            warning: Number(s.Warning) || 0,
+            resolved: Number(s.Resolved) || 5,
           });
         }
       } catch (err) {
@@ -263,17 +263,17 @@ export default function Alerts() {
     setIncidents((prev) =>
       prev.map((item) =>
         item.id === selectedIncident.id
-          ? { ...item, status: 'Acknowledged', statusBg: 'bg-[#eaedff]', statusText: 'text-[#54647a]' }
+          ? { ...item, status: 'Acknowledged', statusBg: 'bg-sky-50 border border-sky-200/80', statusText: 'text-sky-700' }
           : item
       )
     );
     setSelectedIncident((prev) => ({
       ...prev,
       status: 'Acknowledged',
-      statusBg: 'bg-[#eaedff]',
-      statusText: 'text-[#54647a]',
+      statusBg: 'bg-sky-50 border border-sky-200/80',
+      statusText: 'text-sky-700',
     }));
-    showToast(`Acknowledged Incident #${selectedIncident.id}`);
+    showToast(isThai ? `รับทราบเหตุการณ์ #${selectedIncident.id} แล้ว ✓` : `Acknowledged Incident #${selectedIncident.id} ✓`);
 
     try {
       await fetch(`${API}/api/alerts/${selectedIncident.id}/acknowledge`, {
@@ -284,6 +284,7 @@ export default function Alerts() {
         },
         body: JSON.stringify({ source_screen: 'Web Dashboard' }),
       });
+      window.dispatchEvent(new Event('voc_alerts_updated'));
     } catch (err) {
       console.warn('Acknowledge patch:', err);
     }
@@ -294,17 +295,23 @@ export default function Alerts() {
     setIncidents((prev) =>
       prev.map((item) =>
         item.id === selectedIncident.id
-          ? { ...item, status: 'Resolved', statusBg: 'bg-[#eaedff]', statusText: 'text-[#434655]' }
+          ? { ...item, status: 'Resolved', statusBg: 'bg-emerald-50 border border-emerald-200/80', statusText: 'text-emerald-700' }
           : item
       )
     );
     setSelectedIncident((prev) => ({
       ...prev,
       status: 'Resolved',
-      statusBg: 'bg-[#eaedff]',
-      statusText: 'text-[#434655]',
+      statusBg: 'bg-emerald-50 border border-emerald-200/80',
+      statusText: 'text-emerald-700',
     }));
-    showToast(`Marked Incident #${selectedIncident.id} as resolved ✓`);
+    setSummaryCounts((prev) => ({
+      ...prev,
+      critical: selectedIncident.level === 'Critical' || selectedIncident.level === 'High' ? Math.max(0, prev.critical - 1) : prev.critical,
+      warning: selectedIncident.level === 'Warning' ? Math.max(0, prev.warning - 1) : prev.warning,
+      resolved: prev.resolved + 1,
+    }));
+    showToast(isThai ? `บันทึกว่าแก้ไขเหตุการณ์ #${selectedIncident.id} เสร็จสิ้นแล้ว ✓` : `Marked Incident #${selectedIncident.id} as resolved ✓`);
 
     try {
       await fetch(`${API}/api/alerts/${selectedIncident.id}/resolve`, {
@@ -314,12 +321,56 @@ export default function Alerts() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          note: mitigationNote || actionSelection,
+          note: mitigationNote || actionSelection || 'ตรวจสอบและเคลียร์เหตุการณ์จากหน้าเว็บเรียบร้อยแล้ว',
           evidence: actionSelection,
         }),
       });
+      window.dispatchEvent(new Event('voc_alerts_updated'));
     } catch (err) {
       console.warn('Resolve patch:', err);
+    }
+  }
+
+  async function handleResolveAllActive() {
+    setIncidents((prev) =>
+      prev.map((item) => ({
+        ...item,
+        status: 'Resolved',
+        statusBg: 'bg-emerald-50 border border-emerald-200/80',
+        statusText: 'text-emerald-700',
+      }))
+    );
+    setSelectedIncident((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: 'Resolved',
+            statusBg: 'bg-emerald-50 border border-emerald-200/80',
+            statusText: 'text-emerald-700',
+          }
+        : prev
+    );
+    setSummaryCounts((prev) => ({
+      critical: 0,
+      warning: 0,
+      resolved: prev.resolved + prev.critical + prev.warning,
+    }));
+    showToast(isThai ? 'เคลียร์และปิดการแจ้งเตือนที่ค้างอยู่ทั้งหมดเรียบร้อยแล้ว ✓' : 'Cleared and resolved all active alerts ✓');
+
+    try {
+      await fetch(`${API}/api/alerts/resolve-all`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          note: 'เคลียร์รายการแจ้งเตือนที่ค้างอยู่ทั้งหมดจากหน้าการแจ้งเตือน',
+        }),
+      });
+      window.dispatchEvent(new Event('voc_alerts_updated'));
+    } catch (err) {
+      console.warn('Resolve all error:', err);
     }
   }
 
@@ -426,7 +477,7 @@ export default function Alerts() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Side: Recent Incidents Table (col-span-8) */}
         <div className="lg:col-span-8 bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-[#eaedff]">
-          <div className="flex items-center justify-between pb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
             <div className="flex items-center gap-2">
               <span className="text-[#004ac6]">
                 <Bell size={20} />
@@ -435,9 +486,21 @@ export default function Alerts() {
                 {isThai ? 'เหตุการณ์ล่าสุด' : 'Recent incidents'}
               </h2>
             </div>
-            <span className="text-[12px] font-medium text-[#434655] uppercase tracking-wider">
-              {filteredIncidents.length} {isThai ? 'บันทึกเหตุการณ์' : 'Events logged'}
-            </span>
+            <div className="flex items-center gap-2.5">
+              {incidents.some((inc) => inc.status === 'Open' || inc.status === 'Active' || inc.status === 'Acknowledged' || inc.status === 'เปิดอยู่' || inc.status === 'รับทราบแล้ว') && (
+                <button
+                  type="button"
+                  onClick={handleResolveAllActive}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <Check size={14} />
+                  <span>{isThai ? 'เคลียร์แจ้งเตือนที่ค้างทั้งหมด' : 'Resolve All Active'}</span>
+                </button>
+              )}
+              <span className="text-[12px] font-medium text-[#434655] uppercase tracking-wider">
+                {filteredIncidents.length} {isThai ? 'บันทึกเหตุการณ์' : 'Events logged'}
+              </span>
+            </div>
           </div>
 
           {/* Search and Filters Bar matching Stitch Sub-state */}

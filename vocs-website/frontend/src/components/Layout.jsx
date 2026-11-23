@@ -22,6 +22,7 @@ export default function Layout({ children }) {
   const { lang } = useLanguage();
   const [soundActive, setSoundActive] = useState(() => isSoundEnabled());
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
+  const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [criticalBannerAlert, setCriticalBannerAlert] = useState(null);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
   const [toastAlert, setToastAlert] = useState(null);
@@ -30,10 +31,21 @@ export default function Layout({ children }) {
 
   const seenAlertIds = useRef(new Set());
   const isFirstRun = useRef(true);
+  const locationPathRef = useRef(location.pathname);
 
-  // Close mobile drawer when route changes
+  // Close mobile drawer when route changes & mark alerts as read when visiting /alerts
   useEffect(() => {
     setMobileMenuOpen(false);
+    locationPathRef.current = location.pathname;
+    if (location.pathname === '/alerts') {
+      setUnreadAlertsCount(0);
+      try {
+        const currentMax = Number(localStorage.getItem('voc_latest_active_alert_id') || 0);
+        if (currentMax > 0) {
+          localStorage.setItem('voc_last_read_alert_id', String(currentMax));
+        }
+      } catch { /* ignore */ }
+    }
   }, [location.pathname]);
 
   // ซิงค์สถานะเสียงเมื่อมีการเปิด/ปิดจากหน้าอื่น
@@ -41,9 +53,18 @@ export default function Layout({ children }) {
     const handleSoundToggle = (e) => {
       setSoundActive(e.detail.enabled);
     };
+    const handleAlertsUpdated = () => {
+      checkAlertsRef.current?.();
+    };
     window.addEventListener('voc_sound_toggle', handleSoundToggle);
-    return () => window.removeEventListener('voc_sound_toggle', handleSoundToggle);
+    window.addEventListener('voc_alerts_updated', handleAlertsUpdated);
+    return () => {
+      window.removeEventListener('voc_sound_toggle', handleSoundToggle);
+      window.removeEventListener('voc_alerts_updated', handleAlertsUpdated);
+    };
   }, []);
+
+  const checkAlertsRef = useRef(null);
 
   // Background Poller ตรวจสอบ Alert ใหม่และเล่นเสียงแจ้งเตือน
   useEffect(() => {
@@ -63,6 +84,21 @@ export default function Layout({ children }) {
         if (Array.isArray(alertsData)) {
           const activeList = alertsData.filter((a) => a.status === 'Active');
           setActiveAlertsCount(activeList.length);
+
+          const maxActiveId = activeList.reduce((mx, a) => Math.max(mx, Number(a.id) || 0), 0);
+          try {
+            localStorage.setItem('voc_latest_active_alert_id', String(maxActiveId));
+            if (locationPathRef.current === '/alerts') {
+              localStorage.setItem('voc_last_read_alert_id', String(maxActiveId));
+              setUnreadAlertsCount(0);
+            } else {
+              const lastReadId = Number(localStorage.getItem('voc_last_read_alert_id') || 0);
+              const unread = activeList.filter((a) => (Number(a.id) || 0) > lastReadId).length;
+              setUnreadAlertsCount(unread);
+            }
+          } catch {
+            setUnreadAlertsCount(activeList.length);
+          }
 
           // Update critical alert banner
           if (activeList.length > 0) {
@@ -98,6 +134,7 @@ export default function Layout({ children }) {
       }
     }
 
+    checkAlertsRef.current = checkAlerts;
     checkAlerts();
     timerId = setInterval(checkAlerts, 5000);
     return () => clearInterval(timerId);
@@ -116,7 +153,7 @@ export default function Layout({ children }) {
   const allNavItems = [
     { key: 'dashboard', name: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['admin', 'engineer', 'operator', 'viewer'] },
     { key: 'kiosk', name: 'Kiosk', path: '/kiosk', icon: Monitor, roles: ['admin', 'engineer', 'operator'] },
-    { key: 'alerts', name: 'Alerts', path: '/alerts', icon: Bell, roles: ['admin', 'engineer', 'operator'], badge: activeAlertsCount },
+    { key: 'alerts', name: 'Alerts', path: '/alerts', icon: Bell, roles: ['admin', 'engineer', 'operator'], badge: unreadAlertsCount },
     { key: 'airflow', name: 'Airflow', path: '/airflow', icon: Wind, roles: ['admin', 'engineer', 'operator', 'viewer'] },
     { key: 'history', name: 'History', path: '/history', icon: CalendarDays, roles: ['admin', 'engineer', 'operator', 'viewer'] },
     { key: 'maintenance', name: 'Maintenance', path: '/maintenance', icon: Wrench, roles: ['admin', 'engineer'] },
@@ -180,7 +217,7 @@ export default function Layout({ children }) {
         <HeaderBar
           setMobileMenuOpen={setMobileMenuOpen}
           isDeviceOnline={isDeviceOnline}
-          activeAlertsCount={activeAlertsCount}
+          activeAlertsCount={unreadAlertsCount}
         />
 
         {/* Floating Toast Notification */}

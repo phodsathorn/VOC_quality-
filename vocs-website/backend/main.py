@@ -2249,6 +2249,7 @@ app.include_router(
         kiosk_pin_failures=_KIOSK_PIN_FAILURES,
         kiosk_pin_max_attempts=_KIOSK_PIN_MAX_ATTEMPTS,
         kiosk_pin_window_sec=_KIOSK_PIN_WINDOW_SEC,
+        get_current_user_optional=get_current_user_optional,
     )
 )
 
@@ -2624,7 +2625,7 @@ async def ingest_reading(payload: IngestPayload, request: Request):
             # แจ้งเตือนใน log ใน development mode เพื่อให้ใช้งานจำลองได้สะดวก
             pass
 
-    # 1. อัปเดต / สร้าง device
+    # 1. อัปเดต / สร้าง device และปิด Alert "ขาดการเชื่อมต่อ (Offline...)" เดิมอัตโนมัติเมื่อบอร์ดกลับมาออนไลน์
     if payload.firmware_ver:
         await pool.execute(
             """
@@ -2647,6 +2648,22 @@ async def ingest_reading(payload: IngestPayload, request: Request):
             """,
             payload.box_id,
         )
+
+    try:
+        await pool.execute(
+            """
+            UPDATE alerts
+            SET status = 'Resolved',
+                resolved_at = NOW(),
+                resolved_by = 'Auto-Recovery (Device Online)',
+                resolution_note = 'อุปกรณ์กลับมาเชื่อมต่อและส่งข้อมูลสดตามปกติ'
+            WHERE box_id = $1 AND status IN ('Active', 'Acknowledged', 'In progress')
+              AND (message LIKE '%ขาดการเชื่อมต่อ%' OR message LIKE '%Offline%')
+            """,
+            payload.box_id,
+        )
+    except Exception:
+        pass
 
     # 2. บันทึกค่าเซนเซอร์ — เชื่อมต่อกับ active training session อัตโนมัติ (ถ้ามี)
     active_session_id = payload.session_id
