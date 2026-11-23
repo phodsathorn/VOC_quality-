@@ -97,6 +97,18 @@
 - **สิ่งที่แก้ไขใน [`hardware/firmware/voc_esp32/voc_esp32.ino`](file:///Users/urworld/paper_sensor_VOC/hardware/firmware/voc_esp32/voc_esp32.ino#L940-L956):**
   - เพิ่มเงื่อนไข `#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)` เพื่อสร้าง `esp_task_wdt_config_t` (`timeout_ms = WDT_TIMEOUT_SEC * 1000`, `idle_core_mask`, `trigger_panic = true`) และเรียก `esp_task_wdt_reconfigure(&twdt_config)` / `esp_task_wdt_init(&twdt_config)` โดยยังคงรองรับ Core 2.x ในบล็อก `#else`
 
+---
+
+## อัปเดตเวลา 19:45 ICT — แก้ไขบั๊ก `wifiMulti.run()` ใน `voc_esp32.ino` ที่ไม่ส่งข้อมูลแม้ต่อ Wi-Fi ติดแล้ว และรองรับ `DEVICE_TOKEN` ใน Backend
+- **สาเหตุที่บอร์ดต่อ Wi-Fi ติด (ขึ้นในหน้าเราเตอร์ TOT `192.168.7.1`) แต่ไม่ส่งข้อมูลขึ้นหน้าเว็บ:**
+  1. ใน `setup()` ของ `voc_esp32.ino` เดิม เมื่อสแกนเจอชื่อ Wi-Fi (`targetFound == true` เช่น `robot_club`) บอร์ดจะต่อด้วย `WiFi.begin(targetSSID, targetPass)` ทันที **โดยไม่ได้เรียก `wifiMulti.addAP(...)`** (เพราะ `wifiMulti.addAP` อยู่ในบล็อก `else` ตอนสแกนไม่เจอเท่านั้น!)
+  2. พอเข้าสู่ `loop()` ฟังก์ชัน `sendData()`, `fetchActiveSession()`, และ `pollDeviceCommand()` กลับเช็กเงื่อนไข `if (wifiMulti.run() != WL_CONNECTED) return false;` ซึ่งเมื่อ `wifiMulti` ไม่มีรายการ AP ลงทะเบียนไว้ มันจึงคืนค่าไม่เท่ากับ `WL_CONNECTED` ตลอดเวลา ทำให้บอร์ดคิดว่า Wi-Fi ออฟไลน์ (`[Buffer] Wi-Fi offline; buffered reading`) และไม่ยอมยิง HTTP POST ไปที่เซิร์ฟเวอร์เลยแม้จะต่อ Wi-Fi ติดแล้ว!
+  3. นอกจากนี้ ใน `main.py` (`_verify_device_auth`) ได้เพิ่มให้รองรับ `voc_device_secret_2026` จาก `secrets.h` ของบอร์ดควบคู่กับ `DEFAULT_DEVICE_TOKEN` เพื่อไม่ให้ติด HTTP 401 บน Production
+- **สิ่งที่แก้ไข:**
+  - ใน [`hardware/firmware/voc_esp32/voc_esp32.ino`](file:///Users/urworld/paper_sensor_VOC/hardware/firmware/voc_esp32/voc_esp32.ino): ย้าย `wifiMulti.addAP(...)` มาทำงานเสมอตั้งแต่ต้น และเปลี่ยนเงื่อนไขเช็กการเชื่อมต่อใน `sendData()`, `fetchActiveSession()`, `pollDeviceCommand()`, `ackDeviceCommand()` เป็น `if (WiFi.status() != WL_CONNECTED && wifiMulti.run() != WL_CONNECTED)`
+  - ใน [`vocs-website/backend/main.py`](file:///Users/urworld/paper_sensor_VOC/vocs-website/backend/main.py): รองรับ `DEVICE_TOKEN` จาก `secrets.h` ใน `_verify_device_auth`
+
+
 
 
 

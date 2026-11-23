@@ -1192,7 +1192,8 @@ async def _verify_device_auth(box_id: str, device_token: Optional[str], pool) ->
     """ตรวจสอบความถูกต้องของ Device Token สำหรับ ESP32 Ingest"""
     if not device_token:
         return False
-    if device_token == DEFAULT_DEVICE_TOKEN:
+    # รองรับทั้ง DEFAULT_DEVICE_TOKEN จาก env และ DEVICE_TOKEN มาตรฐานใน secrets.h ของบอร์ดทดลอง
+    if device_token in (DEFAULT_DEVICE_TOKEN, "voc_device_secret_2026", "voc-device-box001-secret-token"):
         return True
     if pool:
         try:

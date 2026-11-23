@@ -484,7 +484,7 @@ int readMedianAdc(uint8_t pin, int *spread = nullptr) {
 
 // ─── Fetch Active Session ─────────────────────────────────────
 void fetchActiveSession() {
-  if (wifiMulti.run() != WL_CONNECTED) return;
+  if (WiFi.status() != WL_CONNECTED && wifiMulti.run() != WL_CONNECTED) return;
 
   WiFiClientSecure client;
   HTTPClient http;
@@ -555,7 +555,7 @@ void reportCalibration(int calibrationId) {
 }
 
 void ackDeviceCommand(int commandId, const char* status, const char* detail) {
-  if (wifiMulti.run() != WL_CONNECTED || commandId <= 0) return;
+  if ((WiFi.status() != WL_CONNECTED && wifiMulti.run() != WL_CONNECTED) || commandId <= 0) return;
   JsonDocument doc;
   doc["box_id"] = BOX_ID;
   doc["status"] = status;
@@ -574,7 +574,7 @@ void ackDeviceCommand(int commandId, const char* status, const char* detail) {
 }
 
 void pollDeviceCommand() {
-  if (wifiMulti.run() != WL_CONNECTED) return;
+  if (WiFi.status() != WL_CONNECTED && wifiMulti.run() != WL_CONNECTED) return;
   WiFiClientSecure client; client.setInsecure();
   HTTPClient http;
   http.begin(client, apiEndpoint("/api/device-command?box_id=") + BOX_ID);
@@ -829,6 +829,12 @@ void setup() {
 
   // 3. Wi-Fi Scanner & Connection (รองรับทั้ง Open Wi-Fi มหาวิทยาลัย และ Hotspot)
   WiFi.mode(WIFI_STA);
+  // ลงทะเบียน AP เข้า wifiMulti เสมอ เพื่อให้ wifiMulti.run() ใน loop ทำงานได้ไม่ตัดสาย!
+  wifiMulti.addAP(WIFI_SSID_1, WIFI_PASS_1);
+  if (strlen(WIFI_SSID_2) > 0) wifiMulti.addAP(WIFI_SSID_2, WIFI_PASS_2);
+  wifiMulti.addAP("@NU-WiFi", "");
+  wifiMulti.addAP("NU-WiFi", "");
+
   Serial.println("\n[WiFi] Scanning nearby 2.4GHz networks...");
   int n = WiFi.scanNetworks();
   Serial.printf("[WiFi] Found %d networks nearby:\n", n);
@@ -846,7 +852,7 @@ void setup() {
     if (!targetFound) {
       if (foundSsid == WIFI_SSID_1 || foundSsid == "@NU-WiFi" || foundSsid == "NU-WiFi" || foundSsid == "@NU-Web") {
         targetSSID = foundSsid;
-        targetPass = WIFI_PASS_1;
+        targetPass = (foundSsid == WIFI_SSID_1) ? WIFI_PASS_1 : "";
         targetFound = true;
       } else if (strlen(WIFI_SSID_2) > 0 && foundSsid == WIFI_SSID_2) {
         targetSSID = foundSsid;
@@ -865,10 +871,6 @@ void setup() {
     }
   } else {
     Serial.println("[WiFi] Target SSID not found in scan; attempting WiFiMulti list...");
-    wifiMulti.addAP(WIFI_SSID_1, WIFI_PASS_1);
-    if (strlen(WIFI_SSID_2) > 0) wifiMulti.addAP(WIFI_SSID_2, WIFI_PASS_2);
-    wifiMulti.addAP("@NU-WiFi", "");
-    wifiMulti.addAP("NU-WiFi", "");
     wifiMulti.run();
   }
 
@@ -1067,7 +1069,7 @@ void reportOtaStatus(const char* status, int errCode, const char* errDetail) {
 
 // ─── Send to API ─────────────────────────────────────────────
 bool sendData(const SensorData& d, bool allowBuffer) {
-  if (wifiMulti.run() != WL_CONNECTED) {
+  if (WiFi.status() != WL_CONNECTED && wifiMulti.run() != WL_CONNECTED) {
     if (allowBuffer) {
       pushOfflineReading(d);
       Serial.printf("[Buffer] Wi-Fi offline; buffered reading (%d/%d)\n", offlineBufCount, OFFLINE_BUF_CAPACITY);
