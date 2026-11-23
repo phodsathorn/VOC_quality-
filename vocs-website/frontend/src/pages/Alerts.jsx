@@ -12,7 +12,7 @@ export default function Alerts() {
   const { isThai } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [severityFilter, setSeverityFilter] = useState('All');
-  const [dateFilter, setDateFilter] = useState('Today');
+  const [dateFilter, setDateFilter] = useState('All time');
   const [currentPage, setCurrentPage] = useState(1);
 
   const [incidents, setIncidents] = useState([
@@ -147,22 +147,77 @@ export default function Alerts() {
         if (listRes.ok && isMounted) {
           const data = await listRes.json();
           if (Array.isArray(data) && data.length > 0) {
+            const nowBkk = new Date();
+            const todayStr = nowBkk.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+            const yesterdayDate = new Date(nowBkk.getTime() - 86400000);
+            const yesterdayStr = yesterdayDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+
             const mapped = data.map((a) => {
               const level = a.level || 'Warning';
               const isWarning = level === 'Warning' || level === 'High';
               const isCritical = level === 'Critical';
               const isNormal = level === 'Normal';
+
+              // คำนวณวันที่จริงจาก created_at แทนการ Hardcode คำว่า "Today"
+              let formattedTime = a.time || '—';
+              let isToday = false;
+              if (a.created_at) {
+                const dt = new Date(a.created_at);
+                if (!isNaN(dt.getTime())) {
+                  const itemDateStr = dt.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+                  const timePart = dt.toLocaleTimeString('th-TH', {
+                    timeZone: 'Asia/Bangkok',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false,
+                  });
+                  const datePart = dt.toLocaleDateString('en-GB', {
+                    timeZone: 'Asia/Bangkok',
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                  });
+                  if (itemDateStr === todayStr) {
+                    isToday = true;
+                    formattedTime = `${timePart} Today`;
+                  } else if (itemDateStr === yesterdayStr) {
+                    formattedTime = `${timePart} Yesterday`;
+                  } else {
+                    formattedTime = `${datePart} ${timePart}`;
+                  }
+                }
+              }
+
+              // กำหนดกฎการตรวจวัด (Rule) ตามแหล่งที่มาจริง ไม่ใส่ค่าจำลอง TVOC มั่ว
+              const msgText = a.message || '';
+              let inferredRule = a.rule;
+              if (!inferredRule) {
+                if (msgText.includes('ขาดการเชื่อมต่อ') || msgText.includes('Offline')) {
+                  inferredRule = 'Heartbeat Timeout > 5 min';
+                } else if (msgText.includes('Kiosk') || a.source_screen === 'Kiosk') {
+                  inferredRule = 'Manual Kiosk Emergency PIN';
+                } else if (msgText.includes('AI ตรวจพบ')) {
+                  inferredRule = 'AI Classifier Confidence >= 80%';
+                } else if (msgText.includes('PM2.5') || msgText.includes('PM25')) {
+                  inferredRule = isCritical ? 'PM2.5 > 75 µg/m³' : 'PM2.5 > 37.5 µg/m³';
+                } else {
+                  inferredRule = isCritical ? 'TVOC > 300 ppb' : 'TVOC > 200 ppb';
+                }
+              }
+
               return {
                 id: a.id,
-                title: `Incident #${a.id}: ${a.message ? a.message.slice(0, 32) : 'VOC Anomaly'}`,
-                meta: `${a.time || 'Today'} • Level: ${level}`,
-                time: a.time ? `${a.time} Today` : 'Today',
+                title: `Incident #${a.id}: ${msgText ? msgText.slice(0, 32) : 'VOC Anomaly'}`,
+                meta: `${formattedTime} • Level: ${level}`,
+                time: formattedTime,
+                isToday,
                 level: level,
                 levelBg: isCritical ? 'bg-rose-50 border border-rose-200/80' : isWarning ? 'bg-amber-50 border border-amber-200/80' : isNormal ? 'bg-emerald-50 border border-emerald-200/80' : 'bg-sky-50 border border-sky-200/80',
                 levelText: isCritical ? 'text-rose-700' : isWarning ? 'text-amber-800' : isNormal ? 'text-emerald-700' : 'text-sky-700',
                 dotBg: isCritical ? 'bg-rose-500' : isWarning ? 'bg-amber-500' : isNormal ? 'bg-emerald-500' : 'bg-sky-500',
-                condition: a.message || 'Transient VOC condition',
-                rule: a.rule || (isCritical ? 'TVOC > 300 ppb for 1 min' : 'TVOC > 200 ppb for 2 min'),
+                condition: msgText || 'Transient VOC condition',
+                rule: inferredRule,
                 status: a.status === 'Active' ? 'Open' : a.status || 'Open',
                 statusBg: a.status === 'Open' || a.status === 'Active' ? 'bg-rose-50 border border-rose-200/80' : a.status === 'Acknowledged' ? 'bg-sky-50 border border-sky-200/80' : 'bg-emerald-50 border border-emerald-200/80',
                 statusText: a.status === 'Open' || a.status === 'Active' ? 'text-rose-700' : a.status === 'Acknowledged' ? 'text-sky-700' : 'text-emerald-700',
@@ -272,16 +327,17 @@ export default function Alerts() {
     setSelectedIncident(null);
   }
 
-  // Filter incidents
+  // Filter incidents (รองรับการกรองตามวันที่จริง วันนี้ vs ทั้งหมด)
   const filteredIncidents = useMemo(() => {
     return incidents.filter((inc) => {
       const matchSearch = searchTerm
         ? (inc.condition + inc.owner + (inc.rule || '')).toLowerCase().includes(searchTerm.toLowerCase())
         : true;
       const matchSeverity = severityFilter === 'All' ? true : inc.level.toLowerCase() === severityFilter.toLowerCase();
-      return matchSearch && matchSeverity;
+      const matchDate = dateFilter === 'Today' ? Boolean(inc.isToday) : true;
+      return matchSearch && matchSeverity && matchDate;
     });
-  }, [incidents, searchTerm, severityFilter]);
+  }, [incidents, searchTerm, severityFilter, dateFilter]);
 
   return (
     <div className="flex flex-col w-full gap-8 max-w-7xl mx-auto">
@@ -438,7 +494,15 @@ export default function Alerts() {
                 {filteredIncidents.map((inc) => {
                   const isSelected = selectedIncident?.id === inc.id;
                   const displayLevel = isThai
-                    ? (inc.level === 'Warning' ? 'เฝ้าระวัง' : inc.level === 'Critical' ? 'วิกฤต' : inc.level === 'Advisory' ? 'ข้อแนะนำ' : 'ปกติ')
+                    ? (inc.level === 'Warning'
+                        ? 'เฝ้าระวัง'
+                        : inc.level === 'High'
+                        ? 'ความเสี่ยงสูง'
+                        : inc.level === 'Critical'
+                        ? 'วิกฤต'
+                        : inc.level === 'Advisory'
+                        ? 'ข้อแนะนำ'
+                        : 'ปกติ')
                     : (inc.level === 'เฝ้าระวัง' ? 'Warning' : inc.level === 'วิกฤต' ? 'Critical' : inc.level);
                   const displayStatus = isThai
                     ? (inc.status === 'Open' ? 'เปิดอยู่' : inc.status === 'Acknowledged' ? 'รับทราบแล้ว' : 'แก้ไขแล้ว')
@@ -446,7 +510,20 @@ export default function Alerts() {
                   const displayTime = isThai
                     ? String(inc.time || '').replace('Today', 'วันนี้').replace('Yesterday', 'เมื่อวาน')
                     : String(inc.time || '').replace('วันนี้', 'Today').replace('เมื่อวาน', 'Yesterday');
-                  let displayCondition = inc.condition;
+                  let displayCondition = inc.condition || '';
+                  // แปลงจำนวนวินาทีขนาดใหญ่ (เช่น Offline นาน 1222594s) ให้อ่านง่ายเป็น วัน/ชั่วโมง
+                  displayCondition = displayCondition.replace(/Offline นาน (\d+)s/, (_, secStr) => {
+                    const sec = parseInt(secStr, 10);
+                    if (sec >= 86400) {
+                      const days = Math.floor(sec / 86400);
+                      const hrs = Math.floor((sec % 86400) / 3600);
+                      return isThai ? `Offline นาน ${days} วัน ${hrs} ชม.` : `Offline for ${days}d ${hrs}h`;
+                    }
+                    if (sec >= 3600) {
+                      return isThai ? `Offline นาน ${Math.floor(sec / 3600)} ชม.` : `Offline for ${Math.floor(sec / 3600)}h`;
+                    }
+                    return isThai ? `Offline นาน ${Math.floor(sec / 60)} นาที` : `Offline for ${Math.floor(sec / 60)}m`;
+                  });
                   if (!isThai) {
                     if (displayCondition?.includes('สูงเกินวิกฤต')) {
                       displayCondition = displayCondition.replace('สูงเกินวิกฤต:', 'Critical:').replace('(เกณฑ์', '(Threshold').replace(')', ' ppb)');
