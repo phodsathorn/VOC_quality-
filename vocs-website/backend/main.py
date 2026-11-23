@@ -1668,6 +1668,7 @@ class ThreeFanControlBody(BaseModel):
     fan3: bool = False
     auto_mode: bool = False
     preset: Optional[str] = "CUSTOM"
+    active_low: Optional[bool] = None
 
 
 @app.get("/api/devices/{box_id}/fans")
@@ -1727,6 +1728,7 @@ async def set_device_three_fans(
         "fan3": bool(body.fan3),
         "auto_mode": bool(body.auto_mode),
         "preset": body.preset or "CUSTOM",
+        "active_low": body.active_low,
         "requested_by": (user or {}).get("username", "lab_experimenter"),
     }
 
@@ -1734,6 +1736,11 @@ async def set_device_three_fans(
     cmd_id = None
     if pool:
         try:
+            # ยกเลิกคำสั่งพัดลมเก่าที่ค้างอยู่ในคิว เพื่อให้บอร์ด ESP32 ได้รับคำสั่งพัดลมล่าสุดทันทีโดยไม่โดนคำสั่งเก่าเขียนทับ
+            await pool.execute(
+                "UPDATE device_commands SET status='SUPERSEDED', completed_at=NOW() WHERE box_id=$1 AND action IN ('SET_FANS','FAN_NORMAL','FAN_BOOST') AND status IN ('PENDING','DELIVERED')",
+                box_id,
+            )
             row = await pool.fetchrow(
                 "INSERT INTO device_commands (box_id, action, payload) VALUES ($1, $2, $3::jsonb) RETURNING id",
                 box_id, action, json.dumps(cmd_payload),
@@ -1742,6 +1749,9 @@ async def set_device_three_fans(
         except Exception as e:
             print(f"[Fan Control DB Queue Notice] {e}")
     if cmd_id is None:
+        for old_cmd in _in_memory_device_commands:
+            if old_cmd["box_id"] == box_id and old_cmd["action"] in ("SET_FANS", "FAN_NORMAL", "FAN_BOOST"):
+                old_cmd["status"] = "SUPERSEDED"
         cmd_id = len(_in_memory_device_commands) + 1
         _in_memory_device_commands.append({
             "id": cmd_id,
@@ -1752,6 +1762,7 @@ async def set_device_three_fans(
         })
 
     now_iso = datetime.now(timezone.utc).isoformat()
+    prev_active_low = _box_fan_states.get(box_id, {}).get("active_low", False)
     _box_fan_states[box_id] = {
         "fan1": bool(body.fan1),
         "fan2": bool(body.fan2),
@@ -1761,6 +1772,7 @@ async def set_device_three_fans(
         "fan3_pin": 4,
         "auto_mode": bool(body.auto_mode),
         "preset": body.preset or "CUSTOM",
+        "active_low": bool(body.active_low) if body.active_low is not None else bool(prev_active_low),
         "apply_pending": True,
         "command_id": cmd_id,
         "updated_at": now_iso,
@@ -2804,13 +2816,26 @@ async def ingest_reading(payload: IngestPayload, request: Request):
         "fan2": fan_state_entry["fan2"],
         "fan3": fan_state_entry["fan3"],
         "auto_mode": fan_state_entry["auto_mode"],
+        "active_low": fan_state_entry.get("active_low", False),
         "command_id": fan_state_entry.get("command_id"),
     }
     if fan_state_entry.get("apply_pending"):
         fan_control_resp["apply"] = True
         fan_state_entry["apply_pending"] = False
-    else:
-        # อัปเดตสถานะพัดลมตามค่าจริงที่บอร์ด ESP32 ส่งรายงานมา
+        if pool:
+            try:
+                await pool.execute(
+                    """
+                    INSERT INTO maintenance_state (key, state, updated_at)
+                    VALUES ($1, $2::jsonb, NOW())
+                    ON CONFLICT (key) DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()
+                    """,
+                    f"fans:{payload.box_id}", json.dumps(fan_state_entry),
+                )
+            except Exception:
+                pass
+    elif not fan_state_entry.get("updated_at"):
+        # อัปเดตสถานะพัดลมตามค่าจริงที่บอร์ด ESP32 ส่งรายงานมา เฉพาะตอนที่ยังไม่มีการสั่งงานจากหน้าเว็บ
         if payload.fan1 is not None:
             fan_state_entry["fan1"] = bool(payload.fan1)
         if payload.fan2 is not None:

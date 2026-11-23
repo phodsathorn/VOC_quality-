@@ -79,6 +79,7 @@ bool           fan1State             = true;   // GPIO 25 (IN1)
 bool           fan2State             = true;   // GPIO 26 (IN2)
 bool           fan3State             = false;  // GPIO 4  (IN3)
 bool           fanManualOverride     = false;  // เปิดโหมดควบคุมพัดลมจากการทดลองบนหน้าเว็บ
+bool           fanRelayActiveLow     = false;  // false = Active HIGH (2PH6391A), true = Active LOW (รีเลย์สีน้ำเงินทั่วไป)
 
 const int OFFLINE_BUF_CAPACITY = 20;
 SensorData offlineBuf[OFFLINE_BUF_CAPACITY];
@@ -96,6 +97,13 @@ void pushOfflineReading(const SensorData& d) {
   offlineBuf[idx] = d;
 }
 
+inline int relayPinLevel(bool turnOn) {
+  if (fanRelayActiveLow) {
+    return turnOn ? LOW : HIGH;
+  }
+  return turnOn ? HIGH : LOW;
+}
+
 void applyThreeFans(bool f1, bool f2, bool f3, bool isManual = false) {
   fan1State = f1;
   fan2State = f2;
@@ -103,18 +111,19 @@ void applyThreeFans(bool f1, bool f2, bool f3, bool isManual = false) {
   if (isManual) {
     fanManualOverride = true;
   }
-  digitalWrite(FAN_INTAKE, fan1State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+  digitalWrite(FAN_INTAKE, relayPinLevel(fan1State));
   if (fanExhaustPinSafe) {
-    digitalWrite(FAN_EXHAUST, fan2State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+    digitalWrite(FAN_EXHAUST, relayPinLevel(fan2State));
   }
   if (fanAuxPinSafe) {
-    digitalWrite(FAN_AUX, fan3State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+    digitalWrite(FAN_AUX, relayPinLevel(fan3State));
   }
-  Serial.printf("[Fans] Fan1(GPIO25):%s | Fan2(GPIO26):%s | Fan3(GPIO4):%s [Mode:%s]\n",
+  Serial.printf("[Fans] Fan1(GPIO25):%s | Fan2(GPIO26):%s | Fan3(GPIO4):%s [Mode:%s, Trigger:%s]\n",
                 fan1State ? "ON" : "OFF",
                 fan2State ? "ON" : "OFF",
                 fan3State ? "ON" : "OFF",
-                fanManualOverride ? "MANUAL_EXP" : "AUTO");
+                fanManualOverride ? "MANUAL_EXP" : "AUTO",
+                fanRelayActiveLow ? "ACTIVE_LOW" : "ACTIVE_HIGH");
 }
 
 void setFansState(bool boostOrFailSafe) {
@@ -124,12 +133,12 @@ void setFansState(bool boostOrFailSafe) {
   }
   if (fanManualOverride) {
     // รักษาสถานะพัดลมที่ผู้ทดลองสั่งเปิด-ปิดจากหน้าเว็บ
-    digitalWrite(FAN_INTAKE, fan1State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+    digitalWrite(FAN_INTAKE, relayPinLevel(fan1State));
     if (fanExhaustPinSafe) {
-      digitalWrite(FAN_EXHAUST, fan2State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+      digitalWrite(FAN_EXHAUST, relayPinLevel(fan2State));
     }
     if (fanAuxPinSafe) {
-      digitalWrite(FAN_AUX, fan3State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+      digitalWrite(FAN_AUX, relayPinLevel(fan3State));
     }
     return;
   }
@@ -593,9 +602,12 @@ void pollDeviceCommand() {
         bool f1 = cmd["fan1"] | false;
         bool f2 = cmd["fan2"] | false;
         bool f3 = cmd["fan3"] | false;
+        if (!cmd["active_low"].isNull()) {
+          fanRelayActiveLow = cmd["active_low"] | false;
+        }
         fanBoostActive = false;
         applyThreeFans(f1, f2, f3, true);
-        Serial.printf("[Fan] Remote SET_FANS executed -> Fan1(25):%d, Fan2(26):%d, Fan3(4):%d\n", f1, f2, f3);
+        Serial.printf("[Fan] Remote SET_FANS executed -> Fan1(25):%d, Fan2(26):%d, Fan3(4):%d [ActiveLow:%d]\n", f1, f2, f3, fanRelayActiveLow);
         ackDeviceCommand(cmdId, "COMPLETE", "3-fan state applied");
       } else if (strcmp(action, "FAN_BOOST") == 0) {
         unsigned long durSec = cmd["duration_seconds"] | 300UL;
@@ -668,16 +680,15 @@ void setup() {
   Serial.println("\n[VOC] Starting E-Nose v2 (Dual-Bus Independent Hardware Scanner)...");
 
   // ─────────────────────────────────────────────────────────────
-  // 1. ตรวจจับ I2C Bus #1 (Wire Controller 0) — ทดสอบคู่ขา 26-27 และ 12-32 เป็นอันดับแรก
+  // 1. ตรวจจับ I2C Bus #1 (Wire Controller 0) — ห้ามแตะขา GPIO 25, 26, 4 ของพัดลมเด็ดขาด!
   // ─────────────────────────────────────────────────────────────
   Serial.println("[I2C] --- Probing Bus #1 (Wire) ---");
   const I2cPinPair BUS1_PAIRS[] = {
-    { 26, 27, "GPIO 26 (SDA), GPIO 27 (SCL)" }, // ลำดับ 1 ตามที่ผู้ใช้ระบุ
-    { 27, 26, "GPIO 27 (SDA), GPIO 26 (SCL)" }, // สลับสาย
-    { 32, 12, "GPIO 32 (SDA), GPIO 12 (SCL)" }, // ลำดับ 2 ตามที่ผู้ใช้ระบุ
-    { 12, 32, "GPIO 12 (SDA), GPIO 32 (SCL)" }, // สลับสาย
     { 21, 22, "Standard Bus (SDA:21, SCL:22)" },
     { 22, 21, "Swapped Bus (SDA:22, SCL:21)" },
+    { 32, 13, "Circuit v2 Bus (SDA:32, SCL:13)" },
+    { 32, 12, "GPIO 32 (SDA), GPIO 12 (SCL)" },
+    { 12, 32, "GPIO 12 (SDA), GPIO 32 (SCL)" },
     { 18, 19, "Legacy Alt Bus (SDA:18, SCL:19)" }
   };
 
@@ -722,18 +733,15 @@ void setup() {
 
   // ─────────────────────────────────────────────────────────────
   // 2. ถ้าเซนเซอร์ตัวใดตัวหนึ่งยังไม่พบ ให้สแกน Bus #2 (I2C2 Controller 1)
-  //    (เช่น ถ้า CCS811 อยู่ 26/27 แต่ ADS1115 อยู่ 12/32 หรือกลับกัน)
+  //    (ห้ามแตะ GPIO 25, 26, 4 ของพัดลมเด็ดขาด!)
   // ─────────────────────────────────────────────────────────────
   if (!isAdsReady || !isCcsReady) {
     Serial.println("\n[I2C] --- Probing Bus #2 (I2C2 Controller 1) for remaining sensor ---");
     const I2cPinPair BUS2_PAIRS[] = {
-      { 32, 12, "GPIO 32 (SDA), GPIO 12 (SCL)" }, // ขาที่ผู้ใช้ระบุ
-      { 12, 32, "GPIO 12 (SDA), GPIO 32 (SCL)" }, // สลับสาย
-      { 26, 27, "GPIO 26 (SDA), GPIO 27 (SCL)" }, // ขาที่ผู้ใช้ระบุ
-      { 27, 26, "GPIO 27 (SDA), GPIO 26 (SCL)" }, // สลับสาย
-      { 21, 22, "Standard Bus (SDA:21, SCL:22)" },
       { 32, 13, "Circuit v2 (SDA:32, SCL:13)" },
-      { 4,  15, "Dev Header (SDA:4, SCL:15)" }
+      { 32, 12, "GPIO 32 (SDA), GPIO 12 (SCL)" },
+      { 12, 32, "GPIO 12 (SDA), GPIO 32 (SCL)" },
+      { 21, 22, "Standard Bus (SDA:21, SCL:22)" }
     };
 
     for (const auto& pair : BUS2_PAIRS) {
@@ -795,26 +803,14 @@ void setup() {
   }
   Serial.println("══════════════════════════════════════════════════════════\n");
 
-  // Fan control (3 พัดลม: GPIO 25, GPIO 26, และ GPIO 4)
+  // Fan control (3 พัดลม: GPIO 25, GPIO 26, และ GPIO 4 — เปิดใช้งานทั้ง 3 ขาเสมอ)
+  fanExhaustPinSafe = true;
+  fanAuxPinSafe = true;
   pinMode(FAN_INTAKE, OUTPUT);
-  digitalWrite(FAN_INTAKE, fan1State ? FAN_RELAY_ON : FAN_RELAY_OFF);
-
-  if (adsFoundSda != 26 && adsFoundScl != 26 && ccsFoundSda != 26 && ccsFoundScl != 26) {
-    fanExhaustPinSafe = true;
-    pinMode(FAN_EXHAUST, OUTPUT);
-    digitalWrite(FAN_EXHAUST, fan2State ? FAN_RELAY_ON : FAN_RELAY_OFF);
-  } else {
-    Serial.println("[Fan] GPIO 26 ถูกจัดสรรให้ I2C (ไม่เปิดพินซ้ำเพื่อป้องกันบัสค้าง)");
-  }
-
-  if (adsFoundSda != 4 && adsFoundScl != 4 && ccsFoundSda != 4 && ccsFoundScl != 4) {
-    fanAuxPinSafe = true;
-    pinMode(FAN_AUX, OUTPUT);
-    digitalWrite(FAN_AUX, fan3State ? FAN_RELAY_ON : FAN_RELAY_OFF);
-    Serial.println("[OK] Fan 3 (Auxiliary / Experiment Fan) initialized on GPIO 4");
-  } else {
-    Serial.println("[Fan] GPIO 4 ถูกจัดสรรให้ I2C (ไม่เปิดพินซ้ำเพื่อป้องกันบัสค้าง)");
-  }
+  pinMode(FAN_EXHAUST, OUTPUT);
+  pinMode(FAN_AUX, OUTPUT);
+  applyThreeFans(fan1State, fan2State, fan3State, false);
+  Serial.println("[OK] 3-Fan Relays initialized on GPIO 25 (IN1), GPIO 26 (IN2), and GPIO 4 (IN3)");
 
   // 2. Init DHT22 & PMS5003 (GPIO 27 สำหรับ DHT22)
   int activeDhtPin = DHT_PIN;
@@ -1152,6 +1148,9 @@ bool sendData(const SensorData& d, bool allowBuffer) {
       // ─── Instant 3-Fan Remote Actuation Piggyback ────────────
       if (resp_doc["fan_control"].is<JsonObject>()) {
         JsonObject fc = resp_doc["fan_control"].as<JsonObject>();
+        if (!fc["active_low"].isNull()) {
+          fanRelayActiveLow = fc["active_low"] | false;
+        }
         if (fc["apply"] | false) {
           bool f1 = fc["fan1"] | false;
           bool f2 = fc["fan2"] | false;

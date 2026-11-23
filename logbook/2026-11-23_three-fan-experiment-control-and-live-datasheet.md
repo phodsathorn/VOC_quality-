@@ -124,6 +124,25 @@
      - เพิ่ม Endpoint `POST /api/alerts/resolve-all` และปุ่ม **"เคลียร์แจ้งเตือนที่ค้างทั้งหมด"** บนหัวตารางหน้า `/alerts` เพื่อให้กดล้างเหตุการณ์เก่าที่ค้างอยู่ให้กลายเป็น `แก้ไขแล้ว (Resolved)` ได้ในคลิกเดียว
      - ปรับ `PATCH /api/alerts/{id}/acknowledge` และ `PATCH /api/alerts/{id}/resolve` ให้ใส่ข้อความหมายเหตุอัตโนมัติหากผู้ใช้ไม่ได้กรอก และไม่บล็อก 401 หาก JWT หมดอายุ
 
+---
+
+## อัปเดตเวลา 21:26 ICT — แก้ไขโค้ดควบคุมพัดลม 3 ตัว (`GPIO 25`, `GPIO 26`, `GPIO 4`) ที่สั่งเปิดแล้วพัดลมไม่ติด
+- **สาเหตุที่พบ 3 จุด:**
+  1. **I2C Auto-Scanner ใน `setup()` ไปยึดขาพัดลม (`GPIO 26` และ `GPIO 4`)**:
+     - ใน `setup()` ของ `voc_esp32.ino` เดิม รายการ `BUS1_PAIRS` มี `{26, 27}` เป็นลำดับแรก และ `BUS2_PAIRS` มี `{26, 27}` และ `{4, 15}` ทำให้ `Wire.begin(26, 27)` และ `I2C2.begin(4, 15)` เปลี่ยนโหมดขา `GPIO 26` (พัดลมตัวที่ 2) และ `GPIO 4` (พัดลมตัวที่ 3) ให้กลายเป็นขา Open-Drain I2C หรือตั้ง `fanExhaustPinSafe = false` จน `digitalWrite()` ไม่ยอมจ่ายไฟออกขาพิน!
+  2. **คิวคำสั่ง `device_commands` บน Backend ไม่ได้เคลียร์คำสั่งพัดลมเก่าที่ค้างอยู่ (`PENDING / DELIVERED`)**:
+     - เมื่อเคยกดปิดพัดลมไว้ก่อนหน้า คำสั่งเก่าที่ค้างในตาราง `device_commands` จะถูกดึงแบบ `ORDER BY id LIMIT 1` (FIFO) มาทับสถานะพัดลมใหม่
+  3. **ชนิดทริกของบอร์ดรีเลย์ (Active HIGH vs Active LOW)**:
+     - โมดูลรีเลย์ 4 ช่องสีน้ำเงินในกล่อง (ตามรูปถ่ายฮาร์ดแวร์จริง) อาจตั้งจัมเปอร์หรือวงจร Optocoupler เป็นแบบ **Active LOW (`LOW = เปิด`, `HIGH = ปิด`)** หรือ **Active HIGH (`HIGH = เปิด`, `LOW = ปิด`)**
+- **สิ่งที่แก้ไข:**
+  1. ใน [`hardware/firmware/voc_esp32/voc_esp32.ino`](file:///Users/urworld/paper_sensor_VOC/hardware/firmware/voc_esp32/voc_esp32.ino):
+     - ลบคู่ขา `{26, 27}`, `{27, 26}`, และ `{4, 15}` ออกจาก `BUS1_PAIRS` และ `BUS2_PAIRS` ทั้งหมด เพื่อไม่ให้การสแกน I2C ไปแตะขาพัดลม `GPIO 25`, `GPIO 26`, `GPIO 4` เด็ดขาด และบังคับเปิด `pinMode(FAN_INTAKE/FAN_EXHAUST/FAN_AUX, OUTPUT)` ทั้ง 3 ขาเสมอ
+     - เพิ่มตัวแปร `fanRelayActiveLow` และฟังก์ชัน `relayPinLevel(bool turnOn)` ที่สลับโหมดทริกรีเลย์ `Active HIGH (3.3V=ติด)` <-> `Active LOW (0V=ติด)` จากหน้าเว็บได้ทันทีโดยไม่ต้องอัปโค้ดใหม่
+  2. ใน [`vocs-website/backend/main.py`](file:///Users/urworld/paper_sensor_VOC/vocs-website/backend/main.py) และ [`DataCollection.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/DataCollection.jsx):
+     - ยกเลิกคำสั่งพัดลมเก่าใน `device_commands` (`SET status='SUPERSEDED'`) ทุกครั้งที่กดปุ่มพัดลมใหม่ เพื่อให้คำสั่งล่าสุดทำงานทันที
+     - เพิ่มปุ่มสลับ **"ทริกรีเลย์: Active HIGH (3.3V=ติด) / Active LOW (0V=ติด)"** บนแผงควบคุมพัดลมหน้าเว็บ
+
+
 
 
 

@@ -208,13 +208,14 @@ export default function DataCollection() {
   }, [fetchLiveTelemetry]);
 
   // ─── Control 3 Fans (GPIO 25, GPIO 26, GPIO 4) ───
-  async function handleSetThreeFans(nextF1, nextF2, nextF3, presetName = 'CUSTOM') {
+  async function handleSetThreeFans(nextF1, nextF2, nextF3, presetName = 'CUSTOM', nextActiveLow = fans.active_low) {
     const payload = {
       fan1: Boolean(nextF1),
       fan2: Boolean(nextF2),
       fan3: Boolean(nextF3),
       auto_mode: false,
       preset: presetName,
+      active_low: Boolean(nextActiveLow),
       updated_at: new Date().toISOString(),
     };
     lastManualFanChangeRef.current = Date.now();
@@ -568,6 +569,21 @@ export default function DataCollection() {
               }`}
             >
               {isThai ? '4. ระบายอากาศทิ้ง 100% (เปิดทั้ง 3 ตัว)' : '4. Purge Exhaust (All 3 ON)'}
+            </button>
+            <button
+              type="button"
+              disabled={isUpdatingFans}
+              onClick={() => handleSetThreeFans(fans.fan1, fans.fan2, fans.fan3, 'TOGGLE_POLARITY', !fans.active_low)}
+              title={isThai ? 'สลับโหมดทริกรีเลย์ Active HIGH <-> Active LOW (ถ้ารีเลย์ทำงานสลับทิศ)' : 'Toggle Relay Trigger Active HIGH / Active LOW'}
+              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer ${
+                fans.active_low
+                  ? 'bg-amber-50 text-amber-800 border-amber-300'
+                  : 'bg-white text-[#505f76] border-[#c3c6d7] hover:bg-[#f2f3ff]'
+              }`}
+            >
+              {isThai
+                ? `ทริกรีเลย์: ${fans.active_low ? 'Active LOW (0V=ติด)' : 'Active HIGH (3.3V=ติด)'}`
+                : `Relay: ${fans.active_low ? 'Active LOW' : 'Active HIGH'}`}
             </button>
           </div>
         </div>
