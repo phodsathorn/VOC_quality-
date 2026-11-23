@@ -48,14 +48,21 @@
   #error "OTA_PASSWORD must be defined in secrets.h (see secrets.example.h)"
 #endif
 
+// ─── Fans / Relays (3-Fan Experiment Configuration) ──────────
+#define FAN_INTAKE    25     // พัดลมตัวที่ 1 (IN1 - GPIO 25): ดูดไอสารเข้า / Transfer Fan
+#define FAN_EXHAUST   26     // พัดลมตัวที่ 2 (IN2 - GPIO 26): ระบายอากาศออก / Exhaust Fan
+#define FAN_AUX       4      // พัดลมตัวที่ 3 (IN3 - GPIO 4): พัดลมเสริม / Chamber Circulation Fan
+#define FAN_RELAY_ON  HIGH
+#define FAN_RELAY_OFF LOW
+
 // ─── Data Structure ──────────────────────────────────────────
 struct SensorData {
-  float temp, rh, pm25, tvoc, eco2;
+  float temp, rh, pm25, pm10, tvoc, eco2;
   int   mq2, mq3, mq135, mq8, mics_co, no2, nh3;
 };
 
 WebServer server(80);
-const char* FIRMWARE_VER = "1.1.0";
+const char* FIRMWARE_VER = "1.2.0";
 const char* BOX_ID       = "BOX-001";
 unsigned long packetSeqNo = 0;
 
@@ -63,8 +70,15 @@ unsigned long packetSeqNo = 0;
 const uint32_t WDT_TIMEOUT_SEC       = 30;
 const float    L1_CRITICAL_TVOC_PPB  = 220.0f;
 bool           fanExhaustPinSafe     = false;
+bool           fanAuxPinSafe         = false;
 bool           fanBoostActive        = false;
 unsigned long  fanBoostUntilMs       = 0;
+
+// สถานะพัดลมทั้ง 3 ตัวสำหรับการทดลองและมอนิเตอร์ผ่านเว็บ
+bool           fan1State             = true;   // GPIO 25 (IN1)
+bool           fan2State             = true;   // GPIO 26 (IN2)
+bool           fan3State             = false;  // GPIO 4  (IN3)
+bool           fanManualOverride     = false;  // เปิดโหมดควบคุมพัดลมจากการทดลองบนหน้าเว็บ
 
 const int OFFLINE_BUF_CAPACITY = 20;
 SensorData offlineBuf[OFFLINE_BUF_CAPACITY];
@@ -82,24 +96,59 @@ void pushOfflineReading(const SensorData& d) {
   offlineBuf[idx] = d;
 }
 
-void setFansState(bool boostOrFailSafe) {
-  digitalWrite(FAN_INTAKE, HIGH);
-  if (fanExhaustPinSafe) {
-    digitalWrite(FAN_EXHAUST, boostOrFailSafe ? HIGH : HIGH); // Always-on safety airflow; boost flag tracks actuator state
+void applyThreeFans(bool f1, bool f2, bool f3, bool isManual = false) {
+  fan1State = f1;
+  fan2State = f2;
+  fan3State = f3;
+  if (isManual) {
+    fanManualOverride = true;
   }
+  digitalWrite(FAN_INTAKE, fan1State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+  if (fanExhaustPinSafe) {
+    digitalWrite(FAN_EXHAUST, fan2State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+  }
+  if (fanAuxPinSafe) {
+    digitalWrite(FAN_AUX, fan3State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+  }
+  Serial.printf("[Fans] Fan1(GPIO25):%s | Fan2(GPIO26):%s | Fan3(GPIO4):%s [Mode:%s]\n",
+                fan1State ? "ON" : "OFF",
+                fan2State ? "ON" : "OFF",
+                fan3State ? "ON" : "OFF",
+                fanManualOverride ? "MANUAL_EXP" : "AUTO");
+}
+
+void setFansState(bool boostOrFailSafe) {
+  if (boostOrFailSafe) {
+    applyThreeFans(true, true, true, false);
+    return;
+  }
+  if (fanManualOverride) {
+    // รักษาสถานะพัดลมที่ผู้ทดลองสั่งเปิด-ปิดจากหน้าเว็บ
+    digitalWrite(FAN_INTAKE, fan1State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+    if (fanExhaustPinSafe) {
+      digitalWrite(FAN_EXHAUST, fan2State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+    }
+    if (fanAuxPinSafe) {
+      digitalWrite(FAN_AUX, fan3State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+    }
+    return;
+  }
+  applyThreeFans(true, true, false, false);
 }
 
 void evaluateLocalFailSafe(const SensorData& d) {
-  bool l1Triggered = (d.tvoc >= L1_CRITICAL_TVOC_PPB);
-  if (l1Triggered) {
-    Serial.printf("[L1 FAIL-SAFE] Critical TVOC %.1f ppb >= %.1f ppb -> Forcing Exhaust Fan HIGH!\n",
-                  d.tvoc, L1_CRITICAL_TVOC_PPB);
-    setFansState(true);
-    return;
+  if (!fanManualOverride) {
+    bool l1Triggered = (d.tvoc >= L1_CRITICAL_TVOC_PPB);
+    if (l1Triggered) {
+      Serial.printf("[L1 FAIL-SAFE] Critical TVOC %.1f ppb >= %.1f ppb -> Forcing All Fans HIGH!\n",
+                    d.tvoc, L1_CRITICAL_TVOC_PPB);
+      setFansState(true);
+      return;
+    }
   }
   if (fanBoostActive && (long)(millis() - fanBoostUntilMs) >= 0) {
     fanBoostActive = false;
-    Serial.println("[Fan] Boost timer expired; returning to nominal fan mode.");
+    Serial.println("[Fan] Boost timer expired; returning to previous fan mode.");
   }
   setFansState(fanBoostActive);
 }
@@ -366,9 +415,7 @@ struct I2cPinPair {
 const I2cPinPair I2C_CANDIDATES[] = {
   { 21, 22, "Standard Bus (SDA:21, SCL:22)" },
   { 32, 13, "Circuit v2 Bus #2 (SDA:32, SCL:13)" },
-  { 18, 19, "Legacy Alt Bus (SDA:18, SCL:19)" },
-  { 25, 26, "Alt Fan Header (SDA:25, SCL:26)" },
-  { 4,  15, "Alt Dev Header (SDA:4, SCL:15)" }
+  { 18, 19, "Legacy Alt Bus (SDA:18, SCL:19)" }
 };
 const uint8_t NUM_I2C_CANDIDATES = sizeof(I2C_CANDIDATES) / sizeof(I2C_CANDIDATES[0]);
 
@@ -392,10 +439,6 @@ bool isCcsReady = false;
 #define MQ3_PIN       36
 #define MQ8_PIN       34
 #define MQ135_PIN     39
-
-// Fans / Relays
-#define FAN_INTAKE    25
-#define FAN_EXHAUST   26
 
 // ─── Settings ────────────────────────────────────────────────
 const unsigned long SEND_INTERVAL_MS = 3000;
@@ -546,17 +589,26 @@ void pollDeviceCommand() {
       if (strcmp(action, "CALIBRATE_BASELINE") == 0) {
         int calibrationId = cmd["calibration_id"] | 0;
         if (calibrationId > 0) reportCalibration(calibrationId);
+      } else if (strcmp(action, "SET_FANS") == 0) {
+        bool f1 = cmd["fan1"] | false;
+        bool f2 = cmd["fan2"] | false;
+        bool f3 = cmd["fan3"] | false;
+        fanBoostActive = false;
+        applyThreeFans(f1, f2, f3, true);
+        Serial.printf("[Fan] Remote SET_FANS executed -> Fan1(25):%d, Fan2(26):%d, Fan3(4):%d\n", f1, f2, f3);
+        ackDeviceCommand(cmdId, "COMPLETE", "3-fan state applied");
       } else if (strcmp(action, "FAN_BOOST") == 0) {
         unsigned long durSec = cmd["duration_seconds"] | 300UL;
         if (durSec < 30) durSec = 30;
         if (durSec > 3600) durSec = 3600;
         fanBoostActive = true;
         fanBoostUntilMs = millis() + (durSec * 1000UL);
-        setFansState(true);
+        applyThreeFans(true, true, true, false);
         Serial.printf("[Fan] Remote FAN_BOOST activated for %lu s\n", durSec);
         ackDeviceCommand(cmdId, "COMPLETE", "Fan boost relay activated");
       } else if (strcmp(action, "FAN_NORMAL") == 0) {
         fanBoostActive = false;
+        fanManualOverride = false;
         setFansState(false);
         Serial.println("[Fan] Remote FAN_NORMAL command received.");
         ackDeviceCommand(cmdId, "COMPLETE", "Fan returned to normal mode");
@@ -743,23 +795,29 @@ void setup() {
   }
   Serial.println("══════════════════════════════════════════════════════════\n");
 
-  // Fan control (ตรวจสอบไม่ให้ชนกับขา I2C ที่ถูกใช้งาน)
+  // Fan control (3 พัดลม: GPIO 25, GPIO 26, และ GPIO 4)
   pinMode(FAN_INTAKE, OUTPUT);
-  digitalWrite(FAN_INTAKE, HIGH);
+  digitalWrite(FAN_INTAKE, fan1State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+
   if (adsFoundSda != 26 && adsFoundScl != 26 && ccsFoundSda != 26 && ccsFoundScl != 26) {
     fanExhaustPinSafe = true;
     pinMode(FAN_EXHAUST, OUTPUT);
-    digitalWrite(FAN_EXHAUST, HIGH);
+    digitalWrite(FAN_EXHAUST, fan2State ? FAN_RELAY_ON : FAN_RELAY_OFF);
   } else {
     Serial.println("[Fan] GPIO 26 ถูกจัดสรรให้ I2C (ไม่เปิดพินซ้ำเพื่อป้องกันบัสค้าง)");
   }
 
-  // 2. Init DHT22 & PMS5003 (ปรับขา DHT22 อัตโนมัติหาก 27 เป็น I2C)
-  int activeDhtPin = 27;
-  if (adsFoundSda == 27 || adsFoundScl == 27 || ccsFoundSda == 27 || ccsFoundScl == 27) {
-    activeDhtPin = 4; // ใช้ GPIO 4 ตามสเปกบอร์ดเดิม
-    Serial.println("[DHT22] GPIO 27 ถูกจัดสรรให้ I2C; สลับไปใช้ GPIO 4 สำหรับ DHT22");
+  if (adsFoundSda != 4 && adsFoundScl != 4 && ccsFoundSda != 4 && ccsFoundScl != 4) {
+    fanAuxPinSafe = true;
+    pinMode(FAN_AUX, OUTPUT);
+    digitalWrite(FAN_AUX, fan3State ? FAN_RELAY_ON : FAN_RELAY_OFF);
+    Serial.println("[OK] Fan 3 (Auxiliary / Experiment Fan) initialized on GPIO 4");
+  } else {
+    Serial.println("[Fan] GPIO 4 ถูกจัดสรรให้ I2C (ไม่เปิดพินซ้ำเพื่อป้องกันบัสค้าง)");
   }
+
+  // 2. Init DHT22 & PMS5003 (GPIO 27 สำหรับ DHT22)
+  int activeDhtPin = DHT_PIN;
   dht = DHT(activeDhtPin, DHT_TYPE);
   dht.begin();
   Serial.printf("[OK] DHT22 initialized on GPIO %d\n", activeDhtPin);
@@ -925,12 +983,14 @@ SensorData readSensors() {
   d.tvoc = lastValidTvoc;
   d.eco2 = lastValidEco2;
 
-  // PMS5003 (PM2.5)
+  // PMS5003 (PM2.5 & PM10)
   PM25_AQI_Data pmData;
   if (aqi.read(&pmData)) {
     d.pm25 = pmData.pm25_env;
+    d.pm10 = pmData.pm100_env;
   } else {
     d.pm25 = -1;
+    d.pm10 = -1;
   }
 
   // Analog MQs (ESP32 ADC)
@@ -1016,8 +1076,12 @@ bool sendData(const SensorData& d, bool allowBuffer) {
   doc["temp"]              = d.temp;
   doc["rh"]                = d.rh;
   doc["pm25"]              = d.pm25;
+  doc["pm10"]              = d.pm10;
   doc["tvoc"]              = d.tvoc;
   doc["eco2"]              = d.eco2;
+  doc["fan1"]              = fan1State;
+  doc["fan2"]              = fan2State;
+  doc["fan3"]              = fan3State;
   
   // Note: Backend might need update to save mq2 if needed
   doc["mq2"]      = d.mq2; 
@@ -1070,6 +1134,28 @@ bool sendData(const SensorData& d, bool allowBuffer) {
       const char* pred = resp_doc["ai"]["prediction"] | "—";
       float conf       = resp_doc["ai"]["confidence"] | 0.0;
       Serial.printf("[AI]  %s (%.1f%%)\n", pred, conf);
+
+      // ─── Instant 3-Fan Remote Actuation Piggyback ────────────
+      if (resp_doc["fan_control"].is<JsonObject>()) {
+        JsonObject fc = resp_doc["fan_control"].as<JsonObject>();
+        if (fc["apply"] | false) {
+          bool f1 = fc["fan1"] | false;
+          bool f2 = fc["fan2"] | false;
+          bool f3 = fc["fan3"] | false;
+          bool isAuto = fc["auto_mode"] | false;
+          fanBoostActive = false;
+          if (isAuto) {
+            fanManualOverride = false;
+            setFansState(false);
+          } else {
+            applyThreeFans(f1, f2, f3, true);
+          }
+          int cmdId = fc["command_id"] | 0;
+          if (cmdId > 0) {
+            ackDeviceCommand(cmdId, "COMPLETE", "3-fan state applied via ingest response");
+          }
+        }
+      }
 
       // ─── Cloud Pull OTA Auto Update (CORE_SPEC 6.5) ──────────
       bool otaAvailable = resp_doc["ota"]["available"] | false;

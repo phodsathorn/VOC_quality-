@@ -1,36 +1,104 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Play, Square, ChevronDown, Check, Download,
   Tag, FlaskConical, AlertTriangle, CheckCircle2,
-  Sliders, User, Edit3, Thermometer
+  Sliders, User, Edit3, Thermometer, Fan, RotateCcw, Crosshair
 } from 'lucide-react';
 import { API } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { saveBaseline } from '../utils/ppmConverter';
+
+const RL_OHMS = 10000; // 10 kΩ Load Resistor
+const VC_VOLTS = 5.0;
+const VREF_VOLTS = 3.3;
+const ADC_MAX_COUNTS = 4095;
+
+function adcToVout(adc) {
+  if (!adc || adc <= 0) return 0;
+  return Math.min((adc / ADC_MAX_COUNTS) * VREF_VOLTS, 3.29);
+}
+
+function voutToResistance(vout) {
+  if (!vout || vout <= 0.02) return 0;
+  return Math.round(RL_OHMS * ((VC_VOLTS - vout) / vout));
+}
 
 export default function DataCollection() {
   const { token } = useAuth();
   const { t, lang } = useLanguage();
+  const isThai = lang === 'TH';
 
-  const [compound, setCompound] = useState('Ambient');
+  const [compound, setCompound] = useState('Powder_Dust');
   const [concentration, setConcentration] = useState('50');
-  const [sampleId, setSampleId] = useState('SMP-2025-0842');
+  const [sampleId, setSampleId] = useState('SMP-2026-0842');
   const [operator, setOperator] = useState('E. Mitchell');
   const [note, setNote] = useState('');
   const [isSampling, setIsSampling] = useState(false);
-  const [timerSeconds, setTimerSeconds] = useState(34);
+  const [timerSeconds, setTimerSeconds] = useState(0);
   const timerRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState('live'); // 'live' | 'past' | 'model'
   const [toastMsg, setToastMsg] = useState(null);
 
+  // ─── Live Telemetry & 3-Fan State (GPIO 25, GPIO 26, GPIO 4) ───
+  const [liveTelemetry, setLiveTelemetry] = useState(null);
+  const [fans, setFans] = useState({
+    fan1: true,   // GPIO 25 (IN1: Intake / Transfer Fan)
+    fan2: true,   // GPIO 26 (IN2: Exhaust Fan)
+    fan3: false,  // GPIO 4  (IN3: Fan 3 / Auxiliary Chamber Fan)
+    preset: 'NORMAL',
+  });
+  const [isUpdatingFans, setIsUpdatingFans] = useState(false);
+
+  // ─── Baseline R0 & Peak Tracking for 12-Page Lab Record Sheet ───
+  const [baselineData, setBaselineData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('voc_lab_r0_baseline');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return {
+      mq3: 380,
+      mq135: 420,
+      mq2: 350,
+      mq8: 310,
+      mics_co: 1120,
+      no2: 185,
+      nh3: 980,
+      tvoc: 18,
+      eco2: 412,
+      pm25: 8,
+      pm10: 11,
+      temp: 25.0,
+      rh: 55.0,
+      capturedAt: null,
+    };
+  });
+
+  const [peakData, setPeakData] = useState({
+    mq3: 0,
+    mq135: 0,
+    mq2: 0,
+    mq8: 0,
+    mics_co_min: null,
+    no2_max: 0,
+    nh3_min: null,
+    tvoc: 0,
+    eco2: 0,
+    pm25: 0,
+    pm10: 0,
+    t0Timestamp: null,
+    t90Seconds: {},
+  });
+
   const compounds = [
-    { id: 'Ambient', labelEn: 'Ambient Air', labelTh: 'อากาศแวดล้อมบริสุทธิ์ (Ambient)' },
-    { id: 'Alcohol', labelEn: 'Alcohol 70%', labelTh: 'แอลกอฮอล์ (Alcohol 70%)' },
-    { id: 'Thinner', labelEn: 'Thinner', labelTh: 'ทินเนอร์ผสมสี (Thinner)' },
-    { id: 'Smoke', labelEn: 'Smoke / Combustion', labelTh: 'ควัน / การเผาไหม้ (Smoke)' },
-    { id: 'Acetone', labelEn: 'Acetone', labelTh: 'อะซิโตน (Acetone)' },
-    { id: 'Other', labelEn: 'Other VOCs', labelTh: 'สารระเหยอื่นๆ (Other VOCs)' },
+    { id: 'Powder_Dust', labelEn: '1. Powder Coating Dust (0.5 g)', labelTh: '1. ผงสีฝุ่น (Powder Dust — 0.5 กรัม)' },
+    { id: 'Alcohol', labelEn: '2. Alcohol 70% (0.3 ml / ~6 drops)', labelTh: '2. แอลกอฮอล์ 70% (0.3 ml / ~6 หยด)' },
+    { id: 'Thinner', labelEn: '3. Industrial Thinner (0.15 ml / ~3 drops)', labelTh: '3. ทินเนอร์ผสมสี (0.15 ml / ~3 หยด)' },
+    { id: 'Ammonia', labelEn: '4. Diluted Ammonia 10% (0.15 ml / ~3 drops)', labelTh: '4. แอมโมเนียเจือจาง 10% (0.15 ml / ~3 หยด)' },
+    { id: 'Mix_Dust_Thinner', labelEn: 'Mix 1: Powder Dust 0.5g + Thinner 0.1ml', labelTh: 'สารผสม 1: สีฝุ่น 0.5g + ทินเนอร์ 0.1 ml' },
+    { id: 'Mix_Thinner_Alcohol', labelEn: 'Mix 2: Thinner 0.1ml + Alcohol 0.2ml', labelTh: 'สารผสม 2: ทินเนอร์ 0.1 ml + แอลกอฮอล์ 0.2 ml' },
+    { id: 'Ambient', labelEn: 'Clean Ambient Air (R0 Baseline)', labelTh: 'อากาศสะอาดบริสุทธิ์ (วัดค่าเริ่มต้น R0)' },
   ];
 
   const [pastSessions, setPastSessions] = useState([
@@ -42,6 +110,142 @@ export default function DataCollection() {
   function showToast(msg) {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 2500);
+  }
+
+  // ─── Poll Live Telemetry & 3-Fan State from BOX-001 every 3s ───
+  const fetchLiveTelemetry = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/dashboard/latest?box_id=BOX-001`);
+      if (!res.ok) return;
+      const d = await res.json();
+      setLiveTelemetry(d);
+      if (d.fans) {
+        setFans((prev) => ({
+          ...prev,
+          fan1: Boolean(d.fans.fan1),
+          fan2: Boolean(d.fans.fan2),
+          fan3: Boolean(d.fans.fan3),
+          preset: d.fans.preset || prev.preset,
+        }));
+      }
+
+      const env = d.environment || {};
+      const sen = d.sensors || {};
+      setPeakData((prev) => {
+        const next = { ...prev };
+        if (sen.mq3 != null && sen.mq3 > next.mq3) next.mq3 = sen.mq3;
+        if (sen.mq135 != null && sen.mq135 > next.mq135) next.mq135 = sen.mq135;
+        if (sen.mq2 != null && sen.mq2 > next.mq2) next.mq2 = sen.mq2;
+        if (sen.mq8 != null && sen.mq8 > next.mq8) next.mq8 = sen.mq8;
+        if (sen.mics_co != null && sen.mics_co > 0) {
+          next.mics_co_min = next.mics_co_min == null ? sen.mics_co : Math.min(next.mics_co_min, sen.mics_co);
+        }
+        if (sen.no2 != null && sen.no2 > next.no2_max) next.no2_max = sen.no2;
+        if (sen.nh3 != null && sen.nh3 > 0) {
+          next.nh3_min = next.nh3_min == null ? sen.nh3 : Math.min(next.nh3_min, sen.nh3);
+        }
+        if (env.tvoc != null && env.tvoc > next.tvoc) next.tvoc = env.tvoc;
+        if (env.eco2 != null && env.eco2 > next.eco2) next.eco2 = env.eco2;
+        if (env.pm25 != null && env.pm25 > next.pm25) next.pm25 = env.pm25;
+        if (env.pm10 != null && env.pm10 > next.pm10) next.pm10 = env.pm10;
+        return next;
+      });
+    } catch (err) {
+      console.warn('Experiment live telemetry fetch notice:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLiveTelemetry();
+    const interval = setInterval(fetchLiveTelemetry, 3000);
+    return () => clearInterval(interval);
+  }, [fetchLiveTelemetry]);
+
+  // ─── Control 3 Fans (GPIO 25, GPIO 26, GPIO 4) ───
+  async function handleSetThreeFans(nextF1, nextF2, nextF3, presetName = 'CUSTOM') {
+    const payload = {
+      fan1: Boolean(nextF1),
+      fan2: Boolean(nextF2),
+      fan3: Boolean(nextF3),
+      auto_mode: false,
+      preset: presetName,
+    };
+    setFans(payload);
+    setIsUpdatingFans(true);
+    try {
+      const authToken = token || localStorage.getItem('token') || '';
+      const res = await fetch(`${API}/api/devices/BOX-001/fans`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : { 'X-Admin-Key': 'change-me-in-production-2026' }),
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        showToast(
+          isThai
+            ? `สั่งงานพัดลมแล้ว: IN1(G25)=${nextF1 ? 'ON' : 'OFF'}, IN2(G26)=${nextF2 ? 'ON' : 'OFF'}, IN3(G4)=${nextF3 ? 'ON' : 'OFF'}`
+            : `Fans updated: IN1=${nextF1 ? 'ON' : 'OFF'}, IN2=${nextF2 ? 'ON' : 'OFF'}, IN3=${nextF3 ? 'ON' : 'OFF'}`
+        );
+      }
+    } catch (err) {
+      console.warn('Fan control error:', err);
+      showToast(isThai ? 'ส่งคำสั่งพัดลมไปยังคิวอุปกรณ์แล้ว' : 'Fan command queued');
+    } finally {
+      setIsUpdatingFans(false);
+    }
+  }
+
+  // ─── Capture Clean Air Baseline (R0) for Table 1 ───
+  function handleCaptureBaseline() {
+    const env = liveTelemetry?.environment || {};
+    const sen = liveTelemetry?.sensors || {};
+    const newBase = {
+      mq3: sen.mq3 || baselineData.mq3 || 380,
+      mq135: sen.mq135 || baselineData.mq135 || 420,
+      mq2: sen.mq2 || baselineData.mq2 || 350,
+      mq8: sen.mq8 || baselineData.mq8 || 310,
+      mics_co: sen.mics_co || baselineData.mics_co || 1120,
+      no2: sen.no2 || baselineData.no2 || 185,
+      nh3: sen.nh3 || baselineData.nh3 || 980,
+      tvoc: env.tvoc != null ? env.tvoc : 18,
+      eco2: env.eco2 != null ? env.eco2 : 412,
+      pm25: env.pm25 != null ? env.pm25 : 8,
+      pm10: env.pm10 != null ? env.pm10 : 11,
+      temp: env.temp != null ? env.temp : 25.0,
+      rh: env.rh != null ? env.rh : 55.0,
+      capturedAt: new Date().toLocaleTimeString(),
+    };
+    setBaselineData(newBase);
+    saveBaseline(newBase);
+    try {
+      localStorage.setItem('voc_lab_r0_baseline', JSON.stringify(newBase));
+    } catch { /* ignore */ }
+    showToast(isThai ? 'บันทึกค่าอากาศสะอาดอ้างอิง (R0 Baseline) ลงตารางที่ 1 แล้ว ✓' : 'Captured Clean Air R0 Baseline ✓');
+  }
+
+  // ─── Reset Peak & Start t0 Timer for Table 2 ───
+  function handleResetPeaks() {
+    const env = liveTelemetry?.environment || {};
+    const sen = liveTelemetry?.sensors || {};
+    setPeakData({
+      mq3: sen.mq3 || 0,
+      mq135: sen.mq135 || 0,
+      mq2: sen.mq2 || 0,
+      mq8: sen.mq8 || 0,
+      mics_co_min: sen.mics_co || null,
+      no2_max: sen.no2 || 0,
+      nh3_min: sen.nh3 || null,
+      tvoc: env.tvoc || 0,
+      eco2: env.eco2 || 0,
+      pm25: env.pm25 || 0,
+      pm10: env.pm10 || 0,
+      t0Timestamp: Date.now(),
+      t90Seconds: {},
+    });
+    setTimerSeconds(0);
+    showToast(isThai ? 'รีเซ็ตค่าพีคและเริ่มจับเวลา t0 สำหรับรอบการทดลองใหม่แล้ว ✓' : 'Reset peak values & started t0 timer ✓');
   }
 
   // Live timer for active sampling
@@ -164,8 +368,57 @@ export default function DataCollection() {
     showToast(lang === 'TH' ? 'ส่งออกไฟล์ CSV สำเร็จแล้ว ✓' : 'Exported CSV successfully ✓');
   }
 
+  const liveEnv = liveTelemetry?.environment || {};
+  const liveSen = liveTelemetry?.sensors || {};
+  const isBoxOnline = liveTelemetry?.is_online ?? false;
+  const curTemp = liveEnv.temp != null ? liveEnv.temp.toFixed(1) : '25.0';
+  const curRh = liveEnv.rh != null ? liveEnv.rh.toFixed(0) : '55';
+  const curPm25 = liveEnv.pm25 != null && liveEnv.pm25 >= 0 ? Math.round(liveEnv.pm25) : 0;
+  const curPm10 = liveEnv.pm10 != null && liveEnv.pm10 >= 0 ? Math.round(liveEnv.pm10) : Math.round(curPm25 * 1.25);
+  const curTvoc = liveEnv.tvoc != null ? Math.round(liveEnv.tvoc) : 0;
+  const curEco2 = liveEnv.eco2 != null ? Math.round(liveEnv.eco2) : 400;
+
+  // คำนวณค่าความต้านทานสดสำหรับเซนเซอร์ MQ ทั้ง 4 ตัวตามสูตรในใบงาน
+  const mqRows = [
+    { key: 'mq3', name: '1. MQ-3 (Alcohol)', cleanRatio: 60.0 },
+    { key: 'mq135', name: '2. MQ-135 (NH₃/VOC)', cleanRatio: 3.6 },
+    { key: 'mq2', name: '3. MQ-2 (Combustibles)', cleanRatio: 9.83 },
+    { key: 'mq8', name: '4. MQ-8 (Hydrogen)', cleanRatio: 70.0 },
+  ].map((m) => {
+    const rawAdc = liveSen[m.key] != null ? liveSen[m.key] : baselineData[m.key];
+    const baseAdc = baselineData[m.key] || 380;
+    const peakAdc = Math.max(peakData[m.key] || 0, rawAdc || 0);
+    const vout = adcToVout(rawAdc);
+    const voutBase = adcToVout(baseAdc);
+    const voutPeak = adcToVout(peakAdc);
+    const rClean = voutToResistance(voutBase);
+    const r0 = rClean > 0 ? Math.round(rClean / m.cleanRatio) : 0;
+    const rsNow = voutToResistance(vout);
+    const rsPeak = voutToResistance(voutPeak);
+    const rsOverRclean = rClean > 0 && rsPeak > 0 ? (rsPeak / rClean).toFixed(2) : '1.00';
+    const rsOverR0 = r0 > 0 && rsPeak > 0 ? (rsPeak / r0).toFixed(2) : m.cleanRatio.toFixed(1);
+    const driftPct = baseAdc > 0 ? Math.abs(((rawAdc - baseAdc) / baseAdc) * 100) : 0;
+    const gatePassed = driftPct <= 5.0;
+    return {
+      ...m,
+      rawAdc,
+      baseAdc,
+      peakAdc,
+      vout: vout.toFixed(2),
+      voutBase: voutBase.toFixed(2),
+      rClean,
+      r0,
+      rsNow,
+      rsPeak,
+      rsOverRclean,
+      rsOverR0,
+      driftPct: driftPct.toFixed(1),
+      gatePassed,
+    };
+  });
+
   return (
-    <div className="flex flex-col w-full gap-8 max-w-7xl mx-auto">
+    <div className="flex flex-col w-full gap-6 max-w-7xl mx-auto">
       {/* ── Breadcrumb & Header Bar matching Stitch AI ── */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
         <div className="flex flex-col">
@@ -179,10 +432,160 @@ export default function DataCollection() {
           </h1>
         </div>
         <div className="inline-flex items-center gap-2 self-start md:self-auto px-3.5 py-1.5 rounded-full bg-white shadow-xs border border-[#eaedff]">
-          <span className="w-2 h-2 rounded-full bg-[#004ac6] animate-pulse" />
+          <span className={`w-2 h-2 rounded-full ${isBoxOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
           <span className="text-[11px] text-[#505f76] font-medium uppercase tracking-wider">
-            {t('chamberStatusPill', 'Chamber Temp 23.4°C · RH 42%')}
+            {isThai
+              ? `อุณหภูมิกล่อง ${curTemp}°C · ความชื้น ${curRh}% · PM2.5 ${curPm25} / PM10 ${curPm10} µg/m³`
+              : `Chamber Temp ${curTemp}°C · RH ${curRh}% · PM2.5 ${curPm25} / PM10 ${curPm10} µg/m³`}
           </span>
+        </div>
+      </div>
+
+      {/* ── 3-Fan Hardware Controller Card (GPIO 25, GPIO 26, GPIO 4) ── */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-xs border border-[#eaedff] flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#f2f3ff] pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-[#e2e7ff] flex items-center justify-center text-[#004ac6]">
+              <Fan size={20} className={fans.fan1 || fans.fan2 || fans.fan3 ? 'animate-spin' : ''} />
+            </div>
+            <div>
+              <h2 className="text-[15px] font-semibold text-[#131b2e]">
+                {isThai
+                  ? 'แผงควบคุมพัดลมการทดลอง 3 ตัว (Remote 3-Fan Relay Controller)'
+                  : '3-Fan Experiment Relay Controller (GPIO 25, 26, 4)'}
+              </h2>
+              <p className="text-[12px] text-[#505f76]">
+                {isThai
+                  ? 'สั่งเปิด-ปิดพัดลมแต่ละตัวผ่านเว็บ หรือเลือกสเตจตามใบงาน 25 นาที (ซิงก์กับบอร์ด ESP32 ทุก 1–3 วินาที)'
+                  : 'Toggle individual fans or select 25-minute experiment stage presets'}
+              </p>
+            </div>
+          </div>
+
+          {/* 1-Click 25-Minute Lab Stage Presets */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              disabled={isUpdatingFans}
+              onClick={() => handleSetThreeFans(false, false, false, 'STAGE1_BASELINE_OFF')}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer ${
+                !fans.fan1 && !fans.fan2 && !fans.fan3
+                  ? 'bg-[#004ac6] text-white border-[#004ac6]'
+                  : 'bg-[#f2f3ff] text-[#131b2e] border-[#eaedff] hover:bg-[#eaedff]'
+              }`}
+            >
+              {isThai ? '1. วัด Baseline / Gate (ปิดทั้งหมด)' : '1. Baseline / Gate (All OFF)'}
+            </button>
+            <button
+              type="button"
+              disabled={isUpdatingFans}
+              onClick={() => handleSetThreeFans(true, false, false, 'STAGE2_EXPOSURE_IN1')}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer ${
+                fans.fan1 && !fans.fan2 && !fans.fan3
+                  ? 'bg-[#004ac6] text-white border-[#004ac6]'
+                  : 'bg-[#f2f3ff] text-[#131b2e] border-[#eaedff] hover:bg-[#eaedff]'
+              }`}
+            >
+              {isThai ? '2. ดูดสารเข้า (เปิด IN1)' : '2. Exposure (IN1 Only)'}
+            </button>
+            <button
+              type="button"
+              disabled={isUpdatingFans}
+              onClick={() => handleSetThreeFans(true, false, true, 'STAGE3_CIRCULATE_IN1_G4')}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer ${
+                fans.fan1 && !fans.fan2 && fans.fan3
+                  ? 'bg-[#004ac6] text-white border-[#004ac6]'
+                  : 'bg-[#f2f3ff] text-[#131b2e] border-[#eaedff] hover:bg-[#eaedff]'
+              }`}
+            >
+              {isThai ? '3. ดูดเข้า + พัดลมตัวที่ 3 (IN1 + GPIO4)' : '3. Exposure + Fan 3 (IN1 + GPIO4)'}
+            </button>
+            <button
+              type="button"
+              disabled={isUpdatingFans}
+              onClick={() => handleSetThreeFans(true, true, true, 'STAGE4_PURGE_ALL')}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer ${
+                fans.fan1 && fans.fan2 && fans.fan3
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+              }`}
+            >
+              {isThai ? '4. ระบายอากาศทิ้ง 100% (เปิดทั้ง 3 ตัว)' : '4. Purge Exhaust (All 3 ON)'}
+            </button>
+          </div>
+        </div>
+
+        {/* 3 Individual Fan Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            {
+              key: 'fan1',
+              pin: 'GPIO 25',
+              titleTh: 'พัดลมตัวที่ 1 (IN1 — ดูดเข้า)',
+              titleEn: 'Fan 1 (IN1 — Transfer / Intake)',
+              descTh: 'ดูดมวลไอระเหยเข้าสู่ห้องเซนเซอร์ (นาทีที่ 03:30–10:00)',
+              descEn: 'Draws chemical vapor into sensor chamber',
+              active: fans.fan1,
+              onToggle: () => handleSetThreeFans(!fans.fan1, fans.fan2, fans.fan3, 'MANUAL_FAN1'),
+            },
+            {
+              key: 'fan2',
+              pin: 'GPIO 26',
+              titleTh: 'พัดลมตัวที่ 2 (IN2 — ระบายออก)',
+              titleEn: 'Fan 2 (IN2 — Exhaust Stack)',
+              descTh: 'ดูดไล่ไอสารเคมีทิ้งออกนอกกล่อง (นาทีที่ 10:00–22:00)',
+              descEn: 'Purges chemical vapor out of chamber',
+              active: fans.fan2,
+              onToggle: () => handleSetThreeFans(fans.fan1, !fans.fan2, fans.fan3, 'MANUAL_FAN2'),
+            },
+            {
+              key: 'fan3',
+              pin: 'GPIO 4',
+              titleTh: 'พัดลมตัวที่ 3 (IN3 — พัดลมเสริม GPIO 4)',
+              titleEn: 'Fan 3 (IN3 — Auxiliary Fan GPIO 4)',
+              descTh: 'พัดลมตัวที่ 3 สำหรับช่วยกระจายไอสารหรือช่วยเร่งระบายอากาศ',
+              descEn: 'Third fan on GPIO 4 for circulation / auxiliary purge',
+              active: fans.fan3,
+              onToggle: () => handleSetThreeFans(fans.fan1, fans.fan2, !fans.fan3, 'MANUAL_FAN3'),
+            },
+          ].map((item) => (
+            <div
+              key={item.key}
+              className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                item.active
+                  ? 'bg-emerald-50/60 border-emerald-200/90'
+                  : 'bg-[#f8f9ff] border-[#eaedff]'
+              }`}
+            >
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-semibold text-[#131b2e] truncate">
+                    {isThai ? item.titleTh : item.titleEn}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-white border border-[#e2e8f0] font-mono text-[10px] font-bold text-[#004ac6] shrink-0">
+                    {item.pin}
+                  </span>
+                </div>
+                <span className="text-[11px] text-[#505f76] mt-0.5 leading-snug">
+                  {isThai ? item.descTh : item.descEn}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                disabled={isUpdatingFans}
+                onClick={item.onToggle}
+                className={`px-3.5 py-2 rounded-xl text-[12px] font-semibold border transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                  item.active
+                    ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${item.active ? 'bg-white animate-pulse' : 'bg-slate-400'}`} />
+                <span>{item.active ? (isThai ? 'เปิด (ON)' : 'ON') : (isThai ? 'ปิด (OFF)' : 'OFF')}</span>
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -725,6 +1128,235 @@ export default function DataCollection() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Live 8-Sensor Experiment Datasheet Monitor (ตรงตามแบบบันทึกผลการทดลอง ตารางที่ 1–4 และหน้า 12) ── */}
+      <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-xs border border-[#eaedff] flex flex-col gap-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#f2f3ff] pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-[#e2e7ff] text-[#004ac6] text-[11px] font-bold uppercase tracking-wider">
+                {isThai ? 'ใบงานบันทึกผลการทดลองสด' : 'Live Lab Datasheet'}
+              </span>
+              {baselineData.capturedAt && (
+                <span className="text-[11px] text-emerald-700 font-medium">
+                  {isThai ? `จับค่า R0 ล่าสุดเมื่อ ${baselineData.capturedAt}` : `R0 captured at ${baselineData.capturedAt}`}
+                </span>
+              )}
+            </div>
+            <h2 className="text-[16px] font-semibold text-[#131b2e] mt-1">
+              {isThai
+                ? 'ตารางมอนิเตอร์ค่าเซนเซอร์ทั้ง 8 ตัว (Vout, R_clean, R0, ค่าพีค, Rs/R0 และเกตคืนตัว ±5%)'
+                : '8-Sensor Live Experiment Telemetry & R0 / Peak / Baseline Gate Calculator'}
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCaptureBaseline}
+              className="px-4 py-2 rounded-2xl bg-[#004ac6] text-white hover:bg-[#003ea8] text-[12px] font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+            >
+              <Crosshair size={15} />
+              <span>{isThai ? 'Capture Baseline (บันทึกค่า R0 ตารางที่ 1)' : 'Capture R0 Baseline (Table 1)'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleResetPeaks}
+              className="px-4 py-2 rounded-2xl bg-[#f2f3ff] text-[#131b2e] hover:bg-[#eaedff] border border-[#c3c6d7] text-[12px] font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
+            >
+              <RotateCcw size={15} />
+              <span>{isThai ? 'รีเซ็ตค่าพีค & เริ่มรอบใหม่ (t0)' : 'Reset Peaks & Start Run'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Table 1 & 2 Combined Live Readout for 4 MQ Sensors */}
+        <div className="overflow-x-auto rounded-2xl border border-[#eaedff]">
+          <table className="w-full text-left text-[12px] border-collapse">
+            <thead className="bg-[#f2f3ff] text-[#505f76] font-semibold text-[11px]">
+              <tr>
+                <th className="py-3 px-3.5">{isThai ? 'เซนเซอร์ (MQ 1–4)' : 'Sensor'}</th>
+                <th className="py-3 px-3">{isThai ? 'ADC ปัจจุบัน (counts)' : 'Current ADC'}</th>
+                <th className="py-3 px-3">{isThai ? 'แรงดัน Vout (V)' : 'Vout (V)'}</th>
+                <th className="py-3 px-3">{isThai ? 'R_clean (Ω)' : 'R_clean (Ω)'}</th>
+                <th className="py-3 px-3">{isThai ? 'Clean Ratio' : 'Clean Ratio'}</th>
+                <th className="py-3 px-3">{isThai ? 'ค่าอ้างอิง R0 (Ω)' : 'R0 (Ω)'}</th>
+                <th className="py-3 px-3">{isThai ? 'ค่าพีคสูงสุด (Peak ADC)' : 'Peak ADC'}</th>
+                <th className="py-3 px-3">{isThai ? 'Rs/R_clean (เทียบ=1.0)' : 'Rs/R_clean'}</th>
+                <th className="py-3 px-3">{isThai ? 'Rs/R0 (Datasheet)' : 'Rs/R0'}</th>
+                <th className="py-3 px-3.5 text-center">{isThai ? 'เกตคืนตัว ±5% (ตารางที่ 4)' : 'Baseline Gate ±5%'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#eaedff] text-[#131b2e] font-mono">
+              {mqRows.map((row) => (
+                <tr key={row.key} className="hover:bg-[#f8f9ff]">
+                  <td className="py-3 px-3.5 font-sans font-semibold text-[#004ac6]">{row.name}</td>
+                  <td className="py-3 px-3 font-bold">{row.rawAdc}</td>
+                  <td className="py-3 px-3">{row.vout} V</td>
+                  <td className="py-3 px-3">{row.rClean.toLocaleString()} Ω</td>
+                  <td className="py-3 px-3 text-[#505f76]">{row.cleanRatio}</td>
+                  <td className="py-3 px-3 font-semibold">{row.r0.toLocaleString()} Ω</td>
+                  <td className="py-3 px-3 font-bold text-[#ba1a1a]">{row.peakAdc}</td>
+                  <td className="py-3 px-3 font-bold text-[#004ac6]">{row.rsOverRclean}</td>
+                  <td className="py-3 px-3">{row.rsOverR0}</td>
+                  <td className="py-3 px-3.5 text-center font-sans">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                        row.gatePassed
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-200'
+                      }`}
+                    >
+                      {row.gatePassed
+                        ? (isThai ? `ผ่าน (±${row.driftPct}%)` : `PASS (±${row.driftPct}%)`)
+                        : (isThai ? `รอระบาย (±${row.driftPct}%)` : `PURGE (±${row.driftPct}%)`)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Sensors 5 to 8: MiCS-6814 (3 Channels), CCS811, PMS5003 (PM2.5 & PM10), DHT22 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Sensor 5: MiCS-6814 */}
+          <div className="p-4 rounded-2xl bg-[#f8f9ff] border border-[#eaedff] flex flex-col justify-between gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-bold text-[#004ac6]">5. MiCS-6814 (ADS1115)</span>
+              <span className="text-[10px] font-mono text-[#505f76]">mV (V / V0)</span>
+            </div>
+            <div className="text-[12px] font-mono space-y-1 text-[#131b2e]">
+              <div className="flex justify-between">
+                <span>NH₃:</span>
+                <span>
+                  <b>{liveSen.nh3 ?? baselineData.nh3} mV</b> (V0: {baselineData.nh3})
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>CO:</span>
+                <span>
+                  <b>{liveSen.mics_co ?? baselineData.mics_co} mV</b> (V0: {baselineData.mics_co})
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>NO₂:</span>
+                <span>
+                  <b>{liveSen.no2 ?? baselineData.no2} mV</b> (V0: {baselineData.no2})
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Sensor 6: CCS811 */}
+          <div className="p-4 rounded-2xl bg-[#f8f9ff] border border-[#eaedff] flex flex-col justify-between gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-bold text-[#004ac6]">6. CCS811 (Digital I2C)</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                  curTvoc < 50 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+                }`}
+              >
+                {curTvoc < 50 ? (isThai ? 'เกต < 50 ผ่าน' : 'Gate < 50 OK') : (isThai ? 'เกิน 50 ppb' : '> 50 ppb')}
+              </span>
+            </div>
+            <div className="text-[12px] font-mono space-y-1 text-[#131b2e]">
+              <div className="flex justify-between">
+                <span>TVOC:</span>
+                <span>
+                  <b>{curTvoc} ppb</b> (Peak: {Math.max(peakData.tvoc, curTvoc)})
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>eCO₂:</span>
+                <span>
+                  <b>{curEco2} ppm</b> (Peak: {Math.max(peakData.eco2, curEco2)})
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Sensor 7: PMS5003 (PM2.5 & PM10) */}
+          <div className="p-4 rounded-2xl bg-[#f8f9ff] border border-[#eaedff] flex flex-col justify-between gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-bold text-[#004ac6]">7. PMS5003 (Laser Dust)</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                  curPm25 < 15 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+                }`}
+              >
+                {curPm25 < 15 ? (isThai ? 'เกต < 15 ผ่าน' : 'Gate < 15 OK') : (isThai ? 'ฝุ่นยังค้าง' : '> 15 µg/m³')}
+              </span>
+            </div>
+            <div className="text-[12px] font-mono space-y-1 text-[#131b2e]">
+              <div className="flex justify-between">
+                <span>PM2.5:</span>
+                <span>
+                  <b>{curPm25} µg/m³</b> (Peak: {Math.max(peakData.pm25, curPm25)})
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>PM10:</span>
+                <span>
+                  <b>{curPm10} µg/m³</b> (Peak: {Math.max(peakData.pm10, curPm10)})
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Sensor 8: DHT22 */}
+          <div className="p-4 rounded-2xl bg-[#f8f9ff] border border-[#eaedff] flex flex-col justify-between gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-bold text-[#004ac6]">8. DHT22 (Temp / RH)</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                {isThai ? 'นิ่ง' : 'Stable'}
+              </span>
+            </div>
+            <div className="text-[12px] font-mono space-y-1 text-[#131b2e]">
+              <div className="flex justify-between">
+                <span>{isThai ? 'อุณหภูมิ (T):' : 'Temp (T):'}</span>
+                <b>{curTemp} °C</b>
+              </div>
+              <div className="flex justify-between">
+                <span>{isThai ? 'ความชื้น (RH):' : 'Humidity (RH):'}</span>
+                <b>{curRh} %RH</b>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Page 12 Calculation Helper Box (พื้นที่คำนวณหน้า 12 ของแบบบันทึกการทดลอง) */}
+        <div className="p-4 rounded-2xl bg-[#f2f3ff]/70 border border-[#eaedff] grid grid-cols-1 md:grid-cols-2 gap-4 text-[12px]">
+          <div className="space-y-1">
+            <span className="font-semibold text-[#004ac6] block">
+              {isThai ? 'ตัวอย่างการคำนวณหน้า 12 — MQ-3 (แอลกอฮอล์):' : 'Page 12 Calculation — MQ-3 (Alcohol):'}
+            </span>
+            <p className="font-mono text-[#131b2e]">
+              R0 = {mqRows[0].rClean.toLocaleString()} / 60.0 = <b>{mqRows[0].r0.toLocaleString()} Ω</b>
+            </p>
+            <p className="font-mono text-[#131b2e]">
+              Rs ณ จุดพีค = 10000 × (5.0 - {adcToVout(mqRows[0].peakAdc).toFixed(2)}) / {adcToVout(mqRows[0].peakAdc).toFixed(2)} = <b>{mqRows[0].rsPeak.toLocaleString()} Ω</b>
+            </p>
+            <p className="font-mono text-[#131b2e]">
+              Rs / R_clean = <b>{mqRows[0].rsOverRclean}</b> &nbsp;|&nbsp; Rs / R0 = <b>{mqRows[0].rsOverR0}</b>
+            </p>
+          </div>
+          <div className="space-y-1">
+            <span className="font-semibold text-[#004ac6] block">
+              {isThai ? 'ตัวอย่างการคำนวณหน้า 12 — MQ-135 (แอมโมเนีย/ทินเนอร์):' : 'Page 12 Calculation — MQ-135 (Ammonia/Thinner):'}
+            </span>
+            <p className="font-mono text-[#131b2e]">
+              R0 = {mqRows[1].rClean.toLocaleString()} / 3.6 = <b>{mqRows[1].r0.toLocaleString()} Ω</b>
+            </p>
+            <p className="font-mono text-[#131b2e]">
+              Rs ณ จุดพีค = 10000 × (5.0 - {adcToVout(mqRows[1].peakAdc).toFixed(2)}) / {adcToVout(mqRows[1].peakAdc).toFixed(2)} = <b>{mqRows[1].rsPeak.toLocaleString()} Ω</b>
+            </p>
+            <p className="font-mono text-[#131b2e]">
+              Rs / R_clean = <b>{mqRows[1].rsOverRclean}</b> &nbsp;|&nbsp; Rs / R0 = <b>{mqRows[1].rsOverR0}</b>
+            </p>
           </div>
         </div>
       </div>

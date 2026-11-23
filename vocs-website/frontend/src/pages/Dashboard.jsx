@@ -187,6 +187,34 @@ export default function Dashboard() {
   const isStale = data?.is_stale ?? (!isOnline);
   const dataAgeSec = data?.data_age_seconds;
 
+  const fansState = data?.fans || { fan1: true, fan2: true, fan3: false };
+  const activeFanCount = (fansState.fan1 ? 1 : 0) + (fansState.fan2 ? 1 : 0) + (fansState.fan3 ? 1 : 0);
+
+  async function handleQuickToggleFan(fanKey) {
+    const nextFans = {
+      fan1: fanKey === 'fan1' ? !fansState.fan1 : Boolean(fansState.fan1),
+      fan2: fanKey === 'fan2' ? !fansState.fan2 : Boolean(fansState.fan2),
+      fan3: fanKey === 'fan3' ? !fansState.fan3 : Boolean(fansState.fan3),
+      auto_mode: false,
+      preset: 'DASHBOARD_TOGGLE',
+    };
+    setData((prev) => (prev ? { ...prev, fans: { ...(prev.fans || {}), ...nextFans } } : prev));
+    try {
+      const token = localStorage.getItem('token') || '';
+      await fetch(`${API}/api/devices/BOX-001/fans`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : { 'X-Admin-Key': 'change-me-in-production-2026' }),
+        },
+        body: JSON.stringify(nextFans),
+      });
+      fetchAll();
+    } catch (err) {
+      console.warn('Quick fan toggle notice:', err);
+    }
+  }
+
   const formattedDataAge = useMemo(() => {
     if (dataAgeSec == null) return null;
     if (dataAgeSec < 60) return isThai ? `${Math.round(dataAgeSec)} วินาทีที่แล้ว` : `${Math.round(dataAgeSec)}s ago`;
@@ -579,33 +607,59 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Card 3: Exhaust Fan State */}
-        <div className="min-w-0 bg-white rounded-3xl 2xl:rounded-[2rem] p-5 2xl:p-7 flex flex-col justify-between gap-4 min-h-[210px] 2xl:min-h-[230px] relative overflow-hidden">
+        {/* Card 3: 3-Fan State & Control (GPIO 25, GPIO 26, GPIO 4) */}
+        <div className="min-w-0 bg-white rounded-3xl 2xl:rounded-[2rem] p-5 2xl:p-7 flex flex-col justify-between gap-3 min-h-[210px] 2xl:min-h-[230px] relative overflow-hidden">
           {/* Top Row: Label + Glowing Active Indicator */}
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[#505f76] uppercase tracking-wider">
-                {t('exhaustFan', 'Exhaust Fan')}
+                {t('exhaustFan', 'Exhaust Fan')} (3 CH)
               </span>
-              <span className="w-2.5 h-2.5 rounded-full bg-[#00CC66] shadow-[0_0_8px_rgba(0,204,102,0.6)]" />
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${
+                  activeFanCount > 0
+                    ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'
+                    : 'bg-rose-500'
+                }`}
+              />
             </div>
             <span className="text-[11px] text-[#505f76]">
-              {isThai ? 'แหล่งข้อมูล: ท่อวัดพิทอต (Pitot)' : 'Source: Pitot sensor'}
+              {isThai ? 'คลิกปุ่มด้านล่างเพื่อเปิด/ปิดพัดลมแต่ละตัว' : 'Click pills below to toggle each fan'}
             </span>
           </div>
 
           {/* Center Metric */}
-          <div className="flex items-baseline gap-3">
-            <span className="text-[56px] font-bold text-[#131b2e] leading-none tracking-tight">
-              {isThai ? 'เปิด' : 'ON'}
+          <div className="flex items-baseline gap-2.5">
+            <span className="text-[44px] 2xl:text-[52px] font-bold text-[#131b2e] leading-none tracking-tight">
+              {activeFanCount > 0 ? (isThai ? 'เปิด' : 'ON') : (isThai ? 'ปิด' : 'OFF')}
+            </span>
+            <span className="text-[15px] font-semibold text-[#505f76]">
+              ({activeFanCount}/3 {isThai ? 'ตัว' : 'active'})
             </span>
           </div>
 
-          {/* Bottom Descriptor */}
-          <div>
-            <span className="text-[14px] text-[#434655] font-medium">
-              {isThai ? 'ทำงาน 100%' : '100% running'}
-            </span>
+          {/* Bottom Interactive 3-Fan Toggle Pills */}
+          <div className="grid grid-cols-3 gap-1.5 pt-1">
+            {[
+              { key: 'fan1', label: 'IN1 (G25)', active: fansState.fan1 },
+              { key: 'fan2', label: 'IN2 (G26)', active: fansState.fan2 },
+              { key: 'fan3', label: 'IN3 (G4)', active: fansState.fan3 },
+            ].map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => handleQuickToggleFan(f.key)}
+                className={`px-2 py-1.5 rounded-xl text-[11px] font-semibold border transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  f.active
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100'
+                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                }`}
+                title={isThai ? `คลิกเพื่อสลับสถานะ ${f.label}` : `Click to toggle ${f.label}`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${f.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                <span className="truncate">{f.label}</span>
+              </button>
+            ))}
           </div>
         </div>
 

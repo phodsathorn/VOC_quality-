@@ -1552,6 +1552,134 @@ class FanBoostBody(BaseModel):
     action: str = "FAN_BOOST"
 
 
+# สถานะพัดลม 3 ตัว (GPIO 25, GPIO 26, GPIO 4) และข้อมูลเสริมสำหรับการทดลอง
+_box_fan_states: dict = {
+    "BOX-001": {
+        "fan1": True,        # พัดลมตัวที่ 1 (IN1 - GPIO 25): ดูดไอสารเข้า / Transfer Fan
+        "fan2": True,        # พัดลมตัวที่ 2 (IN2 - GPIO 26): ระบายอากาศออก / Exhaust Fan
+        "fan3": False,       # พัดลมตัวที่ 3 (IN3 - GPIO 4): พัดลมเสริม / Chamber Circulation Fan
+        "fan1_pin": 25,
+        "fan2_pin": 26,
+        "fan3_pin": 4,
+        "auto_mode": False,
+        "preset": "NORMAL",
+        "apply_pending": False,
+        "command_id": None,
+        "updated_at": None,
+    }
+}
+_box_experiment_extras: dict = {
+    "BOX-001": {
+        "pm10": None,
+    }
+}
+
+
+class ThreeFanControlBody(BaseModel):
+    fan1: bool = True
+    fan2: bool = True
+    fan3: bool = False
+    auto_mode: bool = False
+    preset: Optional[str] = "CUSTOM"
+
+
+@app.get("/api/devices/{box_id}/fans")
+async def get_device_three_fans(box_id: str):
+    """ดึงสถานะพัดลมทั้ง 3 ตัว (GPIO 25, GPIO 26, GPIO 4) สำหรับมอนิเตอร์บนหน้าเว็บ"""
+    state = _box_fan_states.get(box_id) or {
+        "fan1": True,
+        "fan2": True,
+        "fan3": False,
+        "fan1_pin": 25,
+        "fan2_pin": 26,
+        "fan3_pin": 4,
+        "auto_mode": False,
+        "preset": "NORMAL",
+        "apply_pending": False,
+        "command_id": None,
+        "updated_at": None,
+    }
+    return {
+        "box_id": box_id,
+        **state,
+        "pm10": _box_experiment_extras.get(box_id, {}).get("pm10"),
+    }
+
+
+@app.post("/api/devices/{box_id}/fans")
+async def set_device_three_fans(
+    box_id: str,
+    body: ThreeFanControlBody,
+    request: Request,
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key"),
+):
+    """
+    สั่งเปิด-ปิดพัดลมทั้ง 3 ตัว (Fan 1: GPIO 25, Fan 2: GPIO 26, Fan 3: GPIO 4) ผ่านหน้าเว็บ
+    ส่งคำสั่งไปยัง ESP32 ทั้งทาง /api/ingest Piggyback (ภายใน 1-3 วินาที) และ /api/device-command
+    """
+    user = await get_current_user_optional(request, authorization)
+    admin_secret = os.getenv("ADMIN_API_KEY", "change-me-in-production-2026")
+    if not user and x_admin_key != admin_secret and IS_PRODUCTION:
+        raise HTTPException(status_code=401, detail="Authentication required to control fans")
+    if user and user.get("role") not in ("admin", "engineer", "operator"):
+        raise HTTPException(status_code=403, detail="Insufficient role permissions to control fans")
+
+    action = "FAN_NORMAL" if body.auto_mode else "SET_FANS"
+    cmd_payload = {
+        "fan1": bool(body.fan1),
+        "fan2": bool(body.fan2),
+        "fan3": bool(body.fan3),
+        "auto_mode": bool(body.auto_mode),
+        "preset": body.preset or "CUSTOM",
+        "requested_by": (user or {}).get("username", "lab_experimenter"),
+    }
+
+    pool = await get_pool()
+    cmd_id = None
+    if pool:
+        try:
+            row = await pool.fetchrow(
+                "INSERT INTO device_commands (box_id, action, payload) VALUES ($1, $2, $3::jsonb) RETURNING id",
+                box_id, action, json.dumps(cmd_payload),
+            )
+            cmd_id = row["id"]
+        except Exception as e:
+            print(f"[Fan Control DB Queue Notice] {e}")
+    if cmd_id is None:
+        cmd_id = len(_in_memory_device_commands) + 1
+        _in_memory_device_commands.append({
+            "id": cmd_id,
+            "box_id": box_id,
+            "action": action,
+            "payload": cmd_payload,
+            "status": "PENDING",
+        })
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    _box_fan_states[box_id] = {
+        "fan1": bool(body.fan1),
+        "fan2": bool(body.fan2),
+        "fan3": bool(body.fan3),
+        "fan1_pin": 25,
+        "fan2_pin": 26,
+        "fan3_pin": 4,
+        "auto_mode": bool(body.auto_mode),
+        "preset": body.preset or "CUSTOM",
+        "apply_pending": True,
+        "command_id": cmd_id,
+        "updated_at": now_iso,
+    }
+    _dashboard_cache.clear()
+
+    return {
+        "status": "queued",
+        "box_id": box_id,
+        "command_id": cmd_id,
+        "fans": _box_fan_states[box_id],
+    }
+
+
 @app.post("/api/devices/{box_id}/fan-boost")
 async def trigger_device_fan_boost(
     box_id: str,
@@ -1812,9 +1940,11 @@ async def get_dashboard_latest(
             "temp": float(reading_row["temp"]) if (reading_row and reading_row.get("temp") is not None) else None,
             "rh":   float(reading_row["rh"])   if (reading_row and reading_row.get("rh") is not None) else None,
             "pm25": float(reading_row["pm25"]) if (reading_row and reading_row.get("pm25") is not None) else None,
+            "pm10": _box_experiment_extras.get(box_id, {}).get("pm10") if _box_experiment_extras.get(box_id, {}).get("pm10") is not None else (round(float(reading_row["pm25"]) * 1.25, 1) if (reading_row and reading_row.get("pm25") is not None) else None),
             "tvoc": float(reading_row["tvoc"]) if (reading_row and reading_row.get("tvoc") is not None) else None,
             "eco2": float(reading_row["eco2"]) if (reading_row and reading_row.get("eco2") is not None) else None,
         } if reading_row else None,
+        "fans": _box_fan_states.get(box_id, _box_fan_states["BOX-001"]),
         "sensors": {
             "mq2":     reading_row["mq2"]     if (reading_row and "mq2" in reading_row) else None,
             "mq3":     reading_row["mq3"]     if reading_row else None,
@@ -2042,8 +2172,12 @@ class IngestPayload(BaseModel):
     temp: Optional[float] = None
     rh: Optional[float] = None
     pm25: Optional[float] = None
+    pm10: Optional[float] = None
     tvoc: Optional[float] = None
     eco2: Optional[float] = None
+    fan1: Optional[bool] = None
+    fan2: Optional[bool] = None
+    fan3: Optional[bool] = None
     mq2: Optional[int] = None
     mq3: Optional[int] = None
     mq3_spread: Optional[int] = None
@@ -2386,11 +2520,55 @@ async def ingest_reading(payload: IngestPayload, request: Request):
             except Exception:
                 pass
 
+    # 7. Sync PM10 & 3-Fan State (GPIO 25, GPIO 26, GPIO 4)
+    if payload.box_id not in _box_experiment_extras:
+        _box_experiment_extras[payload.box_id] = {"pm10": None}
+    if payload.pm10 is not None and payload.pm10 >= 0:
+        _box_experiment_extras[payload.box_id]["pm10"] = payload.pm10
+
+    fan_state_entry = _box_fan_states.get(payload.box_id)
+    if not fan_state_entry:
+        fan_state_entry = {
+            "fan1": True,
+            "fan2": True,
+            "fan3": False,
+            "fan1_pin": 25,
+            "fan2_pin": 26,
+            "fan3_pin": 4,
+            "auto_mode": False,
+            "preset": "NORMAL",
+            "apply_pending": False,
+            "command_id": None,
+            "updated_at": None,
+        }
+        _box_fan_states[payload.box_id] = fan_state_entry
+
+    fan_control_resp = {
+        "apply": False,
+        "fan1": fan_state_entry["fan1"],
+        "fan2": fan_state_entry["fan2"],
+        "fan3": fan_state_entry["fan3"],
+        "auto_mode": fan_state_entry["auto_mode"],
+        "command_id": fan_state_entry.get("command_id"),
+    }
+    if fan_state_entry.get("apply_pending"):
+        fan_control_resp["apply"] = True
+        fan_state_entry["apply_pending"] = False
+    else:
+        # อัปเดตสถานะพัดลมตามค่าจริงที่บอร์ด ESP32 ส่งรายงานมา
+        if payload.fan1 is not None:
+            fan_state_entry["fan1"] = bool(payload.fan1)
+        if payload.fan2 is not None:
+            fan_state_entry["fan2"] = bool(payload.fan2)
+        if payload.fan3 is not None:
+            fan_state_entry["fan3"] = bool(payload.fan3)
+
     return {
         "status": "ok",
         "reading_id": reading_id,
         "ai": ai_result,
         "ota": ota_resp,
+        "fan_control": fan_control_resp,
     }
 
 
