@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Download, FileSpreadsheet, PlusCircle, Sparkles, CheckCircle2, Table as TableIcon } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Download, FileSpreadsheet, PlusCircle, Sparkles, CheckCircle2, Table as TableIcon, RotateCcw } from 'lucide-react';
 import { API } from '../config';
 
 const RL_OHMS = 10000;
@@ -17,6 +17,77 @@ function voutToRs(vout) {
   return Number((RL_OHMS * ((VC_VOLTS - vout) / vout)).toFixed(1));
 }
 
+const DEFAULT_SINGLE_RUNS = [
+  {
+    runId: 'Run 1',
+    substanceTh: 'สีฝุ่น (Powder Dust)',
+    substanceEn: 'Powder Coating Dust',
+    dose: '0.5 กรัม',
+    aiPred: 'DUST / AMBIENT',
+    sensors: [
+      { id: '1. MQ-3', base: 380, peak: 392, unit: 'ADC counts', t90: '-', t10: '-', cleanRatio: 60.0 },
+      { id: '2. MQ-135', base: 420, peak: 445, unit: 'ADC counts', t90: '-', t10: '-', cleanRatio: 3.6 },
+      { id: '3. MQ-2', base: 350, peak: 368, unit: 'ADC counts', t90: '-', t10: '-', cleanRatio: 9.83 },
+      { id: '4. MQ-8', base: 310, peak: 315, unit: 'ADC counts', t90: '-', t10: '-', cleanRatio: 70.0 },
+      { id: '5. MiCS-6814', base: 'NH3:980 / CO:1120 / NO2:185', peak: 'NH3:975 / CO:1115 / NO2:188', unit: 'mV', t90: '-', t10: '-', ratioStr: '1.00 / 1.00 / 1.02' },
+      { id: '6. CCS811', base: 'TVOC:18 / eCO2:412', peak: 'TVOC:32 ppb / eCO2:425 ppm', unit: 'ppb / ppm', t90: '25', t10: '2.5', ratioStr: '-' },
+      { id: '7. PMS5003', base: 'PM2.5:8 / PM10:11', peak: 'PM2.5: 185 / PM10: 260', unit: 'µg/m³', t90: '14', t10: '4.2', ratioStr: '-' },
+      { id: '8. DHT22', base: '25.0°C / 55.0%', peak: '25.1°C / 54.8%', unit: '°C / %RH', t90: '-', t10: '-', ratioStr: '-' },
+    ],
+  },
+  {
+    runId: 'Run 2',
+    substanceTh: 'แอลกอฮอล์ (Alcohol 70%)',
+    substanceEn: 'Alcohol 70%',
+    dose: '0.3 ml (~6 หยด)',
+    aiPred: 'ALCOHOL (96.4%)',
+    sensors: [
+      { id: '1. MQ-3', base: 380, peak: 2450, unit: 'ADC counts', t90: '18', t10: '6.5', cleanRatio: 60.0 },
+      { id: '2. MQ-135', base: 420, peak: 1180, unit: 'ADC counts', t90: '24', t10: '7.0', cleanRatio: 3.6 },
+      { id: '3. MQ-2', base: 350, peak: 1320, unit: 'ADC counts', t90: '22', t10: '6.8', cleanRatio: 9.83 },
+      { id: '4. MQ-8', base: 310, peak: 410, unit: 'ADC counts', t90: '35', t10: '4.0', cleanRatio: 70.0 },
+      { id: '5. MiCS-6814', base: 'NH3:980 / CO:1120 / NO2:185', peak: 'NH3:820 / CO:740 / NO2:192', unit: 'mV', t90: '20', t10: '6.0', ratioStr: '0.84 / 0.66 / 1.04' },
+      { id: '6. CCS811', base: 'TVOC:18 / eCO2:412', peak: 'TVOC:640 ppb / eCO2:1150 ppm', unit: 'ppb / ppm', t90: '16', t10: '5.8', ratioStr: '-' },
+      { id: '7. PMS5003', base: 'PM2.5:8 / PM10:11', peak: 'PM2.5: 10 / PM10: 13', unit: 'µg/m³', t90: '-', t10: '-', ratioStr: '-' },
+      { id: '8. DHT22', base: '25.1°C / 55.0%', peak: '25.3°C / 56.2%', unit: '°C / %RH', t90: '-', t10: '-', ratioStr: '-' },
+    ],
+  },
+  {
+    runId: 'Run 3',
+    substanceTh: 'ทินเนอร์ (Thinner VOC)',
+    substanceEn: 'Industrial Thinner',
+    dose: '0.15 ml (~3 หยด)',
+    aiPred: 'THINNER (94.8%)',
+    sensors: [
+      { id: '1. MQ-3', base: 380, peak: 1980, unit: 'ADC counts', t90: '22', t10: '9.5', cleanRatio: 60.0 },
+      { id: '2. MQ-135', base: 420, peak: 2150, unit: 'ADC counts', t90: '19', t10: '10.2', cleanRatio: 3.6 },
+      { id: '3. MQ-2', base: 350, peak: 2280, unit: 'ADC counts', t90: '17', t10: '9.8', cleanRatio: 9.83 },
+      { id: '4. MQ-8', base: 310, peak: 520, unit: 'ADC counts', t90: '30', t10: '6.5', cleanRatio: 70.0 },
+      { id: '5. MiCS-6814', base: 'NH3:980 / CO:1120 / NO2:185', peak: 'NH3:710 / CO:620 / NO2:205', unit: 'mV', t90: '21', t10: '9.0', ratioStr: '0.72 / 0.55 / 1.11' },
+      { id: '6. CCS811', base: 'TVOC:19 / eCO2:415', peak: 'TVOC:980 ppb / eCO2:1680 ppm', unit: 'ppb / ppm', t90: '15', t10: '8.8', ratioStr: '-' },
+      { id: '7. PMS5003', base: 'PM2.5:9 / PM10:12', peak: 'PM2.5: 12 / PM10: 16', unit: 'µg/m³', t90: '-', t10: '-', ratioStr: '-' },
+      { id: '8. DHT22', base: '25.2°C / 55.2%', peak: '25.5°C / 54.5%', unit: '°C / %RH', t90: '-', t10: '-', ratioStr: '-' },
+    ],
+  },
+  {
+    runId: 'Run 4',
+    substanceTh: 'แอมโมเนีย (Ammonia 10%)',
+    substanceEn: 'Diluted Ammonia 10%',
+    dose: '0.15 ml (~3 หยด)',
+    aiPred: 'AMMONIA (93.2%)',
+    sensors: [
+      { id: '1. MQ-3', base: 380, peak: 890, unit: 'ADC counts', t90: '28', t10: '7.5', cleanRatio: 60.0 },
+      { id: '2. MQ-135', base: 420, peak: 2390, unit: 'ADC counts', t90: '16', t10: '8.4', cleanRatio: 3.6 },
+      { id: '3. MQ-2', base: 350, peak: 940, unit: 'ADC counts', t90: '26', t10: '7.2', cleanRatio: 9.83 },
+      { id: '4. MQ-8', base: 310, peak: 460, unit: 'ADC counts', t90: '32', t10: '5.5', cleanRatio: 70.0 },
+      { id: '5. MiCS-6814', base: 'NH3:980 / CO:1120 / NO2:185', peak: 'NH3:340 / CO:890 / NO2:195', unit: 'mV', t90: '14', t10: '8.0', ratioStr: '0.35 / 0.79 / 1.05' },
+      { id: '6. CCS811', base: 'TVOC:18 / eCO2:412', peak: 'TVOC:520 ppb / eCO2:980 ppm', unit: 'ppb / ppm', t90: '18', t10: '7.4', ratioStr: '-' },
+      { id: '7. PMS5003', base: 'PM2.5:8 / PM10:11', peak: 'PM2.5: 9 / PM10: 12', unit: 'µg/m³', t90: '-', t10: '-', ratioStr: '-' },
+      { id: '8. DHT22', base: '25.2°C / 55.5%', peak: '25.4°C / 57.0%', unit: '°C / %RH', t90: '-', t10: '-', ratioStr: '-' },
+    ],
+  },
+];
+
 export default function ExperimentPaperTables({
   isThai,
   baselineData,
@@ -27,80 +98,21 @@ export default function ExperimentPaperTables({
   fans,
   onToast,
 }) {
-  const [activeSheet, setActiveSheet] = useState('table2'); // 'table1' | 'table2' | 'table3' | 'table4' | 'ml'
-  const [selectedRunToRecord, setSelectedRunToRecord] = useState('Run 2');
+  const [activeSheet, setActiveSheet] = useState(() => {
+    try { return localStorage.getItem('voc_paper_active_sheet') || 'table2'; } catch { return 'table2'; }
+  });
+  const [selectedRunToRecord, setSelectedRunToRecord] = useState(() => {
+    try { return localStorage.getItem('voc_paper_selected_run') || 'Run 2'; } catch { return 'Run 2'; }
+  });
 
-  // ─── ตารางที่ 2: ข้อมูลสารเดี่ยว 4 ชนิด (ครบ 8 เซนเซอร์ต่อ Run) ───
-  const [singleRuns, setSingleRuns] = useState([
-    {
-      runId: 'Run 1',
-      substanceTh: 'สีฝุ่น (Powder Dust)',
-      substanceEn: 'Powder Coating Dust',
-      dose: '0.5 กรัม',
-      aiPred: 'DUST / AMBIENT',
-      sensors: [
-        { id: '1. MQ-3', base: 380, peak: 392, unit: 'ADC counts', t90: '-', t10: '-', cleanRatio: 60.0 },
-        { id: '2. MQ-135', base: 420, peak: 445, unit: 'ADC counts', t90: '-', t10: '-', cleanRatio: 3.6 },
-        { id: '3. MQ-2', base: 350, peak: 368, unit: 'ADC counts', t90: '-', t10: '-', cleanRatio: 9.83 },
-        { id: '4. MQ-8', base: 310, peak: 315, unit: 'ADC counts', t90: '-', t10: '-', cleanRatio: 70.0 },
-        { id: '5. MiCS-6814', base: 'NH3:980 / CO:1120 / NO2:185', peak: 'NH3:975 / CO:1115 / NO2:188', unit: 'mV', t90: '-', t10: '-', ratioStr: '1.00 / 1.00 / 1.02' },
-        { id: '6. CCS811', base: 'TVOC:18 / eCO2:412', peak: 'TVOC:32 ppb / eCO2:425 ppm', unit: 'ppb / ppm', t90: '25', t10: '2.5', ratioStr: '-' },
-        { id: '7. PMS5003', base: 'PM2.5:8 / PM10:11', peak: 'PM2.5: 185 / PM10: 260', unit: 'µg/m³', t90: '14', t10: '4.2', ratioStr: '-' },
-        { id: '8. DHT22', base: '25.0°C / 55.0%', peak: '25.1°C / 54.8%', unit: '°C / %RH', t90: '-', t10: '-', ratioStr: '-' },
-      ],
-    },
-    {
-      runId: 'Run 2',
-      substanceTh: 'แอลกอฮอล์ (Alcohol 70%)',
-      substanceEn: 'Alcohol 70%',
-      dose: '0.3 ml (~6 หยด)',
-      aiPred: 'ALCOHOL (96.4%)',
-      sensors: [
-        { id: '1. MQ-3', base: 380, peak: 2450, unit: 'ADC counts', t90: '18', t10: '6.5', cleanRatio: 60.0 },
-        { id: '2. MQ-135', base: 420, peak: 1180, unit: 'ADC counts', t90: '24', t10: '7.0', cleanRatio: 3.6 },
-        { id: '3. MQ-2', base: 350, peak: 1320, unit: 'ADC counts', t90: '22', t10: '6.8', cleanRatio: 9.83 },
-        { id: '4. MQ-8', base: 310, peak: 410, unit: 'ADC counts', t90: '35', t10: '4.0', cleanRatio: 70.0 },
-        { id: '5. MiCS-6814', base: 'NH3:980 / CO:1120 / NO2:185', peak: 'NH3:820 / CO:740 / NO2:192', unit: 'mV', t90: '20', t10: '6.0', ratioStr: '0.84 / 0.66 / 1.04' },
-        { id: '6. CCS811', base: 'TVOC:18 / eCO2:412', peak: 'TVOC:640 ppb / eCO2:1150 ppm', unit: 'ppb / ppm', t90: '16', t10: '5.8', ratioStr: '-' },
-        { id: '7. PMS5003', base: 'PM2.5:8 / PM10:11', peak: 'PM2.5: 10 / PM10: 13', unit: 'µg/m³', t90: '-', t10: '-', ratioStr: '-' },
-        { id: '8. DHT22', base: '25.1°C / 55.0%', peak: '25.3°C / 56.2%', unit: '°C / %RH', t90: '-', t10: '-', ratioStr: '-' },
-      ],
-    },
-    {
-      runId: 'Run 3',
-      substanceTh: 'ทินเนอร์ (Thinner VOC)',
-      substanceEn: 'Industrial Thinner',
-      dose: '0.15 ml (~3 หยด)',
-      aiPred: 'THINNER (94.8%)',
-      sensors: [
-        { id: '1. MQ-3', base: 380, peak: 1980, unit: 'ADC counts', t90: '22', t10: '9.5', cleanRatio: 60.0 },
-        { id: '2. MQ-135', base: 420, peak: 2150, unit: 'ADC counts', t90: '19', t10: '10.2', cleanRatio: 3.6 },
-        { id: '3. MQ-2', base: 350, peak: 2280, unit: 'ADC counts', t90: '17', t10: '9.8', cleanRatio: 9.83 },
-        { id: '4. MQ-8', base: 310, peak: 520, unit: 'ADC counts', t90: '30', t10: '6.5', cleanRatio: 70.0 },
-        { id: '5. MiCS-6814', base: 'NH3:980 / CO:1120 / NO2:185', peak: 'NH3:710 / CO:620 / NO2:205', unit: 'mV', t90: '21', t10: '9.0', ratioStr: '0.72 / 0.55 / 1.11' },
-        { id: '6. CCS811', base: 'TVOC:19 / eCO2:415', peak: 'TVOC:980 ppb / eCO2:1680 ppm', unit: 'ppb / ppm', t90: '15', t10: '8.8', ratioStr: '-' },
-        { id: '7. PMS5003', base: 'PM2.5:9 / PM10:12', peak: 'PM2.5: 12 / PM10: 16', unit: 'µg/m³', t90: '-', t10: '-', ratioStr: '-' },
-        { id: '8. DHT22', base: '25.2°C / 55.2%', peak: '25.5°C / 54.5%', unit: '°C / %RH', t90: '-', t10: '-', ratioStr: '-' },
-      ],
-    },
-    {
-      runId: 'Run 4',
-      substanceTh: 'แอมโมเนีย (Ammonia 10%)',
-      substanceEn: 'Diluted Ammonia 10%',
-      dose: '0.15 ml (~3 หยด)',
-      aiPred: 'AMMONIA (93.2%)',
-      sensors: [
-        { id: '1. MQ-3', base: 380, peak: 890, unit: 'ADC counts', t90: '28', t10: '7.5', cleanRatio: 60.0 },
-        { id: '2. MQ-135', base: 420, peak: 2390, unit: 'ADC counts', t90: '16', t10: '8.4', cleanRatio: 3.6 },
-        { id: '3. MQ-2', base: 350, peak: 940, unit: 'ADC counts', t90: '26', t10: '7.2', cleanRatio: 9.83 },
-        { id: '4. MQ-8', base: 310, peak: 460, unit: 'ADC counts', t90: '32', t10: '5.5', cleanRatio: 70.0 },
-        { id: '5. MiCS-6814', base: 'NH3:980 / CO:1120 / NO2:185', peak: 'NH3:340 / CO:890 / NO2:195', unit: 'mV', t90: '14', t10: '8.0', ratioStr: '0.35 / 0.79 / 1.05' },
-        { id: '6. CCS811', base: 'TVOC:18 / eCO2:412', peak: 'TVOC:520 ppb / eCO2:980 ppm', unit: 'ppb / ppm', t90: '18', t10: '7.4', ratioStr: '-' },
-        { id: '7. PMS5003', base: 'PM2.5:8 / PM10:11', peak: 'PM2.5: 9 / PM10: 12', unit: 'µg/m³', t90: '-', t10: '-', ratioStr: '-' },
-        { id: '8. DHT22', base: '25.2°C / 55.5%', peak: '25.4°C / 57.0%', unit: '°C / %RH', t90: '-', t10: '-', ratioStr: '-' },
-      ],
-    },
-  ]);
+  // ─── ตารางที่ 2: ข้อมูลสารเดี่ยว 4 ชนิด (จำค่าไว้ใน localStorage & Backend DB) ───
+  const [singleRuns, setSingleRuns] = useState(() => {
+    try {
+      const saved = localStorage.getItem('voc_paper_single_runs_v1');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return DEFAULT_SINGLE_RUNS;
+  });
 
   // ─── ตารางที่ 3: สารผสมจำลองโรงงาน ───
   const [mixRuns] = useState([
@@ -143,7 +155,79 @@ export default function ExperimentPaperTables({
   ]);
 
   // ─── ตารางที่ 5: ชุดข้อมูล Time-Series พร้อมเทรนโมเดล AI (ML Training Dataset) ───
-  const [customMlFrames, setCustomMlFrames] = useState([]);
+  const [customMlFrames, setCustomMlFrames] = useState(() => {
+    try {
+      const saved = localStorage.getItem('voc_paper_ml_frames_v1');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return [];
+  });
+
+  // Sync local changes to localStorage immediately
+  useEffect(() => {
+    try { localStorage.setItem('voc_paper_active_sheet', activeSheet); } catch { /* ignore */ }
+  }, [activeSheet]);
+
+  useEffect(() => {
+    try { localStorage.setItem('voc_paper_selected_run', selectedRunToRecord); } catch { /* ignore */ }
+  }, [selectedRunToRecord]);
+
+  useEffect(() => {
+    try { localStorage.setItem('voc_paper_single_runs_v1', JSON.stringify(singleRuns)); } catch { /* ignore */ }
+  }, [singleRuns]);
+
+  useEffect(() => {
+    try { localStorage.setItem('voc_paper_ml_frames_v1', JSON.stringify(customMlFrames)); } catch { /* ignore */ }
+  }, [customMlFrames]);
+
+  // Load persisted state from Backend DB on mount (if localStorage was empty)
+  useEffect(() => {
+    let mounted = true;
+    async function loadFromBackend() {
+      try {
+        const res = await fetch(`${API}/api/experiment/persisted-state`);
+        if (!res.ok || !mounted) return;
+        const data = await res.json();
+        if (data?.state) {
+          if (Array.isArray(data.state.singleRuns) && !localStorage.getItem('voc_paper_single_runs_v1')) {
+            setSingleRuns(data.state.singleRuns);
+          }
+          if (Array.isArray(data.state.customMlFrames) && !localStorage.getItem('voc_paper_ml_frames_v1')) {
+            setCustomMlFrames(data.state.customMlFrames);
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    loadFromBackend();
+    return () => { mounted = false; };
+  }, []);
+
+  async function syncExperimentTablesToBackend(nextRuns, nextFrames) {
+    try {
+      await fetch(`${API}/api/experiment/persisted-state`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          singleRuns: nextRuns,
+          customMlFrames: nextFrames,
+          updatedAt: new Date().toISOString(),
+        }),
+      });
+    } catch { /* ignore */ }
+  }
+
+  function handleResetDefaultTables() {
+    setSingleRuns(DEFAULT_SINGLE_RUNS);
+    setCustomMlFrames([]);
+    try {
+      localStorage.removeItem('voc_paper_single_runs_v1');
+      localStorage.removeItem('voc_paper_ml_frames_v1');
+    } catch { /* ignore */ }
+    syncExperimentTablesToBackend(DEFAULT_SINGLE_RUNS, []);
+    if (onToast) {
+      onToast(isThai ? 'รีเซ็ตตารางบันทึกผลการทดลองกลับเป็นค่าเริ่มต้นเรียบร้อยแล้ว ✓' : 'Reset experiment tables to defaults ✓');
+    }
+  }
 
   const defaultMlRows = useMemo(() => {
     const scenarios = [
@@ -227,8 +311,8 @@ export default function ExperimentPaperTables({
 
   // ─── บันทึกค่าสดปัจจุบันลงใน Run ที่เลือก (ตารางที่ 2) ───
   function handleRecordLiveToRun() {
-    setSingleRuns((prev) =>
-      prev.map((r) => {
+    setSingleRuns((prev) => {
+      const next = prev.map((r) => {
         if (r.runId !== selectedRunToRecord) return r;
         const p3 = Math.max(peakData.mq3 || 0, liveSen.mq3 || baselineData.mq3 || 380);
         const p135 = Math.max(peakData.mq135 || 0, liveSen.mq135 || baselineData.mq135 || 420);
@@ -270,10 +354,12 @@ export default function ExperimentPaperTables({
             },
           ],
         };
-      })
-    );
+      });
+      syncExperimentTablesToBackend(next, customMlFrames);
+      return next;
+    });
     if (onToast) {
-      onToast(isThai ? `บันทึกค่าพีคสดลงใน ${selectedRunToRecord} (ตารางที่ 2) เรียบร้อยแล้ว ✓` : `Recorded live peaks to ${selectedRunToRecord} ✓`);
+      onToast(isThai ? `บันทึกและจำค่าพีคสดลงใน ${selectedRunToRecord} (ตารางที่ 2) เรียบร้อยแล้ว ✓` : `Recorded & persisted live peaks to ${selectedRunToRecord} ✓`);
     }
   }
 
@@ -332,10 +418,14 @@ export default function ExperimentPaperTables({
       fan2_gpio26: fans.fan2 ? 1 : 0,
       fan3_gpio4: fans.fan3 ? 1 : 0,
     };
-    setCustomMlFrames((prev) => [newRow, ...prev]);
+    setCustomMlFrames((prev) => {
+      const next = [newRow, ...prev];
+      syncExperimentTablesToBackend(singleRuns, next);
+      return next;
+    });
     setActiveSheet('ml');
     if (onToast) {
-      onToast(isThai ? 'เพิ่มเฟรมข้อมูลสดลงในชุดข้อมูลเทรน AI (ML Dataset) แล้ว ✓' : 'Added live frame to ML Dataset ✓');
+      onToast(isThai ? 'เพิ่มและบันทึกเฟรมข้อมูลสดลงในชุดข้อมูลเทรน AI (ML Dataset) แล้ว ✓' : 'Added & persisted live frame to ML Dataset ✓');
     }
   }
 
@@ -551,6 +641,15 @@ export default function ExperimentPaperTables({
           >
             <PlusCircle size={14} />
             <span>{isThai ? '+ เฟรมเทรน AI' : '+ ML Frame'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleResetDefaultTables}
+            title={isThai ? 'รีเซ็ตตารางที่ 2 และ 5 กลับเป็นค่าเริ่มต้น' : 'Reset tables to defaults'}
+            className="px-2.5 py-1.5 rounded-xl bg-white border border-[#c3c6d7] text-[#505f76] hover:text-rose-600 hover:border-rose-300 text-[12px] font-semibold flex items-center gap-1 cursor-pointer"
+          >
+            <RotateCcw size={13} />
+            <span>{isThai ? 'รีเซ็ตตาราง' : 'Reset'}</span>
           </button>
         </div>
       </div>

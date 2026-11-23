@@ -41,6 +41,7 @@ export default function ThresholdsTab({
                 onChange={(e) => setSelectedDevice(e.target.value)}
                 className="h-9 px-3 py-1 bg-[#f2f3ff] rounded-xl border border-[#eaedff] text-[13px] font-medium text-[#131b2e] focus:outline-none focus:ring-2 focus:ring-[#004ac6]/20 cursor-pointer"
               >
+                <option>BOX-001 (ESP32 Main Node)</option>
                 <option>ESP32 Node 01</option>
                 <option>ESP32 Node 02</option>
                 <option>Gateway Hub</option>

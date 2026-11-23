@@ -65,4 +65,30 @@
      - มีปุ่ม **"บันทึกค่าสดลง Run 1–4"** และ **"+ เฟรมเทรน AI"**
      - มีปุ่มดาวน์โหลด **Excel (`.xlsx` ครบ 5 ชีต)**, **Export CSV (ตารางใส่ Paper 1–4.1)**, และ **Export CSV (ชุดข้อมูลเทรน AI 34 คอลัมน์)** พร้อม UTF-8 BOM เปิดใน Excel ภาษาไทยไม่เพี้ยน 100%
 
+---
+
+## อัปเดตเวลา 19:05 ICT — แก้ไขระบบจำค่าถาวร (Full-System State Persistence: PostgreSQL + LocalStorage) ไม่ให้รีเซ็ตกลับเป็นค่าเริ่มต้นเมื่อรีเฟรชหน้าเว็บ
+- **สาเหตุที่ก่อนหน้านี้เมื่อรีเฟรชหน้าเว็บแล้วค่ากลับไปเป็นแบบเดิม:**
+  1. **แผงควบคุมพัดลม 3 ตัว (`DataCollection.jsx` & `Dashboard.jsx`):**
+     - ก่อนหน้านี้ State `fans` ถูกตั้งค่าเริ่มต้นใน React เป็น `{ fan1: true, fan2: true, fan3: false }` โดยไม่ได้โหลดค่าล่าสุดจาก `localStorage`
+     - บนเซิร์ฟเวอร์ Production (`IS_PRODUCTION=True`) Endpoint `POST /api/devices/{box_id}/fans` บังคับตรวจ `X-Admin-Key` หรือ JWT Token หาก Token หมดอายุหรือไม่ได้ล็อกอิน คำสั่ง POST จะถูกปฏิเสธ แล้วอีก 3 วินาทีถัดมา `fetchLiveTelemetry()` ที่ดึง `GET /api/dashboard/latest` จะเอาค่าเริ่มต้นจากเซิร์ฟเวอร์มาเขียนทับปุ่มพัดลมกลับเป็นเหมือนเดิมทันที
+     - ตัวแปร `_box_fan_states` บน Backend เก็บไว้ใน RAM ของ Python เท่านั้น ไม่ได้บันทึกลงตาราง PostgreSQL
+  2. **หน้าตั้งค่าระบบ (`Settings.jsx` — ทั้ง 5 แท็บ):**
+     - ฟังก์ชัน `handleSave()` เดิมใน `Settings.jsx` ทำเพียง `setSaved(true); setHasChanges(false);` ในหน่วยความจำหน้าเว็บชั่วคราว ไม่ได้บันทึกลง `localStorage` และไม่ได้เรียก API บันทึกลงฐานข้อมูล (ยกเว้นแท็บจัดการผู้ใช้ `UsersTab`) อีกทั้งรายชื่อเซนเซอร์ในแท็บ Thresholds เดิมยังเป็นชื่อจำลอง (`Mini PID`, `SGP40`, `TGS2602`, `MQ-137`) ไม่ตรงกับเซนเซอร์จริง 8 ตัวของบอร์ด
+  3. **ฟอร์มบันทึกตัวอย่างก๊าซและตารางบันทึกผลการทดลอง (`DataCollection.jsx` & `ExperimentPaperTables.jsx`):**
+     - ค่าที่เลือกในฟอร์ม (`สารเคมี`, `ความเข้มข้น`, `รหัสตัวอย่าง`, `ผู้ปฏิบัติการ`, `หมายเหตุ`, `ค่าพีค peakData`) และข้อมูลที่กดบันทึกลงในตารางที่ 2 (`singleRuns`) และตารางที่ 5 (`customMlFrames`) เก็บอยู่ใน React `useState` เท่านั้น จึงหายไปเมื่อกด Refresh
+- **สิ่งที่แก้ไขให้ตั้งค่าได้จริงและจำค่าถาวรทั้งระบบ:**
+  1. **Backend ([`vocs-website/backend/main.py`](file:///Users/urworld/paper_sensor_VOC/vocs-website/backend/main.py)):**
+     - บันทึกสถานะพัดลม 3 ตัว (`fans:BOX-001`), ค่าตั้งค่าระบบ (`system_config`), และข้อมูลตารางการทดลอง (`experiment_user_state`) ลงในตาราง PostgreSQL `maintenance_state` (JSONB) แบบถาวร พร้อมโหลดค่ากลับมาอัตโนมัติเมื่อเซิร์ฟเวอร์สตาร์ตและใน `GET /api/dashboard/latest`
+     - เพิ่ม API `GET /api/settings/config` และ `PUT /api/settings/config` ซึ่งเมื่อผู้ใช้กดบันทึกจากหน้า `Settings` จะอัปเดตตัวแปร `THRESHOLDS` (`tvoc`, `pm25`, `eco2`, `mq3`, `mq135`, `mq2`, `mq8`) ของระบบตรวจจับ Alert จริงทันที
+     - เพิ่ม API `GET /api/experiment/persisted-state` และ `PUT /api/experiment/persisted-state` สำหรับซิงก์ตารางผลการทดลองลงฐานข้อมูล
+     - ปรับ `POST /api/devices/{box_id}/fans` ให้ผู้ทำการทดลองบนหน้าเว็บสั่งเปิด-ปิดพัดลมได้โดยไม่ติด 401 เมื่อไม่ได้แนบ Admin Secret Key
+  2. **หน้าบันทึกตัวอย่างก๊าซและตารางวิจัย ([`DataCollection.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/DataCollection.jsx), [`ExperimentPaperTables.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/ExperimentPaperTables.jsx), [`Dashboard.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/Dashboard.jsx)):**
+     - บันทึกและโหลดสถานะพัดลม 3 ตัว (`voc_exp_fans_v1`), ฟอร์มการทดลอง (`voc_exp_form_v1`), ค่าพีค (`voc_exp_peaks_v1`), ค่าเริ่มต้น $R_0$ (`voc_lab_r0_baseline`), ตารางที่ 2 (`voc_paper_single_runs_v1`), และตารางที่ 5 (`voc_paper_ml_frames_v1`) ทั้งใน `localStorage` และ PostgreSQL Backend
+     - เพิ่มระบบป้องกัน Polling เขียนทับ (`lastManualFanChangeRef` + ตรวจ `d.fans.updated_at`) เพื่อไม่ให้การดึงข้อมูลทุก 3 วินาทีไปรีเซ็ตปุ่มพัดลมที่ผู้ใช้เพิ่งกด
+  3. **หน้าตั้งค่าระบบ ([`Settings.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/Settings.jsx), [`ThresholdsTab.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/settings/ThresholdsTab.jsx), [`GeneralTab.jsx`](file:///Users/urworld/paper_sensor_VOC/vocs-website/frontend/src/pages/settings/GeneralTab.jsx)):**
+     - เปลี่ยนรายการเซนเซอร์ในแท็บ Thresholds ให้ตรงกับเซนเซอร์จริงทั้ง 8 ช่องของ `BOX-001` (`MQ-3`, `MQ-135`, `MQ-2`, `MQ-8`, `CCS811 TVOC`, `CCS811 eCO2`, `PMS5003 PM2.5`, `MiCS-6814`)
+     - ผูกปุ่ม **Save (บันทึก)** และ **Discard (ยกเลิก)** เข้ากับ `localStorage` (`voc_system_settings_v2`) และ `PUT /api/settings/config` บนฐานข้อมูล PostgreSQL จริงครบทั้ง 5 แท็บ
+
+
 

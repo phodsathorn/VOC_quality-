@@ -75,6 +75,7 @@ export default function GeneralTab({
             <option>90 days</option>
             <option>180 days</option>
             <option>365 days (1 Year)</option>
+            <option>5 years (1,825 days)</option>
           </select>
         </div>
 

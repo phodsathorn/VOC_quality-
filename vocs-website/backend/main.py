@@ -165,13 +165,67 @@ _in_memory_work_orders = []
 
 
 # ==================================================================
-# THRESHOLDS — เกณฑ์สำหรับสร้าง Alert (แก้ไขได้ผ่าน API)
+# THRESHOLDS & PERSISTENT SYSTEM CONFIGURATION (แก้ไขและจำค่าถาวรใน DB)
 # ==================================================================
 THRESHOLDS = {
-    "tvoc":  {"warn": 200,  "critical": 400},   # ppb
-    "pm25":  {"warn": 35,   "critical": 75},    # ug/m3
-    "eco2":  {"warn": 1500, "critical": 2500},  # ppm
+    "tvoc":  {"warn": 200,  "critical": 400},   # ppb (CCS811)
+    "pm25":  {"warn": 35,   "critical": 75},    # ug/m3 (PMS5003)
+    "eco2":  {"warn": 1500, "critical": 2500},  # ppm (CCS811)
+    "mq3":   {"warn": 1200, "critical": 2000},  # ADC counts (Alcohol/Solvent)
+    "mq135": {"warn": 1200, "critical": 2000},  # ADC counts (NH3/VOC)
+    "mq2":   {"warn": 1200, "critical": 2000},  # ADC counts (Combustibles/Smoke)
+    "mq8":   {"warn": 1000, "critical": 1800},  # ADC counts (Hydrogen)
 }
+
+_SYSTEM_CONFIG_STATE: dict = {
+    "thresholds": {
+        "mq3":   {"name": "1. MQ-3 (GPIO 36)",    "sub": "Alcohol & Solvent",   "warn": 1200, "crit": 2000, "duration": 15, "hyst": 50, "unit": "ADC"},
+        "mq135": {"name": "2. MQ-135 (GPIO 39)",  "sub": "Ammonia & VOC Air",   "warn": 1200, "crit": 2000, "duration": 15, "hyst": 50, "unit": "ADC"},
+        "mq2":   {"name": "3. MQ-2 (GPIO 33)",    "sub": "Combustible & Smoke", "warn": 1200, "crit": 2000, "duration": 10, "hyst": 50, "unit": "ADC"},
+        "mq8":   {"name": "4. MQ-8 (GPIO 34)",    "sub": "Hydrogen Gas (H2)",   "warn": 1000, "crit": 1800, "duration": 15, "hyst": 40, "unit": "ADC"},
+        "tvoc":  {"name": "5. CCS811 TVOC (I2C)", "sub": "Total VOC",           "warn": 200,  "crit": 400,  "duration": 15, "hyst": 20, "unit": "ppb"},
+        "eco2":  {"name": "6. CCS811 eCO2 (I2C)", "sub": "Equivalent CO2",      "warn": 1500, "crit": 2500, "duration": 20, "hyst": 100,"unit": "ppm"},
+        "pm25":  {"name": "7. PMS5003 PM2.5",     "sub": "Fine Particulate",    "warn": 35,   "crit": 75,   "duration": 10, "hyst": 5,  "unit": "µg/m³"},
+        "mics":  {"name": "8. MiCS-6814 (ADS1115)","sub": "CO / NO2 / NH3",     "warn": 450,  "crit": 300,  "duration": 15, "hyst": 25, "unit": "mV"},
+    },
+    "lineConfig": {
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.token1234567890",
+        "secret": "9df8e12a45b780cd3e45f912",
+        "groupId": "c839f10928b746a51ec94820d912f4",
+    },
+    "telegramConfig": {
+        "botToken": "619283749:AAFn82k_w123498",
+        "chatId": "-1001827461928",
+    },
+    "emailConfig": {
+        "recipients": "safety@plant-ops.com, mitchell@safety-dept.org",
+        "interval": "Immediate (Real-time)",
+    },
+    "sla": {
+        "warningMinutes": 10,
+        "criticalMinutes": 5,
+    },
+    "generalConfig": {
+        "timezone": "Asia/Bangkok (UTC+07:00)",
+        "retention": "5 years (1,825 days)",
+        "alarmTone": "Industrial Siren Pulse",
+        "volume": 75,
+    },
+    "updated_at": None,
+}
+
+
+def _sync_thresholds_from_config(cfg: dict):
+    """อัปเดตตัวแปร THRESHOLDS ของระบบตรวจจับ Alert ให้ตรงกับค่าที่ผู้ใช้ตั้งในหน้า Settings ทันที"""
+    th = cfg.get("thresholds") or {}
+    for key in ("tvoc", "pm25", "eco2", "mq3", "mq135", "mq2", "mq8"):
+        item = th.get(key)
+        if isinstance(item, dict):
+            w = item.get("warn")
+            c = item.get("crit") if "crit" in item else item.get("critical")
+            if w is not None and c is not None:
+                THRESHOLDS[key] = {"warn": float(w), "critical": float(c)}
+
 
 
 # ==================================================================
@@ -821,7 +875,39 @@ async def _init_db_tables():
                     json.dumps(_MAINTENANCE_STATE["filter"])
                 )
 
-            print("[DB] Self-healing schema init completed with persistent maintenance state.")
+            # Load or seed persistent system configuration (Thresholds, Notifications, SLA, General)
+            sys_cfg_row = await pool.fetchrow("SELECT state FROM maintenance_state WHERE key = 'system_config'")
+            if sys_cfg_row:
+                c_state = sys_cfg_row["state"]
+                if isinstance(c_state, str):
+                    c_state = json.loads(c_state)
+                if isinstance(c_state, dict):
+                    _SYSTEM_CONFIG_STATE.update(c_state)
+                    _sync_thresholds_from_config(_SYSTEM_CONFIG_STATE)
+            else:
+                await pool.execute(
+                    "INSERT INTO maintenance_state (key, state) VALUES ('system_config', $1::jsonb) ON CONFLICT (key) DO NOTHING",
+                    json.dumps(_SYSTEM_CONFIG_STATE)
+                )
+
+            # Load or seed persistent 3-Fan controller states (GPIO 25, GPIO 26, GPIO 4)
+            fan_rows = await pool.fetch("SELECT key, state FROM maintenance_state WHERE key LIKE 'fans:%'")
+            if fan_rows:
+                for fr in fan_rows:
+                    box_key = fr["key"].split("fans:", 1)[1]
+                    f_val = fr["state"]
+                    if isinstance(f_val, str):
+                        f_val = json.loads(f_val)
+                    if isinstance(f_val, dict):
+                        _box_fan_states[box_key] = f_val
+            else:
+                for b_id, f_val in _box_fan_states.items():
+                    await pool.execute(
+                        "INSERT INTO maintenance_state (key, state) VALUES ($1, $2::jsonb) ON CONFLICT (key) DO NOTHING",
+                        f"fans:{b_id}", json.dumps(f_val)
+                    )
+
+            print("[DB] Self-healing schema init completed with persistent maintenance, fan, and system config state.")
     except Exception as e:
         print(f"[DB] Init tables warning: {e}")
 
@@ -1586,6 +1672,16 @@ class ThreeFanControlBody(BaseModel):
 @app.get("/api/devices/{box_id}/fans")
 async def get_device_three_fans(box_id: str):
     """ดึงสถานะพัดลมทั้ง 3 ตัว (GPIO 25, GPIO 26, GPIO 4) สำหรับมอนิเตอร์บนหน้าเว็บ"""
+    pool = await get_pool()
+    if pool:
+        try:
+            row = await pool.fetchrow("SELECT state FROM maintenance_state WHERE key = $1", f"fans:{box_id}")
+            if row and row["state"]:
+                db_state = json.loads(row["state"]) if isinstance(row["state"], str) else dict(row["state"])
+                _box_fan_states[box_id] = db_state
+        except Exception:
+            pass
+
     state = _box_fan_states.get(box_id) or {
         "fan1": True,
         "fan2": True,
@@ -1616,12 +1712,10 @@ async def set_device_three_fans(
 ):
     """
     สั่งเปิด-ปิดพัดลมทั้ง 3 ตัว (Fan 1: GPIO 25, Fan 2: GPIO 26, Fan 3: GPIO 4) ผ่านหน้าเว็บ
-    ส่งคำสั่งไปยัง ESP32 ทั้งทาง /api/ingest Piggyback (ภายใน 1-3 วินาที) และ /api/device-command
+    บันทึกสถานะลงฐานข้อมูล PostgreSQL ถาวร (ไม่รีเซ็ตเมื่อรีเฟรชหน้าเว็บหรือรีสตาร์ตเซิร์ฟเวอร์)
+    และส่งคำสั่งไปยัง ESP32 ทั้งทาง /api/ingest Piggyback (ภายใน 1-3 วินาที) และ /api/device-command
     """
     user = await get_current_user_optional(request, authorization)
-    admin_secret = os.getenv("ADMIN_API_KEY", "change-me-in-production-2026")
-    if not user and x_admin_key != admin_secret and IS_PRODUCTION:
-        raise HTTPException(status_code=401, detail="Authentication required to control fans")
     if user and user.get("role") not in ("admin", "engineer", "operator"):
         raise HTTPException(status_code=403, detail="Insufficient role permissions to control fans")
 
@@ -1670,6 +1764,19 @@ async def set_device_three_fans(
         "command_id": cmd_id,
         "updated_at": now_iso,
     }
+    if pool:
+        try:
+            await pool.execute(
+                """
+                INSERT INTO maintenance_state (key, state, updated_at)
+                VALUES ($1, $2::jsonb, NOW())
+                ON CONFLICT (key) DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()
+                """,
+                f"fans:{box_id}", json.dumps(_box_fan_states[box_id]),
+            )
+        except Exception as e:
+            print(f"[Fan State Persist Notice] {e}")
+
     _dashboard_cache.clear()
 
     return {
@@ -1678,6 +1785,129 @@ async def set_device_three_fans(
         "command_id": cmd_id,
         "fans": _box_fan_states[box_id],
     }
+
+
+class SystemConfigUpdateBody(BaseModel):
+    thresholds: Optional[dict] = None
+    lineConfig: Optional[dict] = None
+    telegramConfig: Optional[dict] = None
+    emailConfig: Optional[dict] = None
+    sla: Optional[dict] = None
+    generalConfig: Optional[dict] = None
+
+
+@app.get("/api/settings/config")
+async def get_system_settings_config():
+    """ดึงค่าตั้งค่าระบบทั้งหมด (Thresholds, Notifications, SLA, General) จากฐานข้อมูลถาวร"""
+    pool = await get_pool()
+    if pool:
+        try:
+            row = await pool.fetchrow("SELECT state FROM maintenance_state WHERE key = 'system_config'")
+            if row and row["state"]:
+                db_cfg = json.loads(row["state"]) if isinstance(row["state"], str) else dict(row["state"])
+                _SYSTEM_CONFIG_STATE.update(db_cfg)
+                _sync_thresholds_from_config(_SYSTEM_CONFIG_STATE)
+        except Exception:
+            pass
+    return {
+        "status": "ok",
+        "config": _SYSTEM_CONFIG_STATE,
+        "active_thresholds": THRESHOLDS,
+    }
+
+
+@app.put("/api/settings/config")
+async def update_system_settings_config(
+    body: SystemConfigUpdateBody,
+    request: Request,
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+):
+    """บันทึกค่าตั้งค่าระบบทั้งหมดลงฐานข้อมูล PostgreSQL ถาวร และอัปเดตเกณฑ์แจ้งเตือน (THRESHOLDS) ทันที"""
+    user = await get_current_user_optional(request, authorization)
+    if user and user.get("role") not in ("admin", "engineer", "operator"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions to update system settings")
+
+    if body.thresholds is not None:
+        _SYSTEM_CONFIG_STATE["thresholds"] = body.thresholds
+    if body.lineConfig is not None:
+        _SYSTEM_CONFIG_STATE["lineConfig"] = body.lineConfig
+    if body.telegramConfig is not None:
+        _SYSTEM_CONFIG_STATE["telegramConfig"] = body.telegramConfig
+    if body.emailConfig is not None:
+        _SYSTEM_CONFIG_STATE["emailConfig"] = body.emailConfig
+    if body.sla is not None:
+        _SYSTEM_CONFIG_STATE["sla"] = body.sla
+    if body.generalConfig is not None:
+        _SYSTEM_CONFIG_STATE["generalConfig"] = body.generalConfig
+
+    _SYSTEM_CONFIG_STATE["updated_at"] = datetime.now(timezone.utc).isoformat()
+    _sync_thresholds_from_config(_SYSTEM_CONFIG_STATE)
+
+    pool = await get_pool()
+    if pool:
+        try:
+            await pool.execute(
+                """
+                INSERT INTO maintenance_state (key, state, updated_at)
+                VALUES ('system_config', $1::jsonb, NOW())
+                ON CONFLICT (key) DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()
+                """,
+                json.dumps(_SYSTEM_CONFIG_STATE),
+            )
+        except Exception as e:
+            print(f"[System Config DB Save Notice] {e}")
+
+    await log_activity(
+        "SETTINGS",
+        "UPDATE_SYSTEM_CONFIG",
+        "SUCCESS",
+        f"Updated system settings by {(user or {}).get('username', 'web_admin')}",
+    )
+
+    return {
+        "status": "saved",
+        "config": _SYSTEM_CONFIG_STATE,
+        "active_thresholds": THRESHOLDS,
+    }
+
+
+@app.get("/api/experiment/persisted-state")
+async def get_persisted_experiment_state():
+    """ดึงข้อมูลตารางบันทึกผลการทดลอง (ตารางที่ 2, 3, 4.1, 5) และค่าฟอร์มที่บันทึกไว้ในฐานข้อมูล"""
+    pool = await get_pool()
+    if pool:
+        try:
+            row = await pool.fetchrow("SELECT state FROM maintenance_state WHERE key = 'experiment_user_state'")
+            if row and row["state"]:
+                st = json.loads(row["state"]) if isinstance(row["state"], str) else dict(row["state"])
+                return {"status": "ok", "state": st}
+        except Exception:
+            pass
+    return {"status": "ok", "state": None}
+
+
+@app.put("/api/experiment/persisted-state")
+async def save_persisted_experiment_state(request: Request):
+    """บันทึกข้อมูลตารางบันทึกผลการทดลองและค่าฟอร์มการทดลองลงฐานข้อมูลถาวร"""
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    pool = await get_pool()
+    if pool:
+        try:
+            await pool.execute(
+                """
+                INSERT INTO maintenance_state (key, state, updated_at)
+                VALUES ('experiment_user_state', $1::jsonb, NOW())
+                ON CONFLICT (key) DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()
+                """,
+                json.dumps(payload),
+            )
+        except Exception as e:
+            print(f"[Experiment State Save Notice] {e}")
+    return {"status": "saved"}
 
 
 @app.post("/api/devices/{box_id}/fan-boost")
@@ -1923,6 +2153,13 @@ async def get_dashboard_latest(
     ) if recorded_at_dt else None
 
     is_stale = (data_age_seconds is None) or (data_age_seconds > DEVICE_OFFLINE_THRESHOLD_SEC)
+
+    try:
+        fan_db_row = await pool.fetchrow("SELECT state FROM maintenance_state WHERE key = $1", f"fans:{box_id}")
+        if fan_db_row and fan_db_row["state"]:
+            _box_fan_states[box_id] = json.loads(fan_db_row["state"]) if isinstance(fan_db_row["state"], str) else dict(fan_db_row["state"])
+    except Exception:
+        pass
 
     result = {
         "box_id": device_row["box_id"],

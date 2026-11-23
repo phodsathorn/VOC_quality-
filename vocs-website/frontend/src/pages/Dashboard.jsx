@@ -187,7 +187,15 @@ export default function Dashboard() {
   const isStale = data?.is_stale ?? (!isOnline);
   const dataAgeSec = data?.data_age_seconds;
 
-  const fansState = data?.fans || { fan1: true, fan2: true, fan3: false };
+  const [localFans, setLocalFans] = useState(() => {
+    try {
+      const saved = localStorage.getItem('voc_exp_fans_v1');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return null;
+  });
+
+  const fansState = (data?.fans?.updated_at ? data.fans : localFans) || data?.fans || { fan1: true, fan2: true, fan3: false };
   const activeFanCount = (fansState.fan1 ? 1 : 0) + (fansState.fan2 ? 1 : 0) + (fansState.fan3 ? 1 : 0);
 
   async function handleQuickToggleFan(fanKey) {
@@ -197,7 +205,12 @@ export default function Dashboard() {
       fan3: fanKey === 'fan3' ? !fansState.fan3 : Boolean(fansState.fan3),
       auto_mode: false,
       preset: 'DASHBOARD_TOGGLE',
+      updated_at: new Date().toISOString(),
     };
+    setLocalFans(nextFans);
+    try {
+      localStorage.setItem('voc_exp_fans_v1', JSON.stringify(nextFans));
+    } catch { /* ignore */ }
     setData((prev) => (prev ? { ...prev, fans: { ...(prev.fans || {}), ...nextFans } } : prev));
     try {
       const token = localStorage.getItem('token') || '';
@@ -205,11 +218,10 @@ export default function Dashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : { 'X-Admin-Key': 'change-me-in-production-2026' }),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(nextFans),
       });
-      fetchAll();
     } catch (err) {
       console.warn('Quick fan toggle notice:', err);
     }

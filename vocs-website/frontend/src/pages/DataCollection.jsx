@@ -30,11 +30,21 @@ export default function DataCollection() {
   const { t, lang } = useLanguage();
   const isThai = lang === 'TH';
 
-  const [compound, setCompound] = useState('Powder_Dust');
-  const [concentration, setConcentration] = useState('50');
-  const [sampleId, setSampleId] = useState('SMP-2026-0842');
-  const [operator, setOperator] = useState('E. Mitchell');
-  const [note, setNote] = useState('');
+  const [compound, setCompound] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('voc_exp_form_v1'))?.compound || 'Powder_Dust'; } catch { return 'Powder_Dust'; }
+  });
+  const [concentration, setConcentration] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('voc_exp_form_v1'))?.concentration || '50'; } catch { return '50'; }
+  });
+  const [sampleId, setSampleId] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('voc_exp_form_v1'))?.sampleId || 'SMP-2026-0842'; } catch { return 'SMP-2026-0842'; }
+  });
+  const [operator, setOperator] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('voc_exp_form_v1'))?.operator || 'E. Mitchell'; } catch { return 'E. Mitchell'; }
+  });
+  const [note, setNote] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('voc_exp_form_v1'))?.note || ''; } catch { return ''; }
+  });
   const [isSampling, setIsSampling] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const timerRef = useRef(null);
@@ -44,13 +54,30 @@ export default function DataCollection() {
 
   // ─── Live Telemetry & 3-Fan State (GPIO 25, GPIO 26, GPIO 4) ───
   const [liveTelemetry, setLiveTelemetry] = useState(null);
-  const [fans, setFans] = useState({
-    fan1: true,   // GPIO 25 (IN1: Intake / Transfer Fan)
-    fan2: true,   // GPIO 26 (IN2: Exhaust Fan)
-    fan3: false,  // GPIO 4  (IN3: Fan 3 / Auxiliary Chamber Fan)
-    preset: 'NORMAL',
+  const [fans, setFans] = useState(() => {
+    try {
+      const saved = localStorage.getItem('voc_exp_fans_v1');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return {
+      fan1: true,   // GPIO 25 (IN1: Intake / Transfer Fan)
+      fan2: true,   // GPIO 26 (IN2: Exhaust Fan)
+      fan3: false,  // GPIO 4  (IN3: Fan 3 / Auxiliary Chamber Fan)
+      preset: 'NORMAL',
+    };
   });
   const [isUpdatingFans, setIsUpdatingFans] = useState(false);
+  const lastManualFanChangeRef = useRef(0);
+
+  // Save experiment form inputs automatically on change
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        'voc_exp_form_v1',
+        JSON.stringify({ compound, concentration, sampleId, operator, note })
+      );
+    } catch { /* ignore */ }
+  }, [compound, concentration, sampleId, operator, note]);
 
   // ─── Baseline R0 & Peak Tracking for 12-Page Lab Record Sheet ───
   const [baselineData, setBaselineData] = useState(() => {
@@ -76,21 +103,33 @@ export default function DataCollection() {
     };
   });
 
-  const [peakData, setPeakData] = useState({
-    mq3: 0,
-    mq135: 0,
-    mq2: 0,
-    mq8: 0,
-    mics_co_min: null,
-    no2_max: 0,
-    nh3_min: null,
-    tvoc: 0,
-    eco2: 0,
-    pm25: 0,
-    pm10: 0,
-    t0Timestamp: null,
-    t90Seconds: {},
+  const [peakData, setPeakData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('voc_exp_peaks_v1');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return {
+      mq3: 0,
+      mq135: 0,
+      mq2: 0,
+      mq8: 0,
+      mics_co_min: null,
+      no2_max: 0,
+      nh3_min: null,
+      tvoc: 0,
+      eco2: 0,
+      pm25: 0,
+      pm10: 0,
+      t0Timestamp: null,
+      t90Seconds: {},
+    };
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('voc_exp_peaks_v1', JSON.stringify(peakData));
+    } catch { /* ignore */ }
+  }, [peakData]);
 
   const compounds = [
     { id: 'Powder_Dust', labelEn: '1. Powder Coating Dust (0.5 g)', labelTh: '1. ผงสีฝุ่น (Powder Dust — 0.5 กรัม)' },
@@ -120,14 +159,20 @@ export default function DataCollection() {
       if (!res.ok) return;
       const d = await res.json();
       setLiveTelemetry(d);
-      if (d.fans) {
-        setFans((prev) => ({
-          ...prev,
+      // Sync fan state from server ONLY if the user hasn't just manually toggled fans (15s lock)
+      // and only if the server has a real updated_at timestamp from a fan command
+      const msSinceManualToggle = Date.now() - lastManualFanChangeRef.current;
+      if (d.fans && msSinceManualToggle > 15000 && d.fans.updated_at) {
+        const nextFanState = {
           fan1: Boolean(d.fans.fan1),
           fan2: Boolean(d.fans.fan2),
           fan3: Boolean(d.fans.fan3),
-          preset: d.fans.preset || prev.preset,
-        }));
+          preset: d.fans.preset || 'CUSTOM',
+        };
+        setFans(nextFanState);
+        try {
+          localStorage.setItem('voc_exp_fans_v1', JSON.stringify(nextFanState));
+        } catch { /* ignore */ }
       }
 
       const env = d.environment || {};
@@ -170,8 +215,13 @@ export default function DataCollection() {
       fan3: Boolean(nextF3),
       auto_mode: false,
       preset: presetName,
+      updated_at: new Date().toISOString(),
     };
+    lastManualFanChangeRef.current = Date.now();
     setFans(payload);
+    try {
+      localStorage.setItem('voc_exp_fans_v1', JSON.stringify(payload));
+    } catch { /* ignore */ }
     setIsUpdatingFans(true);
     try {
       const authToken = token || localStorage.getItem('token') || '';
@@ -179,20 +229,26 @@ export default function DataCollection() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : { 'X-Admin-Key': 'change-me-in-production-2026' }),
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
         body: JSON.stringify(payload),
       });
       if (res.ok) {
         showToast(
           isThai
-            ? `สั่งงานพัดลมแล้ว: IN1(G25)=${nextF1 ? 'ON' : 'OFF'}, IN2(G26)=${nextF2 ? 'ON' : 'OFF'}, IN3(G4)=${nextF3 ? 'ON' : 'OFF'}`
-            : `Fans updated: IN1=${nextF1 ? 'ON' : 'OFF'}, IN2=${nextF2 ? 'ON' : 'OFF'}, IN3=${nextF3 ? 'ON' : 'OFF'}`
+            ? `บันทึกและสั่งงานพัดลมแล้ว: IN1(G25)=${nextF1 ? 'ON' : 'OFF'}, IN2(G26)=${nextF2 ? 'ON' : 'OFF'}, IN3(G4)=${nextF3 ? 'ON' : 'OFF'}`
+            : `Fans saved & updated: IN1=${nextF1 ? 'ON' : 'OFF'}, IN2=${nextF2 ? 'ON' : 'OFF'}, IN3=${nextF3 ? 'ON' : 'OFF'}`
+        );
+      } else {
+        showToast(
+          isThai
+            ? `จำสถานะพัดลมไว้ในระบบแล้ว: IN1=${nextF1 ? 'ON' : 'OFF'}, IN2=${nextF2 ? 'ON' : 'OFF'}, IN3=${nextF3 ? 'ON' : 'OFF'}`
+            : `Saved fan state: IN1=${nextF1 ? 'ON' : 'OFF'}, IN2=${nextF2 ? 'ON' : 'OFF'}, IN3=${nextF3 ? 'ON' : 'OFF'}`
         );
       }
     } catch (err) {
       console.warn('Fan control error:', err);
-      showToast(isThai ? 'ส่งคำสั่งพัดลมไปยังคิวอุปกรณ์แล้ว' : 'Fan command queued');
+      showToast(isThai ? 'จำสถานะพัดลมและส่งคำสั่งไปยังคิวอุปกรณ์แล้ว' : 'Saved fan state & queued command');
     } finally {
       setIsUpdatingFans(false);
     }

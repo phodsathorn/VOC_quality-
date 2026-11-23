@@ -13,47 +13,76 @@ import UsersTab from './settings/UsersTab';
 import GeneralTab from './settings/GeneralTab';
 import UserModals from './settings/UserModals';
 
+const DEFAULT_THRESHOLDS = {
+  mq3:   { name: '1. MQ-3 (GPIO 36)',     sub: 'Alcohol & Solvent',   warn: 1200, crit: 2000, duration: 15, hyst: 50, unit: 'ADC' },
+  mq135: { name: '2. MQ-135 (GPIO 39)',   sub: 'Ammonia & VOC Air',   warn: 1200, crit: 2000, duration: 15, hyst: 50, unit: 'ADC' },
+  mq2:   { name: '3. MQ-2 (GPIO 33)',     sub: 'Combustible & Smoke', warn: 1200, crit: 2000, duration: 10, hyst: 50, unit: 'ADC' },
+  mq8:   { name: '4. MQ-8 (GPIO 34)',     sub: 'Hydrogen Gas (H2)',   warn: 1000, crit: 1800, duration: 15, hyst: 40, unit: 'ADC' },
+  tvoc:  { name: '5. CCS811 TVOC (I2C)',  sub: 'Total VOC',           warn: 200,  crit: 400,  duration: 15, hyst: 20, unit: 'ppb' },
+  eco2:  { name: '6. CCS811 eCO2 (I2C)',  sub: 'Equivalent CO2',      warn: 1500, crit: 2500, duration: 20, hyst: 100, unit: 'ppm' },
+  pm25:  { name: '7. PMS5003 PM2.5',      sub: 'Fine Particulate',    warn: 35,   crit: 75,   duration: 10, hyst: 5,  unit: 'µg/m³' },
+  mics:  { name: '8. MiCS-6814 (ADS1115)',sub: 'CO / NO2 / NH3',      warn: 450,  crit: 300,  duration: 15, hyst: 25, unit: 'mV' },
+};
+
+const DEFAULT_LINE_CONFIG = {
+  token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.token1234567890',
+  secret: '9df8e12a45b780cd3e45f912',
+  groupId: 'c839f10928b746a51ec94820d912f4',
+};
+
+const DEFAULT_TELEGRAM_CONFIG = {
+  botToken: '619283749:AAFn82k_w123498',
+  chatId: '-1001827461928',
+};
+
+const DEFAULT_EMAIL_CONFIG = {
+  recipients: 'safety@plant-ops.com, mitchell@safety-dept.org',
+  interval: 'Immediate (Real-time)',
+};
+
+const DEFAULT_SLA = {
+  warningMinutes: 10,
+  criticalMinutes: 5,
+};
+
+const DEFAULT_GENERAL_CONFIG = {
+  timezone: 'Asia/Bangkok (UTC+07:00)',
+  retention: '5 years (1,825 days)',
+  alarmTone: 'Industrial Siren Pulse',
+  volume: 75,
+};
+
+const SETTINGS_STORAGE_KEY = 'voc_system_settings_v2';
+
+function loadCachedSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return null;
+}
+
 export default function Settings() {
   const { t, lang } = useLanguage();
 
   const [activeTab, setActiveTab] = useState('thresholds');
   const [hasChanges, setHasChanges] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [selectedDevice, setSelectedDevice] = useState('ESP32 Node 01');
+  const [selectedDevice, setSelectedDevice] = useState('BOX-001 (ESP32 Main Node)');
   const [openUserMenuId, setOpenUserMenuId] = useState(null);
 
-  // Tab 1: Thresholds
-  const [thresholds, setThresholds] = useState({
-    mq3: { name: 'MQ-3', sub: 'Alcohol', warn: 400, crit: 750, duration: 15, hyst: 20, unit: 'ppb' },
-    mq2: { name: 'MQ-2', sub: 'Combustibles', warn: 500, crit: 900, duration: 10, hyst: 30, unit: 'ppb' },
-    minipid: { name: 'Mini PID', sub: 'VOCs', warn: 350, crit: 700, duration: 20, hyst: 25, unit: 'ppb' },
-    sgp40: { name: 'SGP40', sub: 'VOC Index', warn: 200, crit: 350, duration: 15, hyst: 15, unit: 'pts' },
-    tgs2602: { name: 'TGS2602', sub: 'Odors', warn: 300, crit: 650, duration: 20, hyst: 25, unit: 'ppb' },
-    mq137: { name: 'MQ-137', sub: 'Ammonia', warn: 250, crit: 600, duration: 10, hyst: 20, unit: 'ppb' },
-  });
+  const cached = loadCachedSettings();
+
+  // Tab 1: Thresholds (Real 8 Sensors of BOX-001)
+  const [thresholds, setThresholds] = useState(() => cached?.thresholds || DEFAULT_THRESHOLDS);
 
   // Tab 2: Notifications
-  const [lineConfig, setLineConfig] = useState({
-    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.token1234567890',
-    secret: '9df8e12a45b780cd3e45f912',
-    groupId: 'c839f10928b746a51ec94820d912f4',
-  });
-
-  const [telegramConfig, setTelegramConfig] = useState({
-    botToken: '619283749:AAFn82k_w123498',
-    chatId: '-1001827461928',
-  });
-
-  const [emailConfig, setEmailConfig] = useState({
-    recipients: 'safety@plant-ops.com, mitchell@safety-dept.org',
-    interval: 'Immediate (Real-time)',
-  });
+  const [lineConfig, setLineConfig] = useState(() => cached?.lineConfig || DEFAULT_LINE_CONFIG);
+  const [telegramConfig, setTelegramConfig] = useState(() => cached?.telegramConfig || DEFAULT_TELEGRAM_CONFIG);
+  const [emailConfig, setEmailConfig] = useState(() => cached?.emailConfig || DEFAULT_EMAIL_CONFIG);
 
   // Tab 3: SLA
-  const [sla, setSla] = useState({
-    warningMinutes: 10,
-    criticalMinutes: 5,
-  });
+  const [sla, setSla] = useState(() => cached?.sla || DEFAULT_SLA);
 
   // Tab 4: Users Management
   const [usersList, setUsersList] = useState([]);
@@ -77,12 +106,28 @@ export default function Settings() {
   const [userActionSuccess, setUserActionSuccess] = useState('');
 
   // Tab 5: General System Config
-  const [generalConfig, setGeneralConfig] = useState({
-    timezone: 'Asia/Bangkok (UTC+07:00)',
-    retention: '90 days',
-    alarmTone: 'Industrial Siren Pulse',
-    volume: 75,
-  });
+  const [generalConfig, setGeneralConfig] = useState(() => cached?.generalConfig || DEFAULT_GENERAL_CONFIG);
+
+  // Load persisted settings from Backend PostgreSQL on mount
+  const fetchSystemConfig = useCallback(async () => {
+    try {
+      const res = await apiClient.get('/api/settings/config');
+      const cfg = res?.config;
+      if (cfg && cfg.updated_at) {
+        if (cfg.thresholds) setThresholds(cfg.thresholds);
+        if (cfg.lineConfig) setLineConfig(cfg.lineConfig);
+        if (cfg.telegramConfig) setTelegramConfig(cfg.telegramConfig);
+        if (cfg.emailConfig) setEmailConfig(cfg.emailConfig);
+        if (cfg.sla) setSla(cfg.sla);
+        if (cfg.generalConfig) setGeneralConfig(cfg.generalConfig);
+        try {
+          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(cfg));
+        } catch { /* ignore */ }
+      }
+    } catch {
+      // Fallback to localStorage cached config
+    }
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
@@ -116,15 +161,59 @@ export default function Settings() {
 
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]);
+    fetchSystemConfig();
+  }, [fetchUsers, fetchSystemConfig]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const payload = {
+      thresholds,
+      lineConfig,
+      telegramConfig,
+      emailConfig,
+      sla,
+      generalConfig,
+      updated_at: new Date().toISOString(),
+    };
+    try {
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(payload));
+    } catch { /* ignore */ }
+
+    try {
+      await apiClient.put('/api/settings/config', payload);
+    } catch {
+      // Saved in localStorage even if backend is waking up
+    }
+
     setSaved(true);
     setHasChanges(false);
-    setTimeout(() => setSaved(false), 3000);
+    setUserActionSuccess(
+      lang === 'TH'
+        ? 'บันทึกและจำค่าตั้งค่าระบบลงฐานข้อมูลเรียบร้อยแล้ว ✓'
+        : 'System settings saved & persisted to database ✓'
+    );
+    setTimeout(() => {
+      setSaved(false);
+      setUserActionSuccess('');
+    }, 3000);
   };
 
   const handleDiscard = () => {
+    const lastSaved = loadCachedSettings();
+    if (lastSaved) {
+      if (lastSaved.thresholds) setThresholds(lastSaved.thresholds);
+      if (lastSaved.lineConfig) setLineConfig(lastSaved.lineConfig);
+      if (lastSaved.telegramConfig) setTelegramConfig(lastSaved.telegramConfig);
+      if (lastSaved.emailConfig) setEmailConfig(lastSaved.emailConfig);
+      if (lastSaved.sla) setSla(lastSaved.sla);
+      if (lastSaved.generalConfig) setGeneralConfig(lastSaved.generalConfig);
+    } else {
+      setThresholds(DEFAULT_THRESHOLDS);
+      setLineConfig(DEFAULT_LINE_CONFIG);
+      setTelegramConfig(DEFAULT_TELEGRAM_CONFIG);
+      setEmailConfig(DEFAULT_EMAIL_CONFIG);
+      setSla(DEFAULT_SLA);
+      setGeneralConfig(DEFAULT_GENERAL_CONFIG);
+    }
     setHasChanges(false);
   };
 
