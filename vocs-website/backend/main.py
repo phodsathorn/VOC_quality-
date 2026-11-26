@@ -1762,7 +1762,7 @@ async def set_device_three_fans(
         })
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    prev_active_low = _box_fan_states.get(box_id, {}).get("active_low", False)
+    prev_active_low = _box_fan_states.get(box_id, {}).get("active_low", True)
     _box_fan_states[box_id] = {
         "fan1": bool(body.fan1),
         "fan2": bool(body.fan2),

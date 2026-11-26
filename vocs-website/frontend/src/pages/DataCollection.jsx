@@ -57,13 +57,17 @@ export default function DataCollection() {
   const [fans, setFans] = useState(() => {
     try {
       const saved = localStorage.getItem('voc_exp_fans_v1');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { active_low: true, ...parsed };
+      }
     } catch { /* ignore */ }
     return {
-      fan1: true,   // GPIO 25 (IN1: Intake / Transfer Fan)
-      fan2: true,   // GPIO 26 (IN2: Exhaust Fan)
+      fan1: false,  // GPIO 25 (IN1: Intake / Transfer Fan)
+      fan2: false,  // GPIO 26 (IN2: Exhaust Fan)
       fan3: false,  // GPIO 4  (IN3: Fan 3 / Auxiliary Chamber Fan)
-      preset: 'NORMAL',
+      active_low: true, // Default Active LOW + High-Z OFF สำหรับบอร์ดรีเลย์ 5V สีน้ำเงิน
+      preset: 'STAGE1_BASELINE_OFF',
     };
   });
   const [isUpdatingFans, setIsUpdatingFans] = useState(false);

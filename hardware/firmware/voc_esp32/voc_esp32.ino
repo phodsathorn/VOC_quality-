@@ -75,11 +75,11 @@ bool           fanBoostActive        = false;
 unsigned long  fanBoostUntilMs       = 0;
 
 // สถานะพัดลมทั้ง 3 ตัวสำหรับการทดลองและมอนิเตอร์ผ่านเว็บ
-bool           fan1State             = true;   // GPIO 25 (IN1)
-bool           fan2State             = true;   // GPIO 26 (IN2)
+bool           fan1State             = false;  // GPIO 25 (IN1) เริ่มต้นปิดไว้เพื่อความปลอดภัย
+bool           fan2State             = false;  // GPIO 26 (IN2)
 bool           fan3State             = false;  // GPIO 4  (IN3)
 bool           fanManualOverride     = false;  // เปิดโหมดควบคุมพัดลมจากการทดลองบนหน้าเว็บ
-bool           fanRelayActiveLow     = false;  // false = Active HIGH (2PH6391A), true = Active LOW (รีเลย์สีน้ำเงินทั่วไป)
+bool           fanRelayActiveLow     = true;   // true = Active LOW + High-Z OFF (สำหรับบอร์ดรีเลย์ 5V สีน้ำเงิน 4 ช่องกับ ESP32 3.3V)
 
 const int OFFLINE_BUF_CAPACITY = 20;
 SensorData offlineBuf[OFFLINE_BUF_CAPACITY];
@@ -97,11 +97,21 @@ void pushOfflineReading(const SensorData& d) {
   offlineBuf[idx] = d;
 }
 
-inline int relayPinLevel(bool turnOn) {
+// ขับขา Relay ให้ตัดขาด 100% บนบอร์ดรีเลย์ 5V Active LOW เมื่อใช้กับ ESP32 (3.3V):
+// - สั่งเปิด (ON): ตั้งเป็น OUTPUT + LOW (0V) -> ดึงกระแส Optocoupler รีเลย์ดูดทันที
+// - สั่งปิด (OFF): ตั้งเป็น INPUT (High-Z / ปล่อยลอย เหมือนดึงสายออก) -> ตัดกระแสรั่วจาก 5V ขาดสนิท 100%!
+void writeRelayPin(uint8_t pin, bool turnOn) {
   if (fanRelayActiveLow) {
-    return turnOn ? LOW : HIGH;
+    if (turnOn) {
+      pinMode(pin, OUTPUT);
+      digitalWrite(pin, LOW);
+    } else {
+      pinMode(pin, INPUT);
+    }
+  } else {
+    pinMode(pin, OUTPUT);
+    digitalWrite(pin, turnOn ? HIGH : LOW);
   }
-  return turnOn ? HIGH : LOW;
 }
 
 void applyThreeFans(bool f1, bool f2, bool f3, bool isManual = false) {
@@ -111,19 +121,19 @@ void applyThreeFans(bool f1, bool f2, bool f3, bool isManual = false) {
   if (isManual) {
     fanManualOverride = true;
   }
-  digitalWrite(FAN_INTAKE, relayPinLevel(fan1State));
+  writeRelayPin(FAN_INTAKE, fan1State);
   if (fanExhaustPinSafe) {
-    digitalWrite(FAN_EXHAUST, relayPinLevel(fan2State));
+    writeRelayPin(FAN_EXHAUST, fan2State);
   }
   if (fanAuxPinSafe) {
-    digitalWrite(FAN_AUX, relayPinLevel(fan3State));
+    writeRelayPin(FAN_AUX, fan3State);
   }
   Serial.printf("[Fans] Fan1(GPIO25):%s | Fan2(GPIO26):%s | Fan3(GPIO4):%s [Mode:%s, Trigger:%s]\n",
                 fan1State ? "ON" : "OFF",
                 fan2State ? "ON" : "OFF",
                 fan3State ? "ON" : "OFF",
                 fanManualOverride ? "MANUAL_EXP" : "AUTO",
-                fanRelayActiveLow ? "ACTIVE_LOW" : "ACTIVE_HIGH");
+                fanRelayActiveLow ? "ACTIVE_LOW_HIZ" : "ACTIVE_HIGH");
 }
 
 void setFansState(bool boostOrFailSafe) {
@@ -133,16 +143,16 @@ void setFansState(bool boostOrFailSafe) {
   }
   if (fanManualOverride) {
     // รักษาสถานะพัดลมที่ผู้ทดลองสั่งเปิด-ปิดจากหน้าเว็บ
-    digitalWrite(FAN_INTAKE, relayPinLevel(fan1State));
+    writeRelayPin(FAN_INTAKE, fan1State);
     if (fanExhaustPinSafe) {
-      digitalWrite(FAN_EXHAUST, relayPinLevel(fan2State));
+      writeRelayPin(FAN_EXHAUST, fan2State);
     }
     if (fanAuxPinSafe) {
-      digitalWrite(FAN_AUX, relayPinLevel(fan3State));
+      writeRelayPin(FAN_AUX, fan3State);
     }
     return;
   }
-  applyThreeFans(true, true, false, false);
+  applyThreeFans(false, false, false, false);
 }
 
 void evaluateLocalFailSafe(const SensorData& d) {
