@@ -24,3 +24,11 @@
 ## งานค้างและขั้นตอนถัดไป
 - อัปโหลด `voc_esp32.ino` เวอร์ชันใหม่ลงบอร์ด ESP32
 - ย้ายสายพัดลมตัวที่ยังหมุนค้างตอนดึงสาย `IN` ออก จากขั้ว `NC` ไปยังขั้ว `NO`
+
+---
+
+## อัปเดตเวลา 16:43 ICT — ตั้งค่าเริ่มต้นให้พัดลมทุกตัวดับทันทีตั้งแต่เปิดเครื่อง (All Fans OFF on Boot)
+- **สิ่งที่เปลี่ยน:**
+  - ใน [`hardware/firmware/voc_esp32/voc_esp32.ino`](file:///Users/urworld/paper_sensor_VOC/hardware/firmware/voc_esp32/voc_esp32.ino): เรียก `applyThreeFans(false, false, false, false)` (ตั้งทั้ง 3 ขาเป็น `High-Z INPUT`) ตั้งแต่บรรทัดแรกของ `setup()` และลบคำสั่ง `pinMode(..., OUTPUT)` ที่เคยไปตั้งก่อน `applyThreeFans()` ออก เพื่อไม่ให้พัดลมกระตุกติดตอนเปิดบอร์ด
+  - ใน [`vocs-website/backend/main.py`](file:///Users/urworld/paper_sensor_VOC/vocs-website/backend/main.py): ตั้งค่าเริ่มต้น `_box_fan_states["BOX-001"]` เป็น `fan1: False, fan2: False, fan3: False, active_low: True` และส่งคำสั่งปิดพัดลมทั้งหมด (`command_id: 57`) ขึ้นเซิร์ฟเวอร์ Production แล้ว
+

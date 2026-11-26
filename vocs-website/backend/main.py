@@ -1642,14 +1642,15 @@ class FanBoostBody(BaseModel):
 # สถานะพัดลม 3 ตัว (GPIO 25, GPIO 26, GPIO 4) และข้อมูลเสริมสำหรับการทดลอง
 _box_fan_states: dict = {
     "BOX-001": {
-        "fan1": True,        # พัดลมตัวที่ 1 (IN1 - GPIO 25): ดูดไอสารเข้า / Transfer Fan
-        "fan2": True,        # พัดลมตัวที่ 2 (IN2 - GPIO 26): ระบายอากาศออก / Exhaust Fan
-        "fan3": False,       # พัดลมตัวที่ 3 (IN3 - GPIO 4): พัดลมเสริม / Chamber Circulation Fan
+        "fan1": False,       # พัดลมตัวที่ 1 (IN1 - GPIO 25): เริ่มต้นปิด
+        "fan2": False,       # พัดลมตัวที่ 2 (IN2 - GPIO 26): เริ่มต้นปิด
+        "fan3": False,       # พัดลมตัวที่ 3 (IN3 - GPIO 4): เริ่มต้นปิด
         "fan1_pin": 25,
         "fan2_pin": 26,
         "fan3_pin": 4,
         "auto_mode": False,
-        "preset": "NORMAL",
+        "active_low": True,
+        "preset": "STAGE1_BASELINE_OFF",
         "apply_pending": False,
         "command_id": None,
         "updated_at": None,

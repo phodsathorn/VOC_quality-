@@ -675,6 +675,11 @@ void performNuWebLogin() {
 
 // ─── Setup ───────────────────────────────────────────────────
 void setup() {
+  // ปิดพัดลมทั้ง 3 ตัวทันทีตั้งแต่บรรทัดแรกของ setup() (High-Z INPUT) กันรีเลย์กระตุกติดตอนบูต
+  fanExhaustPinSafe = true;
+  fanAuxPinSafe = true;
+  applyThreeFans(false, false, false, false);
+
   Serial.begin(115200);
   Serial2.begin(9600, SERIAL_8N1, PMS_RX, PMS_TX); // PMS5003
 
@@ -813,14 +818,11 @@ void setup() {
   }
   Serial.println("══════════════════════════════════════════════════════════\n");
 
-  // Fan control (3 พัดลม: GPIO 25, GPIO 26, และ GPIO 4 — เปิดใช้งานทั้ง 3 ขาเสมอ)
+  // Fan control (ยืนยันปิดพัดลมทั้ง 3 ตัวไว้หลังสแกน I2C: GPIO 25, GPIO 26, และ GPIO 4)
   fanExhaustPinSafe = true;
   fanAuxPinSafe = true;
-  pinMode(FAN_INTAKE, OUTPUT);
-  pinMode(FAN_EXHAUST, OUTPUT);
-  pinMode(FAN_AUX, OUTPUT);
   applyThreeFans(fan1State, fan2State, fan3State, false);
-  Serial.println("[OK] 3-Fan Relays initialized on GPIO 25 (IN1), GPIO 26 (IN2), and GPIO 4 (IN3)");
+  Serial.println("[OK] 3-Fan Relays initialized (ALL OFF / High-Z) on GPIO 25 (IN1), GPIO 26 (IN2), and GPIO 4 (IN3)");
 
   // 2. Init DHT22 & PMS5003 (GPIO 27 สำหรับ DHT22)
   int activeDhtPin = DHT_PIN;
